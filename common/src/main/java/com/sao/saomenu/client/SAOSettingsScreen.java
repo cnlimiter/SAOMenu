@@ -32,7 +32,7 @@ import java.util.Locale;
  *       逐条弹出;返回:反向转场,分类条目从左侧滑回</li>
  * </ul>
  *
- * <p>配置项与旧 {@link SAOConfigScreen} 完全等价(并补上时钟大小、跟随鼠标),
+ * <p>覆盖 {@link SAOConfig} 的全部界面配置项,
  * 修改即时生效并持久化到 {@code config/saomenu.json}。</p>
  */
 public class SAOSettingsScreen extends Screen {

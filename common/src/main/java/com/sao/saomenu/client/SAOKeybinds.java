@@ -63,7 +63,6 @@ public final class SAOKeybinds {
                     // 再按一次 O 关闭菜单(走关闭动画)
                     client.screen.onClose();
                 } else if (client.screen instanceof SAOInventoryScreen
-                        || client.screen instanceof SAOConfigScreen
                         || client.screen instanceof SAOSettingsScreen) {
                     // 模组界面内按 O:层级返回(配置→菜单,物品栏→游戏)
                     client.screen.onClose();

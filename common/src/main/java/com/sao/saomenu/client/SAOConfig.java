@@ -14,7 +14,7 @@ import java.nio.file.Path;
  * 客户端配置:纯数据 + Gson 持久化(不依赖 Minecraft 类,可单元测试)。
  *
  * <p>由 {@link SAOKeybinds} 在客户端初始化时调用 {@link #load(Path)},
- * {@link SAOConfigScreen} 修改后调用 {@link #save(Path)} 落盘到
+ * {@link SAOSettingsScreen} 修改后调用 {@link #save(Path)} 落盘到
  * {@code config/saomenu.json}。布局数学(MenuLayout)、渲染与 HUD 只读配置。</p>
  */
 public final class SAOConfig {
