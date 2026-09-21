@@ -215,9 +215,14 @@ public final class MenuLayout {
         return inCircle(anchorX, buttonCenterYAt(screenH, anchorY, index), btnSize(screenH) / 2, x, y);
     }
 
-    /** 任意锚点下悬停的主按钮序号;不在任何按钮上返回 -1。 */
-    public static int hoveredMainButtonAt(int screenW, int screenH, int anchorX, int anchorY, int x, int y) {
-        for (int i = 0; i < BTN_COUNT; i++) {
+    /**
+     * 任意锚点下悬停的主按钮序号;不在任何按钮上返回 -1。
+     *
+     * @param count 参与判定的按钮数(由注册表里的面板数决定,不再写死 {@link #BTN_COUNT})
+     */
+    public static int hoveredMainButtonAt(int screenW, int screenH, int anchorX, int anchorY,
+                                          int count, int x, int y) {
+        for (int i = 0; i < count; i++) {
             if (inMainButtonAt(screenW, screenH, anchorX, anchorY, i, x, y)) {
                 return i;
             }
@@ -274,7 +279,8 @@ public final class MenuLayout {
 
     /** 悬停的主按钮序号;不在任何按钮上返回 -1。 */
     public static int hoveredMainButton(int screenW, int screenH, int x, int y) {
-        return hoveredMainButtonAt(screenW, screenH, firstButtonCenterX(screenW), firstButtonCenterY(screenH), x, y);
+        return hoveredMainButtonAt(screenW, screenH, firstButtonCenterX(screenW), firstButtonCenterY(screenH),
+                BTN_COUNT, x, y);
     }
 
     // ---------------------------------------------------------------- 菜单项

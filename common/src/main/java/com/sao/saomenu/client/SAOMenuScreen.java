@@ -2,7 +2,14 @@ package com.sao.saomenu.client;
 
 import com.sao.saomenu.SAOMenu;
 import com.sao.saomenu.SAOMenuPlatform;
+import com.sao.saomenu.client.menu.MenuContext;
+import com.sao.saomenu.client.menu.MenuEntry;
+import com.sao.saomenu.client.menu.MenuHost;
+import com.sao.saomenu.client.menu.SaoMenuRegistry;
+import com.sao.saomenu.client.menu.SaoPanel;
+import com.sao.saomenu.client.menu.SaoPanels;
 import com.sao.saomenu.ui.SaoDraw;
+import com.sao.saomenu.ui.SaoText;
 import com.sao.saomenu.ui.SaoTheme;
 import com.sao.saomenu.ui.ThemeColors;
 import net.minecraft.Util;
@@ -43,6 +50,8 @@ import static com.sao.saomenu.ui.SaoMotion.UNFOLD_STAGGER_MS;
 import static com.sao.saomenu.ui.SaoMotion.clamp01;
 import static com.sao.saomenu.ui.SaoMotion.easeOutBack;
 import static com.sao.saomenu.ui.SaoMotion.easeOutCubic;
+import static com.sao.saomenu.ui.SaoText.resolveLabel;
+import static com.sao.saomenu.ui.SaoText.tr;
 
 /**
  * SAO Utils 风格圆形菜单主界面。
@@ -52,7 +61,7 @@ import static com.sao.saomenu.ui.SaoMotion.easeOutCubic;
  * 打开时从按钮处缩放弹出,卡片与菜单项带级联滑入动画,
  * 关闭时缩回消失。不含原视频右侧任务栏。</p>
  */
-public class SAOMenuScreen extends Screen {
+public class SAOMenuScreen extends Screen implements MenuHost {
 
     // 配色改由主题提供:SaoTheme.colors()。accent 随用户色相实时派生,
     // 其余 token 是主题预设固定值(见 ui/ThemeColors)。
@@ -89,103 +98,33 @@ public class SAOMenuScreen extends Screen {
     // 图元与缓动改由 ui/SaoDraw 与 ui/SaoMotion 提供(见文件头静态导入)。
 
     // ---------------------------------------------------------------- 菜单模型
-
-    private enum Action {
-        NONE, OPEN_OPTIONS, OPEN_CONFIG, OPEN_STATS, OPEN_ADVANCEMENTS, CLOSE,
-        SWITCH_FRIENDS, SWITCH_PARTY, SHOW_EQUIP, SHOW_ITEMS, INVITE_PLAYER, LEAVE_TEAM, TOGGLE_MAP, SKILL,
-        DUAL_WIELD
-    }
-
-    /** 装备条目分类(第三列展示哪一栏装备)。 */
-    private enum EquipKind { WEAPON, ARMOR, TRINKET }
-
-    private record MainButton(String icon, Kind kind) {
-        enum Kind {PROFILE, PARTY, FRIENDS, SETTINGS}
-    }
-
-    /**
-     * 菜单项。stack 非空时:label 即物品显示名、图标渲染为 3D 物品、
-     * invSlot 为背包槽位(装备/丢弃操作回传服务端用)。
-     */
-    private record MenuItem(String label, String icon, Action action, MenuItem[] children,
-                            ItemStack stack, int invSlot) {
-        MenuItem(String label, String icon, Action action, MenuItem[] children) {
-            this(label, icon, action, children, null, -1);
-        }
-
-        MenuItem(String label, String icon, Action action) {
-            this(label, icon, action, null, null, -1);
-        }
-    }
-
-    private static final MainButton[] MAIN_BUTTONS = {
-            new MainButton("info", MainButton.Kind.PROFILE),
-            new MainButton("party", MainButton.Kind.PARTY),
-            new MainButton("msg", MainButton.Kind.FRIENDS),
-            new MainButton("setting", MainButton.Kind.SETTINGS),
-    };
-
-    private static final MenuItem[] PROFILE_ITEMS = {
-            // 技能:装饰性剑技列表(本游戏暂无技能系统,点击提示暂未开放)
-            new MenuItem("saomenu.menu.skill", "item_status", Action.NONE, new MenuItem[]{
-                    new MenuItem("saomenu.skill.dual_wield", "item_weapon", Action.DUAL_WIELD),
-                    new MenuItem("saomenu.skill.horizontal", "item_weapon", Action.SKILL),
-                    new MenuItem("saomenu.skill.slant", "item_weapon", Action.SKILL),
-                    new MenuItem("saomenu.skill.vertical", "item_weapon", Action.SKILL),
-                    new MenuItem("saomenu.skill.linear", "item_weapon", Action.SKILL),
-                    new MenuItem("saomenu.skill.sonic_leap", "item_run", Action.SKILL),
-                    new MenuItem("saomenu.skill.starburst", "item_weapon", Action.SKILL),
-            }),
-            new MenuItem("saomenu.menu.equip", "item_weapon", Action.NONE, new MenuItem[]{
-                    new MenuItem("saomenu.menu.weapon", "item_weapon", Action.SHOW_EQUIP),
-                    new MenuItem("saomenu.menu.armor", "item_armor", Action.SHOW_EQUIP),
-                    new MenuItem("saomenu.menu.trinket", "item_ring", Action.SHOW_EQUIP),
-            }),
-            new MenuItem("saomenu.menu.items", "item_bag", Action.SHOW_ITEMS),
-            new MenuItem("saomenu.menu.map", "item_map", Action.TOGGLE_MAP),
-    };
-
-    /** 二级子项对应的装备分类:与 PROFILE_ITEMS 里「装备」的 children 下标一一对应。 */
-    private static final EquipKind[] EQUIP_KINDS = {EquipKind.WEAPON, EquipKind.ARMOR, EquipKind.TRINKET};
+    // 条目与行为都在 client/menu/SaoPanels 里;本类只负责渲染、命中与动画。
+    // 主按钮列 = 注册表里的面板,顺序即注册顺序。
 
     /** 装备条目:一行 = 一个已装备的物品。stack 为空表示「暂无装备」占位行。 */
     private record EquipEntry(ItemStack stack, boolean empty) {
     }
 
-    /** 队伍面板的动态菜单项:在队伍中 = 离开队伍;不在 = 提示邀请入口。 */
-    private static final MenuItem[] PARTY_ITEMS = {
-            new MenuItem("saomenu.menu.invite", "item_status", Action.NONE),
-            new MenuItem("saomenu.menu.leave_team", "item_bag", Action.LEAVE_TEAM),
-    };
-
-    /** 邀请玩家二级列:每个在线玩家一项(label 运行时替换)。children 语义复用。 */
-    private MenuItem[] inviteItems() {
-        List<MenuItem> list = new ArrayList<>();
-        if (mc().getConnection() != null) {
-            for (PlayerInfo info : mc().getConnection().getOnlinePlayers()) {
-                String name = info.getProfile().getName();
-                if (name.equals(playerName())) {
-                    continue;
-                }
-                list.add(new MenuItem(name, "item_status", Action.INVITE_PLAYER));
-            }
-        }
-        if (list.isEmpty()) {
-            list.add(new MenuItem("saomenu.panel.no_players", "item_status", Action.NONE));
-        }
-        return list.toArray(new MenuItem[0]);
+    /** 当前面板列表(注册顺序 = 主按钮列顺序)。 */
+    private static List<SaoPanel> panels() {
+        return SaoMenuRegistry.panels();
     }
 
-    private static final MenuItem[] FRIENDS_ITEMS = {
-            new MenuItem("saomenu.menu.advancements", "item_status", Action.OPEN_ADVANCEMENTS),
-            new MenuItem("saomenu.menu.refresh", "item_bag", Action.SWITCH_FRIENDS),
-    };
+    /** 第 index 个面板的一级项列;越界返回空列。 */
+    private List<MenuEntry> itemsForPanel(int index) {
+        List<SaoPanel> ps = panels();
+        if (index < 0 || index >= ps.size()) {
+            return List.of();
+        }
+        List<MenuEntry> items = ps.get(index).items().get();
+        return items == null ? List.of() : items;
+    }
 
-    private static final MenuItem[] SETTINGS_ITEMS = {
-            new MenuItem("saomenu.menu.config", "item_config", Action.OPEN_CONFIG),
-            new MenuItem("saomenu.menu.options", "item_status", Action.OPEN_OPTIONS),
-            new MenuItem("saomenu.menu.close", "item_logout", Action.CLOSE),
-    };
+    /** 第 index 个面板;越界返回 null。 */
+    private static SaoPanel panelAt(int index) {
+        List<SaoPanel> ps = panels();
+        return index >= 0 && index < ps.size() ? ps.get(index) : null;
+    }
 
     // ---------------------------------------------------------------- 动画状态
     // 时长常量见 ui/SaoMotion(静态导入)。
@@ -258,9 +197,10 @@ public class SAOMenuScreen extends Screen {
                 this.width, this.height, baseAnchorX, baseAnchorY);
     }
 
-    /** 个人面板一级项数量(预览自检复用,避免与 {@link #PROFILE_ITEMS} 长度脱钩)。 */
+    /** 个人面板一级项数量(预览自检复用,直接问注册表,避免与面板定义脱钩)。 */
     static int profileItemCount() {
-        return PROFILE_ITEMS.length;
+        SaoPanel p = SaoMenuRegistry.byId(SaoPanels.PROFILE);
+        return p == null ? 0 : p.items().get().size();
     }
 
     /** 第 index 个主按钮圆心 Y(基于打开时锚点)。 */
@@ -310,41 +250,16 @@ public class SAOMenuScreen extends Screen {
         return hoverMain == index || selectedMain == index;
     }
 
-    private MenuItem[] activeItems(int main) {
-        MenuItem[] items = switch (MAIN_BUTTONS[main].kind()) {
-            case PROFILE -> PROFILE_ITEMS;
-            case PARTY -> PARTY_ITEMS;
-            case FRIENDS -> FRIENDS_ITEMS;
-            case SETTINGS -> SETTINGS_ITEMS;
-        };
-        // 队伍面板:「邀请玩家」展开在线玩家列(动态 children)
-        if (MAIN_BUTTONS[main].kind() == MainButton.Kind.PARTY && items == PARTY_ITEMS) {
-            if (expandedItem == 0) {
-                return partyItemsWithInviteChildren();
-            }
-            // 未展开时还原静态定义(清掉上一帧缓存的 children)
-            PARTY_ITEMS[0] = new MenuItem("saomenu.menu.invite", "item_status", Action.NONE);
-        }
-        // 个人面板:「物品」展开背包条目列(动态 children,SAO 菜单条目样式)
-        if (MAIN_BUTTONS[main].kind() == MainButton.Kind.PROFILE && items == PROFILE_ITEMS) {
-            if (expandedItem == 2) {
-                return profileItemsWithInvChildren();
-            }
-            // 未展开时还原静态定义;action 必须保持 SHOW_ITEMS,
-            // 否则点击分支认不出该项可展开(表现为点了没反应)
-            PROFILE_ITEMS[2] = new MenuItem("saomenu.menu.items", "item_bag", Action.SHOW_ITEMS);
-        }
-        return items;
-    }
-
-    /** 把「物品」项挂上动态背包 children(缓存 1 秒刷新,条目 = 每个非空物品一格)。 */
-    private MenuItem[] profileItemsWithInvChildren() {
-        if (invChildrenCacheAt == 0 || now() - invChildrenCacheAt > 1000) {
-            invChildrenCache = invChildItems();
-            invChildrenCacheAt = now();
-        }
-        PROFILE_ITEMS[2] = new MenuItem("saomenu.menu.items", "item_bag", Action.NONE, invChildrenCache);
-        return PROFILE_ITEMS;
+    /**
+     * 当前面板的一级项列。
+     *
+     * <p>动态子列(在线玩家、背包条目)改由面板自己的 supplier 提供并自带缓存,
+     * 所以这里不再需要"每帧改写静态数组"——旧实现每帧重建 {@code MenuItem} 并覆盖
+     * {@code PROFILE_ITEMS[0]/[2]}、{@code PARTY_ITEMS[0]},既是每帧垃圾,
+     * 也是一份共享可变状态。</p>
+     */
+    private List<MenuEntry> activeItems(int main) {
+        return itemsForPanel(main);
     }
 
     /**
@@ -372,25 +287,25 @@ public class SAOMenuScreen extends Screen {
         if (selectedMain < 0) {
             return -1;
         }
-        MenuItem[] items = activeItems(selectedMain);
+        List<MenuEntry> items = activeItems(selectedMain);
         int shown = visibleChildrenItem(items);
-        if (shown < 0 || items[shown].children() == null) {
+        if (shown < 0 || items.get(shown).children() == null) {
             return -1;
         }
-        MenuItem[] children = windowedChildren(items[shown].children());
+        List<MenuEntry> children = windowedChildren(items.get(shown).children());
         int anchorY = buttonY(selectedMain);
-        int childAnchor = MenuLayout.menuItemRectAt(this.width, this.height, items.length,
+        int childAnchor = MenuLayout.menuItemRectAt(this.width, this.height, items.size(),
                 baseAnchorX, anchorY, shown).centerY();
         // 菜单组有浮动/缩放变换:命中必须先逆变换回菜单本地坐标
         computeLocal(mx, my);
         int lx = Math.round(localPtX);
         int ly = Math.round(localPtY);
-        for (int i = 0; i < children.length; i++) {
-            ItemStack st = children[i].stack();
+        for (int i = 0; i < children.size(); i++) {
+            ItemStack st = children.get(i).stack();
             if (st == null || st.isEmpty()) {
                 continue;
             }
-            if (MenuLayout.childItemRectAt(this.width, this.height, children.length,
+            if (MenuLayout.childItemRectAt(this.width, this.height, children.size(),
                     baseAnchorX, childAnchor, i).contains(lx, ly)) {
                 return i;
             }
@@ -398,21 +313,26 @@ public class SAOMenuScreen extends Screen {
         return -1;
     }
 
+    /** 当前选中面板的二级列窗口;没有二级列时返回 null。 */
+    private List<MenuEntry> shownChildrenAt(int main) {
+        if (main < 0) {
+            return null;
+        }
+        List<MenuEntry> items = activeItems(main);
+        int shown = visibleChildrenItem(items);
+        if (shown < 0 || items.get(shown).children() == null) {
+            return null;
+        }
+        return windowedChildren(items.get(shown).children());
+    }
+
     /** 窗口行下标 → ItemStack;取不到返回 null。 */
     private ItemStack stackAtRow(int row) {
-        if (selectedMain < 0 || row < 0) {
+        List<MenuEntry> children = shownChildrenAt(selectedMain);
+        if (children == null || row < 0 || row >= children.size()) {
             return null;
         }
-        MenuItem[] items = activeItems(selectedMain);
-        int shown = visibleChildrenItem(items);
-        if (shown < 0 || items[shown].children() == null) {
-            return null;
-        }
-        MenuItem[] children = windowedChildren(items[shown].children());
-        if (row >= children.length) {
-            return null;
-        }
-        ItemStack st = children[row].stack();
+        ItemStack st = children.get(row).stack();
         return st == null || st.isEmpty() ? null : st;
     }
 
@@ -433,16 +353,16 @@ public class SAOMenuScreen extends Screen {
 
         // 落点提示:悬停在另一行上时,该行左缘画一条主题色竖条
         int target = pinRowAt(pinDragMx, pinDragMy);
-        if (target >= 0 && target != pinDragFrom) {
-            MenuItem[] items = activeItems(selectedMain);
+        if (target >= 0 && target != pinDragFrom && selectedMain >= 0) {
+            List<MenuEntry> items = activeItems(selectedMain);
             int shown = visibleChildrenItem(items);
-            if (shown >= 0 && items[shown].children() != null) {
-                MenuItem[] children = windowedChildren(items[shown].children());
+            if (shown >= 0 && items.get(shown).children() != null) {
+                List<MenuEntry> children = windowedChildren(items.get(shown).children());
                 int anchorY = buttonY(selectedMain);
                 int childAnchor = MenuLayout.menuItemRectAt(this.width, this.height,
-                        items.length, baseAnchorX, anchorY, shown).centerY();
+                        items.size(), baseAnchorX, anchorY, shown).centerY();
                 MenuLayout.Rect at = MenuLayout.childItemRectAt(this.width, this.height,
-                        children.length, baseAnchorX, childAnchor, target);
+                        children.size(), baseAnchorX, childAnchor, target);
                 g.pose().pushPose();
                 g.pose().translate(0, 0, 400f);
                 // 插入位置示意:目标行上缘一条主题色横线
@@ -460,24 +380,12 @@ public class SAOMenuScreen extends Screen {
 
     /** 窗口行下标 → 物品注册名;取不到返回 null。 */
     private String itemIdAtRow(int row) {
-        if (selectedMain < 0 || row < 0) {
+        List<MenuEntry> children = shownChildrenAt(selectedMain);
+        if (children == null || row < 0 || row >= children.size()) {
             return null;
         }
-        MenuItem[] items = activeItems(selectedMain);
-        int shown = visibleChildrenItem(items);
-        if (shown < 0 || items[shown].children() == null) {
-            return null;
-        }
-        MenuItem[] children = windowedChildren(items[shown].children());
-        if (row >= children.length) {
-            return null;
-        }
-        ItemStack st = children[row].stack();
-        if (st == null || st.isEmpty()) {
-            return null;
-        }
-        return net.minecraft.core.registries.BuiltInRegistries.ITEM
-                .getKey(st.getItem()).toString();
+        String id = SaoPanels.itemId(children.get(row).stack());
+        return id.isEmpty() ? null : id;
     }
 
     /** Shift+右键:切换该行物品的置顶态并落盘。 */
@@ -489,7 +397,7 @@ public class SAOMenuScreen extends Screen {
         boolean pinned = SAOConfig.togglePinned(id);
         savePinConfig();
         SAONotification.push(itemNameAtRow(row),
-                tr(pinned ? "saomenu.inv.pinned" : "saomenu.inv.unpinned"));
+                SaoText.tr(pinned ? "saomenu.inv.pinned" : "saomenu.inv.unpinned"));
     }
 
     /**
@@ -503,27 +411,22 @@ public class SAOMenuScreen extends Screen {
         if (fromRow < 0 || toRow < 0 || fromRow == toRow || selectedMain < 0) {
             return;
         }
-        MenuItem[] items = activeItems(selectedMain);
+        List<MenuEntry> items = activeItems(selectedMain);
         int shown = visibleChildrenItem(items);
-        if (shown < 0 || items[shown].children() == null) {
+        if (shown < 0 || items.get(shown).children() == null) {
             return;
         }
         // 用全量 children(不是窗口)构造顺序表,滚动时拖动也不会打乱屏幕外条目
-        MenuItem[] all = items[shown].children();
+        List<MenuEntry> all = items.get(shown).children();
         String fromId = itemIdAtRow(fromRow);
         String toId = itemIdAtRow(toRow);
         if (fromId == null || toId == null || fromId.equals(toId)) {
             return;
         }
         java.util.List<String> order = new java.util.ArrayList<>();
-        for (MenuItem mi : all) {
-            ItemStack st = mi.stack();
-            if (st == null || st.isEmpty()) {
-                continue;
-            }
-            String id = net.minecraft.core.registries.BuiltInRegistries.ITEM
-                    .getKey(st.getItem()).toString();
-            if (!order.contains(id)) {
+        for (MenuEntry mi : all) {
+            String id = SaoPanels.itemId(mi.stack());
+            if (!id.isEmpty() && !order.contains(id)) {
                 order.add(id);
             }
         }
@@ -535,10 +438,11 @@ public class SAOMenuScreen extends Screen {
     }
 
     private String itemNameAtRow(int row) {
-        MenuItem[] items = activeItems(selectedMain);
-        int shown = visibleChildrenItem(items);
-        MenuItem[] children = windowedChildren(items[shown].children());
-        ItemStack st = children[row].stack();
+        List<MenuEntry> children = shownChildrenAt(selectedMain);
+        if (children == null || row < 0 || row >= children.size()) {
+            return "";
+        }
+        ItemStack st = children.get(row).stack();
         return st == null || st.isEmpty() ? "" : st.getHoverName().getString();
     }
 
@@ -548,82 +452,9 @@ public class SAOMenuScreen extends Screen {
             cfg = mc().gameDirectory.toPath().resolve("config").resolve("saomenu.json");
         }
         SAOConfig.save(cfg);
-        invChildrenCacheAt = 0; // 立刻按新顺序重排
+        MenuContext.invalidateCached(); // 立刻按新顺序重排
         playPanel();
     }
-
-
-    /** 背包 → 菜单条目:快捷栏 + 主背包的非空物品,置顶排最前;全空给占位行。 */
-    private MenuItem[] invChildItems() {
-        List<MenuItem> list = new ArrayList<>();
-        Player p = mc().player;
-        if (p != null) {
-            for (int i = 0; i < 36; i++) {
-                ItemStack s = p.getInventory().getItem(i);
-                if (!s.isEmpty()) {
-                    list.add(new MenuItem(s.getHoverName().getString(), "", Action.NONE, null,
-                            s, i));
-                }
-            }
-            // 排序优先级:置顶(按置顶先后) → 手动拖动顺序 → 背包槽位
-            list.sort((a, b) -> {
-                int pa = pinOrderOf(a.stack());
-                int pb = pinOrderOf(b.stack());
-                if (pa != pb) {
-                    return Integer.compare(pa, pb);
-                }
-                int oa = orderIndexOf(a.stack());
-                int ob = orderIndexOf(b.stack());
-                if (oa != ob) {
-                    return Integer.compare(oa, ob);
-                }
-                return Integer.compare(a.invSlot(), b.invSlot());
-            });
-        }
-        if (list.isEmpty()) {
-            list.add(new MenuItem("saomenu.inv.empty", "item_bag", Action.NONE));
-        }
-        return list.toArray(new MenuItem[0]);
-    }
-
-    /** 物品的手动顺序号;不在自定义顺序里为 MAX_VALUE。 */
-    private static int orderIndexOf(ItemStack st) {
-        if (st == null || st.isEmpty()) {
-            return Integer.MAX_VALUE;
-        }
-        return SAOConfig.orderIndex(net.minecraft.core.registries.BuiltInRegistries.ITEM
-                .getKey(st.getItem()).toString());
-    }
-
-    /** 物品的置顶顺序号;未置顶为 MAX_VALUE(排序时沉底)。 */
-    private static int pinOrderOf(ItemStack st) {
-        if (st == null || st.isEmpty()) {
-            return Integer.MAX_VALUE;
-        }
-        return SAOConfig.pinOrder(net.minecraft.core.registries.BuiltInRegistries.ITEM
-                .getKey(st.getItem()).toString());
-    }
-
-    /** 物品条目 children 缓存(1 秒刷新背包变化)。 */
-    private MenuItem[] invChildrenCache;
-    private long invChildrenCacheAt;
-
-    /** 把「邀请玩家」项挂上动态在线玩家 children(缓存避免每帧重建数组)。 */
-    private MenuItem[] partyItemsWithInviteChildren() {
-        if (inviteChildrenCacheAt == 0 || now() - inviteChildrenCacheAt > 1000) {
-            inviteChildrenCache = inviteItems();
-            inviteChildrenCacheAt = now();
-        }
-        PARTY_ITEMS[0] = new MenuItem("saomenu.menu.invite", "item_status", Action.NONE, inviteChildrenCache);
-        return PARTY_ITEMS;
-    }
-
-    /** 邀请列缓存(1 秒刷新在线名单)。 */
-    private MenuItem[] inviteChildrenCache;
-    private long inviteChildrenCacheAt;
-
-    /** 本次点击命中的菜单项原始标签(INVITE_PLAYER 时是被邀请人名)。 */
-    private String lastClickedLabel;
 
     // 物品操作按钮(参照动画:选中行右侧弹出三圆钮)
     private boolean actionMenuOpen;
@@ -704,13 +535,13 @@ public class SAOMenuScreen extends Screen {
 
     /**
      * 窗口化二级 children:物品条目超过一屏时只取 [childScroll, childScroll+rows)。
-     * 非物品列原样返回。窗口数组带缓存(同源同滚动直接复用,避免每帧新建)。
+     * 非物品列原样返回。窗口列表带缓存(同源同滚动直接复用,避免每帧新建)。
      */
-    private MenuItem[] windowedChildren(MenuItem[] children) {
+    private List<MenuEntry> windowedChildren(List<MenuEntry> children) {
         int rows = childVisibleRows();
-        if (children.length <= rows) {
+        if (children.size() <= rows) {
             // 不满一屏:整个列表直接显示,滚动归零
-            // (注意不能走下面的 clamp——length-rows 为负时 clamp 会返回负数导致越界崩溃)
+            // (注意不能走下面的 clamp——size-rows 为负时 clamp 会返回负数导致越界崩溃)
             childScroll = 0;
             windowCacheSrc = null;
             return children;
@@ -718,21 +549,18 @@ public class SAOMenuScreen extends Screen {
         if (windowCacheSrc == children && windowCacheScroll == childScroll && windowCacheOut != null) {
             return windowCacheOut;
         }
-        childScroll = Mth.clamp(childScroll, 0, children.length - rows);
-        MenuItem[] win = new MenuItem[rows];
-        for (int v = 0; v < rows; v++) {
-            win[v] = children[childScroll + v];
-        }
+        childScroll = Mth.clamp(childScroll, 0, children.size() - rows);
+        List<MenuEntry> win = new ArrayList<>(children.subList(childScroll, childScroll + rows));
         windowCacheSrc = children;
         windowCacheScroll = childScroll;
         windowCacheOut = win;
         return win;
     }
 
-    /** 窗口缓存键:源数组引用 + 滚动偏移。 */
-    private MenuItem[] windowCacheSrc;
+    /** 窗口缓存键:源列表引用 + 滚动偏移。 */
+    private List<MenuEntry> windowCacheSrc;
     private int windowCacheScroll = -1;
-    private MenuItem[] windowCacheOut;
+    private List<MenuEntry> windowCacheOut;
 
     private boolean mainPressing(int index) {
         return mainPressIndex == index
@@ -814,7 +642,7 @@ public class SAOMenuScreen extends Screen {
         // 二级列可见时整组左移一个列宽(子菜单正好落在一级列原位),平滑跟随
         float shiftTarget = 0f;
         if (main >= 0) {
-            MenuItem[] its = activeItems(main);
+            List<MenuEntry> its = activeItems(main);
             if (visibleChildrenItem(its) >= 0) {
                 shiftTarget = MenuLayout.childColumnXAt(baseAnchorX, this.height)
                         - MenuLayout.itemColumnXAt(baseAnchorX, this.height);
@@ -865,14 +693,14 @@ public class SAOMenuScreen extends Screen {
         // 弹窗/操作按钮打开时不画(tooltip 会盖在它们上面)
         if (!infoOpen && !confirmClose && !actionMenuOpen) {
             int mainTip = activeMain();
-            MenuItem[] itemsTip = mainTip >= 0 ? activeItems(mainTip) : null;
+            List<MenuEntry> itemsTip = mainTip >= 0 ? activeItems(mainTip) : null;
             if (itemsTip != null && hoverChild >= 0) {
                 int shownTip = visibleChildrenItem(itemsTip);
-                if (shownTip >= 0 && itemsTip[shownTip].children() != null) {
-                    MenuItem[] all = itemsTip[shownTip].children();
+                if (shownTip >= 0 && itemsTip.get(shownTip).children() != null) {
+                    List<MenuEntry> all = itemsTip.get(shownTip).children();
                     int real = childScroll + hoverChild;
-                    if (real >= 0 && real < all.length) {
-                        ItemStack st = all[real].stack();
+                    if (real >= 0 && real < all.size()) {
+                        ItemStack st = all.get(real).stack();
                         if (st != null && !st.isEmpty()) {
                             g.renderTooltip(this.font, st, mouseX, mouseY);
                         }
@@ -979,7 +807,7 @@ public class SAOMenuScreen extends Screen {
     }
 
     /** 执行物品操作:0=装备(服务端换位) 1=信息弹窗 2=丢弃(服务端掉落)。 */
-    private void executeItemAction(int b, MenuItem target) {
+    private void executeItemAction(int b, MenuEntry target) {
         actionMenuOpen = false;
         if (b == 0) {
             new com.sao.saomenu.party.EquipItemC2S(target.invSlot()).sendToServer();
@@ -1097,7 +925,8 @@ public class SAOMenuScreen extends Screen {
         computeLocal(mouseX, mouseY);
         int lx = Math.round(localPtX);
         int ly = Math.round(localPtY);
-        hoverMain = MenuLayout.hoveredMainButtonAt(this.width, this.height, baseAnchorX, baseAnchorY, lx, ly);
+        hoverMain = MenuLayout.hoveredMainButtonAt(this.width, this.height, baseAnchorX, baseAnchorY,
+                panels().size(), lx, ly);
         hoverItem = -1;
         hoverChild = -1;
         hoverEquip = -1;
@@ -1106,17 +935,17 @@ public class SAOMenuScreen extends Screen {
         if (main < 0) {
             return;
         }
-        MenuItem[] items = activeItems(main);
+        List<MenuEntry> items = activeItems(main);
         int anchorY = buttonY(main);
         // 操作按钮打开时:独占命中(只悬停三圆钮)
         if (actionMenuOpen) {
-            MenuItem[] winA = shownChildren(items);
-            if (winA != null && actionRow >= 0 && actionRow < winA.length) {
+            List<MenuEntry> winA = shownChildren(items);
+            if (winA != null && actionRow >= 0 && actionRow < winA.size()) {
                 int shownA = visibleChildrenItem(items);
                 int anchorA = shownA >= 0 ? MenuLayout.menuItemRectAt(this.width, this.height,
-                        items.length, baseAnchorX, anchorY, shownA).centerY() : anchorY;
+                        items.size(), baseAnchorX, anchorY, shownA).centerY() : anchorY;
                 MenuLayout.Rect rowA = MenuLayout.childItemRectAt(this.width, this.height,
-                        winA.length, baseAnchorX, anchorA, actionRow);
+                        winA.size(), baseAnchorX, anchorA, actionRow);
                 for (int b = 0; b < 3; b++) {
                     if (actionButtonRect(rowA, b).contains(lx, ly)) {
                         hoverAction = b;
@@ -1126,19 +955,19 @@ public class SAOMenuScreen extends Screen {
             }
             return;
         }
-        for (int i = 0; i < items.length; i++) {
-            if (MenuLayout.menuItemRectAt(this.width, this.height, items.length, baseAnchorX, anchorY, i).contains(lx, ly)) {
+        for (int i = 0; i < items.size(); i++) {
+            if (MenuLayout.menuItemRectAt(this.width, this.height, items.size(), baseAnchorX, anchorY, i).contains(lx, ly)) {
                 hoverItem = i;
             }
         }
         int shown = visibleChildrenItem(items);
-        if (shown < 0 || items[shown].children() == null) {
+        if (shown < 0 || items.get(shown).children() == null) {
             return;
         }
-        MenuItem[] children = windowedChildren(items[shown].children());
-        int childAnchor = MenuLayout.menuItemRectAt(this.width, this.height, items.length, baseAnchorX, anchorY, shown).centerY();
-        for (int i = 0; i < children.length; i++) {
-            if (MenuLayout.childItemRectAt(this.width, this.height, children.length, baseAnchorX, childAnchor, i)
+        List<MenuEntry> children = windowedChildren(items.get(shown).children());
+        int childAnchor = MenuLayout.menuItemRectAt(this.width, this.height, items.size(), baseAnchorX, anchorY, shown).centerY();
+        for (int i = 0; i < children.size(); i++) {
+            if (MenuLayout.childItemRectAt(this.width, this.height, children.size(), baseAnchorX, childAnchor, i)
                     .contains(lx, ly)) {
                 hoverChild = i;
             }
@@ -1147,7 +976,7 @@ public class SAOMenuScreen extends Screen {
         if (target < 0) {
             return;
         }
-        List<EquipEntry> entries = equipEntries(EQUIP_KINDS[target]);
+        List<EquipEntry> entries = equipEntries(equipKindAt(items, shown, target));
         int equipAnchor = equipAnchorY(items, shown, target);
         for (int i = 0; i < entries.size(); i++) {
             if (MenuLayout.equipItemRectAt(this.width, this.height, entries.size(), baseAnchorX, equipAnchor, i)
@@ -1161,50 +990,59 @@ public class SAOMenuScreen extends Screen {
      * 一级项里当前应展开子项列的那个:只看点击展开项(expandedItem)。
      * 悬停不再自动展开——参考 SAO-World,子菜单必须点一下才打开。
      */
-    private int visibleChildrenItem(MenuItem[] items) {
-        if (expandedItem >= 0 && expandedItem < items.length && items[expandedItem].children() != null) {
+    private int visibleChildrenItem(List<MenuEntry> items) {
+        if (expandedItem >= 0 && expandedItem < items.size() && items.get(expandedItem).children() != null) {
             return expandedItem;
         }
         return -1;
     }
 
     /** 当前展开二级列的窗口化 children;未展开返回 null(渲染与命中共用同一几何)。 */
-    private MenuItem[] shownChildren(MenuItem[] items) {
+    private List<MenuEntry> shownChildren(List<MenuEntry> items) {
         int shown = visibleChildrenItem(items);
-        if (shown < 0 || shown >= items.length || items[shown].children() == null) {
+        if (shown < 0 || shown >= items.size() || items.get(shown).children() == null) {
             return null;
         }
-        return windowedChildren(items[shown].children());
+        return windowedChildren(items.get(shown).children());
     }
 
     /** 当前应展示装备列的二级子项下标;不展示返回 -1。物品条目列不触发装备列。 */
-    private int equipTargetIndex(MenuItem[] items, int shown) {
-        if (shown < 0 || shown >= items.length || items[shown].children() == null) {
+    private int equipTargetIndex(List<MenuEntry> items, int shown) {
+        if (shown < 0 || shown >= items.size() || items.get(shown).children() == null) {
             return -1;
         }
-        MenuItem[] children = items[shown].children();
+        List<MenuEntry> children = items.get(shown).children();
         // 物品条目列(条目带 stack)不关联装备展示
-        if (children.length > 0 && children[0].stack() != null) {
+        if (!children.isEmpty() && children.get(0).stack() != null) {
             return -1;
         }
         // 只看点击选中的子项:悬停不再自动展开(参照 SAO-World,点一下才打开)
         int target = equipOwner;
-        if (target < 0 || target >= children.length) {
+        if (target < 0 || target >= children.size()) {
             return -1;
         }
-        return children[target].action() == Action.SHOW_EQUIP ? target : -1;
+        return children.get(target).equip() != null ? target : -1;
+    }
+
+    /** 目标二级子项要求的装备分类;不是装备列返回 null。 */
+    private MenuEntry.EquipKind equipKindAt(List<MenuEntry> items, int shown, int target) {
+        if (shown < 0 || shown >= items.size() || items.get(shown).children() == null) {
+            return null;
+        }
+        List<MenuEntry> children = items.get(shown).children();
+        return target >= 0 && target < children.size() ? children.get(target).equip() : null;
     }
 
     /** 装备列锚点 Y:对齐目标二级子项行的纵向中心。 */
-    private int equipAnchorY(MenuItem[] items, int shown, int target) {
-        int childAnchor = MenuLayout.menuItemRectAt(this.width, this.height, items.length,
+    private int equipAnchorY(List<MenuEntry> items, int shown, int target) {
+        int childAnchor = MenuLayout.menuItemRectAt(this.width, this.height, items.size(),
                 baseAnchorX, buttonY(shown), shown).centerY();
-        return MenuLayout.childItemRectAt(this.width, this.height, items[shown].children().length,
+        return MenuLayout.childItemRectAt(this.width, this.height, items.get(shown).children().size(),
                 baseAnchorX, childAnchor, target).centerY();
     }
 
     /** 收集某分类下已装备的物品条目;全空时返回一条「暂无装备」占位。 */
-    private List<EquipEntry> equipEntries(EquipKind kind) {
+    private List<EquipEntry> equipEntries(MenuEntry.EquipKind kind) {
         List<EquipEntry> list = new ArrayList<>();
         Player p = mc().player;
         if (p != null) {
@@ -1299,7 +1137,8 @@ public class SAOMenuScreen extends Screen {
      * <p>剪裁框(enableScissor)只收屏幕空间的轴对齐矩形,而菜单整组带旋转与错切,
      * 四角投影后不再是轴对齐的;取四角外接盒,代价是略微裁宽(安全方向)。</p>
      */
-    private MenuLayout.Rect localBoxToScreen(int lx, int ly, int w, int h) {
+    @Override
+    public MenuLayout.Rect localBoxToScreen(int lx, int ly, int w, int h) {
         localToScreen(lx, ly, ptOut);
         float minX = ptOut[0];
         float maxX = ptOut[0];
@@ -1325,7 +1164,8 @@ public class SAOMenuScreen extends Screen {
      * 而布局算式给的是本地坐标;整组带缩放/左移(展开二级列时整组左移一列宽)/
      * 漂移/错切,不换算就会按偏,展开二级列后点按钮会直接落到空白处。</p>
      */
-    float[] screenPointOf(float lx, float ly) {
+    @Override
+    public float[] screenPointOf(float lx, float ly) {
         float[] out = new float[2];
         localToScreen(lx, ly, out);
         return out;
@@ -1346,7 +1186,8 @@ public class SAOMenuScreen extends Screen {
         // 随后逐个错峰向下滑到自己的位置,带 easeOutBack 回弹
         int stackY = buttonY(0);
         long unfoldNow = now();
-        for (int i = 0; i < MenuLayout.BTN_COUNT; i++) {
+        List<SaoPanel> ps = panels();
+        for (int i = 0; i < ps.size(); i++) {
             boolean active = isActive(i);
             int d = MenuLayout.btnSize(this.height);
             int cx = baseAnchorX;
@@ -1365,7 +1206,7 @@ public class SAOMenuScreen extends Screen {
             g.blit(btnTex, cx - d / 2, cy - d / 2, 0, 0, d, d, d, d);
             shaderAlpha(1f);
             // SAO Utils 官方符号图标(46x46):常态深色版,悬停/选中反白版
-            ResourceLocation glyph = tex("symbol_" + MAIN_BUTTONS[i].icon()
+            ResourceLocation glyph = tex("symbol_" + ps.get(i).icon()
                     + (active ? "_hover" : "_normal") + ".png");
             int pad = Math.max(2, Math.round(d * 0.22f));
             int isz = d - pad * 2;
@@ -1386,11 +1227,25 @@ public class SAOMenuScreen extends Screen {
         float eased = easeOutCubic(p);
         float alpha = globalAlpha * p;
 
-        switch (MAIN_BUTTONS[main].kind()) {
-            case PROFILE -> renderPlayerCard(g, anchorY, mouseX, mouseY, eased, alpha);
-            case PARTY -> renderTeamCard(g, anchorY, eased, alpha);
-            case FRIENDS -> renderFriendsCard(g, anchorY, eased, alpha);
-            case SETTINGS -> { /* 设置无左侧卡 */ }
+        SaoPanel panel = panelAt(main);
+        if (panel == null) {
+            return;
+        }
+        // 面板自带侧卡时走接口(第三方面板扩展点);内置三张卡仍由本类渲染
+        if (panel.sideCard() != null) {
+            MenuLayout.Rect rect = MenuLayout.cardRectAt(this.width, this.height, baseAnchorX, anchorY);
+            int slide = Math.round((1f - eased) * rect.w() * 0.35f);
+            panel.sideCard().render(g, mc(), this.font, this,
+                    new MenuLayout.Rect(rect.x() + slide, rect.y(), rect.w(), rect.h()),
+                    eased, alpha, mouseX, mouseY);
+            return;
+        }
+
+        switch (panel.id()) {
+            case SaoPanels.PROFILE -> renderPlayerCard(g, anchorY, mouseX, mouseY, eased, alpha);
+            case SaoPanels.PARTY -> renderTeamCard(g, anchorY, eased, alpha);
+            case SaoPanels.FRIENDS -> renderFriendsCard(g, anchorY, eased, alpha);
+            default -> { /* 设置等面板没有左侧卡 */ }
         }
     }
 
@@ -1600,61 +1455,61 @@ public class SAOMenuScreen extends Screen {
 
     private void renderMenuItems(GuiGraphics g, int main, int mouseX, int mouseY,
                                  float globalAlpha, long now) {
-        MenuItem[] items = activeItems(main);
+        List<MenuEntry> items = activeItems(main);
         int anchorY = buttonY(main);
         long base = panelAt == Long.MIN_VALUE ? now - PANEL_MS : panelAt;
 
         // SAO Utils 官方指示器:列左缘长箭头,中段菱形对准活动行
-        renderIndicator(g, items.length, anchorY, baseAnchorX, globalAlpha, true);
+        renderIndicator(g, items.size(), anchorY, baseAnchorX, globalAlpha, true);
 
-        for (int i = 0; i < items.length; i++) {
+        for (int i = 0; i < items.size(); i++) {
             float p = clamp01((now - base - i * ITEM_STAGGER_MS) / (float) ITEM_MS);
             if (p <= 0f) {
                 continue;
             }
             float eased = easeOutCubic(p);
-            MenuLayout.Rect rect = MenuLayout.menuItemRectAt(this.width, this.height, items.length, baseAnchorX, anchorY, i);
+            MenuLayout.Rect rect = MenuLayout.menuItemRectAt(this.width, this.height, items.size(), baseAnchorX, anchorY, i);
             int slide = Math.round((1f - eased) * rect.w() * 0.45f);
             MenuLayout.Rect at = new MenuLayout.Rect(rect.x() - slide, rect.y(), rect.w(), rect.h());
             // 与主按钮同一规则:本列已点击过(expandedItem 生效)后,非当前项压暗
             boolean dim = expandedItem != -1 && expandedItem != i;
-            renderMenuItem(g, at, items[i].label(), items[i].icon(),
+            renderMenuItem(g, at, items.get(i).label(), items.get(i).icon(),
                     hoverItem == i, false, globalAlpha * eased * (dim ? 0.45f : 1f),
-                    itemPressing(0, i), items[i].stack());
+                    itemPressing(0, i), items.get(i).stack());
         }
 
         int shown = visibleChildrenItem(items);
-        if (shown >= 0 && items[shown].children() != null) {
+        if (shown >= 0 && items.get(shown).children() != null) {
             if (childOwner != shown) {
                 childOwner = shown;
                 childAt = now;
             }
-            MenuItem[] children = windowedChildren(items[shown].children());
-            int childAnchor = MenuLayout.menuItemRectAt(this.width, this.height, items.length, baseAnchorX, anchorY, shown).centerY();
+            List<MenuEntry> children = windowedChildren(items.get(shown).children());
+            int childAnchor = MenuLayout.menuItemRectAt(this.width, this.height, items.size(), baseAnchorX, anchorY, shown).centerY();
             // 二级列不再画指示器(其定位公式落在一级列位置,与原指示器重叠成双线);
             // 只保留主按钮旁那条原始指示器
             // 二级列同样:点选某个子项(equipOwner)后,其余子项压暗
             boolean childDim = equipOwner != -1;
-            for (int i = 0; i < children.length; i++) {
+            for (int i = 0; i < children.size(); i++) {
                 float p = clamp01((now - childAt - i * ITEM_STAGGER_MS) / (float) ITEM_MS);
                 if (p <= 0f) {
                     continue;
                 }
                 float eased = easeOutCubic(p);
-                MenuLayout.Rect rect = MenuLayout.childItemRectAt(this.width, this.height, children.length, baseAnchorX, childAnchor, i);
+                MenuLayout.Rect rect = MenuLayout.childItemRectAt(this.width, this.height, children.size(), baseAnchorX, childAnchor, i);
                 int slide = Math.round((1f - eased) * rect.w() * 0.45f);
                 MenuLayout.Rect at = new MenuLayout.Rect(rect.x() - slide, rect.y(), rect.w(), rect.h());
                 boolean dim = childDim && equipOwner != i;
-                renderMenuItem(g, at, children[i].label(), children[i].icon(),
+                renderMenuItem(g, at, children.get(i).label(), children.get(i).icon(),
                         hoverChild == i || (actionMenuOpen && actionRow == i), true,
                         globalAlpha * eased * (dim ? 0.45f : 1f),
-                        itemPressing(1, i), children[i].stack());
+                        itemPressing(1, i), children.get(i).stack());
             }
             // 物品操作按钮:缩小后水平排布在选中行上(级联弹出 + 悬停标签)
-            if (actionMenuOpen && actionRow >= 0 && actionRow < children.length
-                    && children[actionRow].stack() != null) {
+            if (actionMenuOpen && actionRow >= 0 && actionRow < children.size()
+                    && children.get(actionRow).stack() != null) {
                 MenuLayout.Rect rowA = MenuLayout.childItemRectAt(this.width, this.height,
-                        children.length, baseAnchorX, childAnchor, actionRow);
+                        children.size(), baseAnchorX, childAnchor, actionRow);
                 // 物品图标是延迟合批的,先刷掉;物品渲染还会往深度缓冲写 z=150 的深度,
                 // 之后 blit 继承"深度测试开启"状态会被图标深度挡住(表现为图标盖在按钮上),
                 // 所以 flush 后必须关掉深度测试
@@ -1675,7 +1530,7 @@ public class SAOMenuScreen extends Screen {
                     g.blit(t, full.centerX() - ds / 2, full.centerY() - ds / 2, 0, 0, ds, ds, ds, ds);
                     shaderAlpha(1f);
                     if (hv) {
-                        String lbl = tr(ACT_KEYS[b]);
+                        String lbl = SaoText.tr(ACT_KEYS[b]);
                         g.drawString(this.font, lbl, full.centerX() - this.font.width(lbl) / 2,
                                 full.y() - 11, mulAlpha(theme().highlight(), globalAlpha), true);
                     }
@@ -1688,7 +1543,7 @@ public class SAOMenuScreen extends Screen {
                     equipShownOwner = equipTarget;
                     equipAt = now;
                 }
-                renderEquipColumn(g, EQUIP_KINDS[equipTarget],
+                renderEquipColumn(g, equipKindAt(items, shown, equipTarget),
                         equipAnchorY(items, shown, equipTarget), globalAlpha, now);
             } else {
                 equipShownOwner = -1;
@@ -1701,8 +1556,17 @@ public class SAOMenuScreen extends Screen {
         }
     }
 
+    /** 交给条目自己的处理器;没有处理器时只发一声点击(与原 Action.NONE 行为一致)。 */
+    private void activate(MenuEntry entry) {
+        if (entry.onActivate() == null) {
+            playClick();
+            return;
+        }
+        entry.onActivate().accept(MenuContext.of(this, entry));
+    }
+
     /** 装备条目列(第三列):每个已装备物品一行,白底条目 + 物品图标 + 名称。 */
-    private void renderEquipColumn(GuiGraphics g, EquipKind kind, int anchorY, float globalAlpha, long now) {
+    private void renderEquipColumn(GuiGraphics g, MenuEntry.EquipKind kind, int anchorY, float globalAlpha, long now) {
         List<EquipEntry> entries = equipEntries(kind);
         int count = entries.size();
         for (int i = 0; i < count; i++) {
@@ -1821,7 +1685,7 @@ public class SAOMenuScreen extends Screen {
         }
 
         // 置顶标识:左上角主题色小三角 + 白色高光,一眼分辨哪些被置顶
-        if (stack != null && !stack.isEmpty() && pinOrderOf(stack) != Integer.MAX_VALUE) {
+        if (stack != null && !stack.isEmpty() && SaoPanels.pinOrderOf(stack) != Integer.MAX_VALUE) {
             int t = Math.max(3, Math.round(at.h() * 0.30f));
             g.pose().pushPose();
             g.pose().translate(0, 0, 260f);
@@ -2019,22 +1883,22 @@ public class SAOMenuScreen extends Screen {
         // 几何必须与渲染完全一致:行矩形按窗口化 children 的长度布局
         if (actionMenuOpen) {
             int mainA = activeMain();
-            MenuItem[] itemsA = mainA >= 0 ? activeItems(mainA) : null;
+            List<MenuEntry> itemsA = mainA >= 0 ? activeItems(mainA) : null;
             int shownA = itemsA != null ? visibleChildrenItem(itemsA) : -1;
-            if (itemsA != null && shownA >= 0 && itemsA[shownA].children() != null) {
-                MenuItem[] winA = windowedChildren(itemsA[shownA].children());
-                int anchorA = MenuLayout.menuItemRectAt(this.width, this.height, itemsA.length,
+            if (itemsA != null && shownA >= 0 && itemsA.get(shownA).children() != null) {
+                List<MenuEntry> winA = windowedChildren(itemsA.get(shownA).children());
+                int anchorA = MenuLayout.menuItemRectAt(this.width, this.height, itemsA.size(),
                         baseAnchorX, buttonY(mainA), shownA).centerY();
-                if (actionRow >= 0 && actionRow < winA.length && winA[actionRow].stack() != null) {
+                if (actionRow >= 0 && actionRow < winA.size() && winA.get(actionRow).stack() != null) {
                     MenuLayout.Rect rowA = MenuLayout.childItemRectAt(this.width, this.height,
-                            winA.length, baseAnchorX, anchorA, actionRow);
+                            winA.size(), baseAnchorX, anchorA, actionRow);
                     for (int b = 0; b < 3; b++) {
                         MenuLayout.Rect br = actionButtonRect(rowA, b);
                         if (MenuLayout.inCircle(br.centerX(), br.centerY(), br.w() / 2 + 2, lx, ly)) {
-                            MenuItem[] all = itemsA[shownA].children();
+                            List<MenuEntry> all = itemsA.get(shownA).children();
                             int real = childScroll + actionRow;
-                            if (real < all.length && all[real].stack() != null) {
-                                executeItemAction(b, all[real]);
+                            if (real < all.size() && all.get(real).stack() != null) {
+                                executeItemAction(b, all.get(real));
                             } else {
                                 actionMenuOpen = false;
                             }
@@ -2045,7 +1909,8 @@ public class SAOMenuScreen extends Screen {
             }
         }
 
-        int hitMain = MenuLayout.hoveredMainButtonAt(this.width, this.height, baseAnchorX, baseAnchorY, lx, ly);
+        int hitMain = MenuLayout.hoveredMainButtonAt(this.width, this.height, baseAnchorX, baseAnchorY,
+                panels().size(), lx, ly);
         if (hitMain != -1) {
             mainTouched = true;
             if (selectedMain == hitMain) {
@@ -2089,15 +1954,15 @@ public class SAOMenuScreen extends Screen {
 
         int main = activeMain();
         if (main >= 0) {
-            MenuItem[] items = activeItems(main);
+            List<MenuEntry> items = activeItems(main);
             int anchorY = buttonY(main);
-            for (int i = 0; i < items.length; i++) {
-                if (MenuLayout.menuItemRectAt(this.width, this.height, items.length, baseAnchorX, anchorY, i).contains(lx, ly)) {
+            for (int i = 0; i < items.size(); i++) {
+                if (MenuLayout.menuItemRectAt(this.width, this.height, items.size(), baseAnchorX, anchorY, i).contains(lx, ly)) {
                     itemPressColumn = 0;
                     itemPressIndex = i;
                     itemPressAt = now();
-                    if (items[i].children() != null || items[i].action() == Action.SHOW_ITEMS) {
-                        // 装备/物品:展开二级列表(动态物品 children 在 activeItems 挂上)
+                    if (items.get(i).hasChildren()) {
+                        // 展开二级列表(动态子列由面板自己的 supplier 提供)
                         int newExpanded = expandedItem == i ? -1 : i;
                         if (newExpanded != expandedItem) {
                             // 切换展开项必须清掉上一列的选中状态:残留的 equipOwner
@@ -2109,21 +1974,20 @@ public class SAOMenuScreen extends Screen {
                         expandedItem = newExpanded;
                         playPanel();
                     } else {
-                        lastClickedLabel = items[i].label();
-                        runAction(items[i].action());
+                        activate(items.get(i));
                     }
                     return true;
                 }
             }
             int shown = visibleChildrenItem(items);
-            if (shown >= 0 && items[shown].children() != null) {
-                MenuItem[] children = windowedChildren(items[shown].children());
-                int childAnchor = MenuLayout.menuItemRectAt(this.width, this.height, items.length, baseAnchorX, anchorY, shown).centerY();
+            if (shown >= 0 && items.get(shown).children() != null) {
+                List<MenuEntry> children = windowedChildren(items.get(shown).children());
+                int childAnchor = MenuLayout.menuItemRectAt(this.width, this.height, items.size(), baseAnchorX, anchorY, shown).centerY();
                 // 装备条目列(第三列):只读展示,点击不落穿关闭菜单
                 int equipTarget = equipTargetIndex(items, shown);
                 if (equipTarget >= 0) {
                     int equipAnchor = equipAnchorY(items, shown, equipTarget);
-                    List<EquipEntry> entries = equipEntries(EQUIP_KINDS[equipTarget]);
+                    List<EquipEntry> entries = equipEntries(equipKindAt(items, shown, equipTarget));
                     for (int i = 0; i < entries.size(); i++) {
                         if (MenuLayout.equipItemRectAt(this.width, this.height, entries.size(), baseAnchorX, equipAnchor, i)
                                 .contains(lx, ly)) {
@@ -2132,12 +1996,13 @@ public class SAOMenuScreen extends Screen {
                         }
                     }
                 }
-                for (int i = 0; i < children.length; i++) {
-                    if (MenuLayout.childItemRectAt(this.width, this.height, children.length, baseAnchorX, childAnchor, i).contains(lx, ly)) {
+                for (int i = 0; i < children.size(); i++) {
+                    if (MenuLayout.childItemRectAt(this.width, this.height, children.size(), baseAnchorX, childAnchor, i).contains(lx, ly)) {
                         itemPressColumn = 1;
                         itemPressIndex = i;
                         itemPressAt = now();
-                        if (children[i].action() == Action.SHOW_EQUIP) {
+                        MenuEntry child = children.get(i);
+                        if (child.equip() != null) {
                             // 武器/护甲/首饰:展开/切换第三列已装备列表,不再打开物品栏
                             actionMenuOpen = false;
                             if (equipOwner != i) {
@@ -2145,7 +2010,7 @@ public class SAOMenuScreen extends Screen {
                                 equipAt = now();
                                 playPanel();
                             }
-                        } else if (children[i].stack() != null && !children[i].stack().isEmpty()) {
+                        } else if (child.isItem()) {
                             // 物品条目:行右侧弹出 装备/信息/丢弃 三按钮(再点同行收起)
                             if (actionMenuOpen && actionRow == i) {
                                 actionMenuOpen = false;
@@ -2157,8 +2022,7 @@ public class SAOMenuScreen extends Screen {
                                 playPanel();
                             }
                         } else {
-                            lastClickedLabel = children[i].label();
-                            runAction(children[i].action());
+                            activate(child);
                         }
                         return true;
                     }
@@ -2174,87 +2038,6 @@ public class SAOMenuScreen extends Screen {
         }
         beginClose();
         return true;
-    }
-
-    private void runAction(Action action) {
-        // INVITE_PLAYER 需要 label(玩家名),由点击处先记下再进来
-        switch (action) {
-            case SKILL -> {
-                // 装饰性技能:本游戏暂无技能系统
-                playClick();
-                SAONotification.push(tr("saomenu.coming_soon"), "");
-            }
-            case DUAL_WIELD -> {
-                playClick();
-                Player p = mc().player;
-                int[] slots = p == null ? null : SAODualWield.findTwoSwords(p);
-                if (slots == null) {
-                    SAONotification.push(tr("saomenu.skill.dual_wield.need_two"), "");
-                } else {
-                    new com.sao.saomenu.party.DualWieldC2S(slots[0], slots[1]).sendToServer();
-                    // 延后切模式:Epic Fight 进战斗模式时会按「当前主手武器」
-                    // 解析动作集,必须等服务端把剑同步回客户端后再切,
-                    // 否则它按空手解析,表现为切了模式但没进入持剑架势
-                    SAODualWield.requestBattleMode();
-                    SAONotification.push(tr("saomenu.skill.dual_wield"),
-                            SAODualWield.epicFightPresent()
-                                    ? tr("saomenu.skill.dual_wield.on")
-                                    : tr("saomenu.skill.dual_wield.no_ef"));
-                }
-            }
-            case SHOW_ITEMS -> playClick(); // 实际展开由 children 分支处理,此处兜底
-            case OPEN_OPTIONS -> {
-                playClick();
-                mc().setScreen(new OptionsScreen(this, mc().options));
-            }
-            case OPEN_CONFIG -> {
-                playClick();
-                mc().setScreen(new SAOSettingsScreen(this));
-            }
-            case OPEN_STATS -> {
-                playClick();
-                Player p = mc().player;
-                if (p != null) {
-                    mc().setScreen(new SAOStatsScreen(this, p));
-                }
-            }
-            case OPEN_ADVANCEMENTS -> {
-                playClick();
-                mc().setScreen(new SAOAdvancementsScreen(this));
-            }
-            case SWITCH_FRIENDS -> {
-                selectedMain = 2;
-                mainTouched = true;
-                expandedItem = -1;
-                playPanel();
-            }
-            case SWITCH_PARTY -> {
-                selectedMain = 1;
-                mainTouched = true;
-                expandedItem = -1;
-                playPanel();
-            }
-            case INVITE_PLAYER -> {
-                // label 即被邀请人名(由菜单模型保证)
-                String target = lastClickedLabel;
-                if (target != null && !target.isEmpty()) {
-                    new com.sao.saomenu.party.InviteC2S(target).sendToServer();
-                    SAONotification.push(tr("saomenu.party.notify.sent.title"),
-                            tr("saomenu.party.notify.sent.msg", target));
-                }
-                playClick();
-            }
-            case LEAVE_TEAM -> {
-                new com.sao.saomenu.party.LeaveC2S().sendToServer();
-                playClick();
-            }
-            case TOGGLE_MAP -> {
-                playPanel();
-                SAOMapPanel.toggle();
-            }
-            case CLOSE -> openConfirm();
-            case NONE -> playClick();
-        }
     }
 
     /** 打开登出确认弹窗(参照 SAO_Utils:点击 Logout 弹 Alert)。 */
@@ -2339,23 +2122,23 @@ public class SAOMenuScreen extends Screen {
         // 滚轮不再切换主按钮(一级菜单固定);悬停在二级物品条目列上时滚动窗口
         if (!closing && !confirmClose && delta != 0) {
             int main = activeMain();
-            MenuItem[] items = main >= 0 ? activeItems(main) : null;
+            List<MenuEntry> items = main >= 0 ? activeItems(main) : null;
             int shown = -1;
             if (items != null) {
                 shown = visibleChildrenItem(items);
             }
-            if (items != null && shown >= 0 && items[shown].children() != null
-                    && items[shown].children().length > 0
-                    && items[shown].children()[0].stack() != null) {
+            if (items != null && shown >= 0 && items.get(shown).children() != null
+                    && !items.get(shown).children().isEmpty()
+                    && items.get(shown).children().get(0).stack() != null) {
                 // 物品条目列:命中任一可见行(或其附近)即滚动
-                MenuItem[] children = items[shown].children();
+                List<MenuEntry> children = items.get(shown).children();
                 int rows = childVisibleRows();
                 computeLocal(mouseX, mouseY);
                 int lx = Math.round(localPtX);
                 int ly = Math.round(localPtY);
-                int anchorY = MenuLayout.menuItemRectAt(this.width, this.height, items.length, baseAnchorX, buttonY(main), shown).centerY();
+                int anchorY = MenuLayout.menuItemRectAt(this.width, this.height, items.size(), baseAnchorX, buttonY(main), shown).centerY();
                 boolean over = false;
-                for (int v = 0; v < Math.min(rows, children.length); v++) {
+                for (int v = 0; v < Math.min(rows, children.size()); v++) {
                     if (MenuLayout.childItemRectAt(this.width, this.height, rows, baseAnchorX, anchorY, v).contains(lx, ly)) {
                         over = true;
                         break;
@@ -2364,7 +2147,7 @@ public class SAOMenuScreen extends Screen {
                 if (over) {
                     // clamp 上界必须 >= 0:条目不足一屏时 max 为负,
                     // 直接钳会得到负 childScroll,后续下标运算越界崩溃
-                    int max = Math.max(0, children.length - rows);
+                    int max = Math.max(0, children.size() - rows);
                     int before = childScroll;
                     childScroll = Mth.clamp(childScroll - (int) Math.signum(delta), 0, max);
                     if (childScroll != before) {
@@ -2398,31 +2181,12 @@ public class SAOMenuScreen extends Screen {
 
     // ---------------------------------------------------------------- 工具
 
-    /**
-     * 菜单项标签:语言键 → 翻译;未知键(在线玩家名)→ 原样显示。
-     * 原版对缺失翻译返回键本身,以此区分。
-     */
-    private static String resolveLabel(String key) {
-        if (!key.startsWith("saomenu.") && !key.contains(".")) {
-            return key;
-        }
-        return Component.translatable(key).getString();
-    }
 
     private String playerName() {
         Player p = mc().player;
         return p != null ? p.getGameProfile().getName() : "Player";
     }
 
-    private String tr(String key, Object... args) {
-        // 不依赖 translatable 的 MessageFormat 替换(Forge/Fabric 行为不一致),
-        // 手动替换 {n} 占位符,双平台结果一致
-        String s = Component.translatable(key).getString();
-        for (int i = 0; i < args.length; i++) {
-            s = s.replace("{" + i + "}", String.valueOf(args[i]));
-        }
-        return s;
-    }
 
     private static String trim(float v) {
         float r = Math.round(v * 10f) / 10f;
@@ -2431,6 +2195,47 @@ public class SAOMenuScreen extends Screen {
 
 
 
+    // ---------------------------------------------------------------- MenuHost
+
+    @Override
+    public Screen screen() {
+        return this;
+    }
+
+    @Override
+    public void selectMain(int index) {
+        selectedMain = index;
+        mainTouched = true;
+        expandedItem = -1;
+        equipOwner = -1;
+        actionMenuOpen = false;
+        childScroll = 0;
+    }
+
+    @Override
+    public void expandItem(int index) {
+        expandedItem = index;
+        equipOwner = -1;
+        childScroll = 0;
+        actionMenuOpen = false;
+    }
+
+    @Override
+    public void showEquipColumn(int childIndex) {
+        equipOwner = childIndex;
+        equipAt = now();
+    }
+
+    @Override
+    public void openCloseConfirm() {
+        openConfirm();
+    }
+
+    @Override
+    public void toggleMap() {
+        SAOMapPanel.toggle();
+    }
+
     private void playLauncher() {
         if (!SAOConfig.sounds()) {
             return;
@@ -2438,21 +2243,24 @@ public class SAOMenuScreen extends Screen {
         mc().getSoundManager().play(SimpleSoundInstance.forUI(SAOMenuPlatform.launcherSound(), 1.0F));
     }
 
-    private void playClick() {
+    @Override
+    public void playClick() {
         if (!SAOConfig.sounds()) {
             return;
         }
         mc().getSoundManager().play(SimpleSoundInstance.forUI(SAOMenuPlatform.clickSound(), 1.0F));
     }
 
-    private void playPanel() {
+    @Override
+    public void playPanel() {
         if (!SAOConfig.sounds()) {
             return;
         }
         mc().getSoundManager().play(SimpleSoundInstance.forUI(SAOMenuPlatform.panelSound(), 1.0F));
     }
 
-    private void playAlert() {
+    @Override
+    public void playAlert() {
         if (!SAOConfig.sounds()) {
             return;
         }

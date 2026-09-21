@@ -44,6 +44,8 @@ public final class SAOKeybinds {
         tickHooked = true;
         // 加载客户端配置(锚点/缩放/浮动/音效/HUD),供布局与渲染读取
         SAOConfig.load(Minecraft.getInstance().gameDirectory.toPath().resolve("config").resolve("saomenu.json"));
+        // 注册内置面板(个人/队伍/好友/设置);顺序即主按钮列顺序
+        com.sao.saomenu.client.menu.SaoMenuRegistry.registerBuiltins();
         ClientTickEvent.CLIENT_POST.register(client -> {
             // 进入世界检测:无世界→有世界时播放 SAO 欢迎动画
             SAOWelcome.clientTick(client);

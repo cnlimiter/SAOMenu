@@ -154,7 +154,7 @@ class MenuLayoutTest {
         assertEquals(ca.x(), cb.x());
         assertEquals(ca.y(), cb.y());
         assertEquals(MenuLayout.hoveredMainButton(W, H, ax, MenuLayout.buttonCenterY(H, 1)),
-                MenuLayout.hoveredMainButtonAt(W, H, ax, ay, ax, MenuLayout.buttonCenterY(H, 1)));
+                MenuLayout.hoveredMainButtonAt(W, H, ax, ay, MenuLayout.BTN_COUNT, ax, MenuLayout.buttonCenterY(H, 1)));
     }
 
     @Test
