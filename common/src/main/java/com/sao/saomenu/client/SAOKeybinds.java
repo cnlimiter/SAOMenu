@@ -31,7 +31,8 @@ public final class SAOKeybinds {
     private static boolean hadPlayer = false;
 
     /** 技能快捷键:槽位 i 对应注册表里第 i 个技能(未绑定按键 = 不触发)。 */
-    public static final KeyMapping[] SKILL_KEYS = new KeyMapping[6];
+    public static final KeyMapping[] SKILL_KEYS =
+            new KeyMapping[com.sao.saomenu.skill.SaoSkills.HOTKEY_SLOTS];
 
     static {
         for (int i = 0; i < SKILL_KEYS.length; i++) {

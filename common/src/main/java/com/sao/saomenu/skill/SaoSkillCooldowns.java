@@ -42,23 +42,6 @@ public final class SaoSkillCooldowns {
         return true;
     }
 
-    /** 剩余冷却 tick;就绪返回 0。 */
-    public static int remaining(ServerPlayer player, SaoSkill skill) {
-        if (player == null || skill == null || !skill.hasCooldown()) {
-            return 0;
-        }
-        Map<String, Long> mine = READY_AT.get(player.getUUID());
-        if (mine == null) {
-            return 0;
-        }
-        Long readyAt = mine.get(skill.id());
-        if (readyAt == null) {
-            return 0;
-        }
-        long left = readyAt - player.level().getGameTime();
-        return left > 0 ? (int) left : 0;
-    }
-
     /** 玩家退网:清掉他的记账,避免 UUID 长期累积。 */
     public static void clearPlayer(UUID id) {
         READY_AT.remove(id);

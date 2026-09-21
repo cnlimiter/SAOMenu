@@ -20,7 +20,7 @@ import java.util.List;
  */
 public final class SaoSkillBar {
 
-    /** 最多显示几格(与 {@link SAOKeybinds#SKILL_KEYS} 的槽位数一致)。 */
+    /** 最多显示几格:与快捷键槽位同源,避免两处各写一个数字。 */
     private static final int MAX_SLOTS = SAOKeybinds.SKILL_KEYS.length;
 
     private SaoSkillBar() {

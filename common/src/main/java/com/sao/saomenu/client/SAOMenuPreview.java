@@ -416,12 +416,45 @@ public final class SAOMenuPreview {
             // 菜单若已被上层时序关闭(tick 66 二级展开回归),用新菜单实例兜底作为返回目标
             client.setScreen(new SAOSettingsScreen(
                     client.screen instanceof SAOMenuScreen ms ? ms : new SAOMenuScreen()));
+        } else if (menuTicks == 105 && childClicked) {
+            // 主题分类页自检:预设按钮来自 SaoTheme.presets(),外部主题文件载入后按钮数应变多。
+            // 色相必须在这里就改:grab() 在 tick 内取的是"上一帧"的帧缓冲,
+            // 同一 tick 改状态再截图会拍到改动前的那一帧(hue 41 而不是 150)。
+            if (client.screen instanceof SAOSettingsScreen ss) {
+                ss.debugShowPage("THEME");
+            }
+            var presets = com.sao.saomenu.ui.SaoTheme.presets();
+            SAOConfig.setAccentHue(presets.get(presets.size() - 1).defaultHue());
+        } else if (menuTicks == 106 && childClicked) {
+            // 色相已等于最后一个预设的默认值 → 该色块应显示为选中(白底深字)
+            var presets = com.sao.saomenu.ui.SaoTheme.presets();
+            StringBuilder ids = new StringBuilder();
+            for (var t : presets) {
+                ids.append(t.id()).append(' ');
+            }
+            SAOMenu.LOGGER.info("[SAOMenu] preview theme presets={} highlighted={} hue={}",
+                    ids.toString().trim(),
+                    client.screen instanceof SAOSettingsScreen ss ? ss.debugHighlightedPreset() : "n/a",
+                    Math.round(SAOConfig.accentHue()));
+            if (client.screen instanceof SAOSettingsScreen ss) {
+                SAOMenu.LOGGER.info("[SAOMenu] preview theme swatches {}",
+                        ss.debugLastPresetRow());
+            }
+            grab(client, out, "theme.png");
+        } else if (menuTicks == 107 && childClicked) {
+            // 回到 ROOT 页:settings.png 的基线就是 ROOT 页,不还原会让像素回归门拿错页面比对
+            if (client.screen instanceof SAOSettingsScreen ss) {
+                ss.debugShowPage("ROOT");
+            }
         } else if (menuTicks == 108 && childClicked) {
             // 主题色落盘验证:蓝色(200°)保存,config.png 应为蓝色主题
             SAOConfig.setAccentHue(200f);
             SAOConfig.save(SAOConfig.path());
         } else if (menuTicks == 110 && childClicked) {
             // 设置界面入场动画完成后截图(视频背景 + P5 分类按钮)
+            // 200° 不匹配任何预设的默认色相:此时不应有按钮显示为选中(高亮判定不许撒谎)
+            SAOMenu.LOGGER.info("[SAOMenu] preview theme custom_hue_highlighted={}",
+                    client.screen instanceof SAOSettingsScreen ss ? ss.debugHighlightedPreset() : "n/a");
             grab(client, out, "settings.png");
         } else if (menuTicks == 111 && childClicked) {
             // O 键层级返回自检:配置界面按 O → 回到菜单

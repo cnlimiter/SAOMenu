@@ -142,7 +142,8 @@ public class SAOShardParticle extends TextureSheetParticle {
         float t = this.age / (float) this.lifetime;
         if (glow) {
             // 闪光:迅速放大再淡掉
-            this.quadSize = baseSize * (0.55f + 1.15f * easeOutCubic(t));
+            this.quadSize = baseSize * (0.55f
+                    + 1.15f * com.sao.saomenu.ui.SaoMotion.easeOutCubic(t));
             this.alpha = 1f - t * t;
             return;
         }
@@ -155,11 +156,6 @@ public class SAOShardParticle extends TextureSheetParticle {
             this.alpha = 1f - f;
             this.quadSize = baseSize * (1f - 0.45f * f);
         }
-    }
-
-    private static float easeOutCubic(float t) {
-        float u = 1f - Mth.clamp(t, 0f, 1f);
-        return 1f - u * u * u;
     }
 
     /** 碎片:随机三角/条状贴图。 */

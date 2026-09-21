@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -184,5 +185,47 @@ class SaoThemeLibraryTest {
         } catch (UnsupportedOperationException expected) {
             // 直接不可变也满足契约
         }
+    }
+
+    // ------------------------------------------------------------ 身份 vs 高亮
+
+    @Test
+    void customPaletteSurvivesHueSliderDrag() throws IOException {
+        write("p.json", "{\"id\":\"p\",\"defaultHue\":150,\"colors\":{\"divider\":\"#7FA8B0\"}}");
+        SaoThemeLibrary.load(configDir);
+
+        SaoTheme.select("p");
+        assertEquals(0xFF7FA8B0, SaoTheme.active().colors().divider(), "选中后应用自定义调色板");
+
+        // 用户接着拖了色相滑条,并且拖到了恰好等于另一个预设(ALO 202°)的位置。
+        // 这是最要命的取值:若身份按色相反查,就会当场被改判成 alo,自定义调色板丢失。
+        com.sao.saomenu.client.SAOConfig.setAccentHue(202f);
+        assertEquals(0xFF7FA8B0, SaoTheme.active().colors().divider(),
+                "拖色相滑条只应改主题色,不应丢掉所选主题的调色板");
+        assertEquals("p", SaoTheme.selectedId(), "身份不因色相变化而改变");
+        assertEquals(SaoTheme.ALO, SaoTheme.matchingPreset(202f),
+                "高亮确实会跳到 alo —— 但那只是显示,不影响调色板身份");
+    }
+
+    @Test
+    void highlightOnlyMatchesExactPresetHue() {
+        SaoThemeLibrary.resetForTest();
+        assertEquals(SaoTheme.SAO, SaoTheme.matchingPreset(41.44f), "色相等于预设默认值才高亮");
+        assertEquals(SaoTheme.ALO, SaoTheme.matchingPreset(202f));
+        assertNull(SaoTheme.matchingPreset(200f),
+                "200° 不等于任何预设默认色相:不应高亮任何按钮(否则高亮会撒谎)");
+        assertNull(SaoTheme.matchingPreset(0f));
+    }
+
+    @Test
+    void highlightDoesNotFollowIdentityAfterHueChange() throws IOException {
+        write("p.json", "{\"id\":\"p\",\"defaultHue\":150}");
+        SaoThemeLibrary.load(configDir);
+        SaoTheme.select("p");
+
+        assertEquals("p", SaoTheme.matchingPreset(150f), "色相未变时高亮该预设");
+        assertNull(SaoTheme.matchingPreset(200f),
+                "身份仍是 p,但色相变了:不能继续把 p 显示成选中");
+        assertEquals("p", SaoTheme.selectedId(), "身份与高亮是两个问题");
     }
 }

@@ -3,8 +3,6 @@ package com.sao.saomenu.client.menu;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
 
@@ -50,14 +48,6 @@ public final class MenuContext {
     /** 本地玩家;主菜单等无世界场景返回 {@code null}。 */
     public LocalPlayer player() {
         return minecraft().player;
-    }
-
-    public Player playerOrNull() {
-        return minecraft().player;
-    }
-
-    public ItemStack entryStack() {
-        return entry == null || entry.stack() == null ? ItemStack.EMPTY : entry.stack();
     }
 
     /** 切换界面:统一走这里,保证 {@code lastScreen} 语义一致。 */

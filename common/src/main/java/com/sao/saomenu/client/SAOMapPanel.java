@@ -127,7 +127,7 @@ public final class SAOMapPanel {
     private static MenuLayout.Rect cardRect(int screenW, int screenH) {
         long age = Util.getMillis() - openAt;
         float p = shown ? Mth.clamp(age / (float) OPEN_MS, 0f, 1f) : 1f;
-        float slide = (1f - easeOutCubic(p)) * panelW(screenH) * 0.40f;
+        float slide = (1f - com.sao.saomenu.ui.SaoMotion.easeOutCubic(p)) * panelW(screenH) * 0.40f;
         int[] o = panelOrigin(screenW, screenH, slide);
         return new MenuLayout.Rect(o[0], o[1], panelW(screenH), panelH(screenH));
     }
@@ -491,11 +491,6 @@ public final class SAOMapPanel {
                 ((argb >> 8) & 0xFF) / 255f,
                 (argb & 0xFF) / 255f,
                 Mth.clamp(alpha, 0f, 1f));
-    }
-
-    private static float easeOutCubic(float t) {
-        float u = 1f - t;
-        return 1f - u * u * u;
     }
 
     private static void fillRounded(GuiGraphics g, int x, int y, int w, int h, int r, int color) {

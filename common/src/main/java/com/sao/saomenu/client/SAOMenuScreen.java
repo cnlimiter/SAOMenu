@@ -2213,20 +2213,6 @@ public class SAOMenuScreen extends Screen implements MenuHost {
     }
 
     @Override
-    public void expandItem(int index) {
-        expandedItem = index;
-        equipOwner = -1;
-        childScroll = 0;
-        actionMenuOpen = false;
-    }
-
-    @Override
-    public void showEquipColumn(int childIndex) {
-        equipOwner = childIndex;
-        equipAt = now();
-    }
-
-    @Override
     public void openCloseConfirm() {
         openConfirm();
     }

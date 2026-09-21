@@ -41,11 +41,6 @@ public final class SaoDraw {
                 Mth.clamp(alpha, 0f, 1f));
     }
 
-    /** 复位染色,避免影响后续图元。 */
-    public static void resetTint() {
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-    }
-
     // ---------------------------------------------------------------- 图元
 
     /**

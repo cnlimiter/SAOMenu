@@ -66,22 +66,53 @@ public record SaoTheme(String id, float defaultHue, ThemeColors colors) {
         PRESETS.add(theme);
     }
 
+    /** 是否已按持久化色相恢复过选择(冷启动只做一次)。 */
+    private static boolean resolvedFromConfig = false;
+
     /**
-     * 当前选中的预设 id。
+     * 冷启动恢复:配置里没有 themeId 字段,只能按色相反查一次。
      *
-     * <p>选择只有<b>色相</b>被写进配置(那里没有 themeId 字段),所以重启后按色相反查;
-     * 内存里的选择若与色相一致则直接采信,避免两个主题同色相时高亮跳回靠前那个。</p>
+     * <p>只恢复<b>一次</b>:之后以内存选择为准,否则用户拖色相滑条时身份会被反查改掉,
+     * JSON 主题的自定义调色板会当场丢失。</p>
      */
-    public static String selectedId() {
-        int hue = Math.round(SAOConfig.accentHue());
-        if (Math.round(byId(selectedId).defaultHue) == hue) {
-            return selectedId;
+    private static void resolveFromConfigOnce() {
+        if (resolvedFromConfig) {
+            return;
         }
+        resolvedFromConfig = true;
+        int hue = Math.round(SAOConfig.accentHue());
         for (SaoTheme t : PRESETS) {
             if (Math.round(t.defaultHue) == hue) {
+                selectedId = t.id;
+                return;
+            }
+        }
+    }
+
+    /**
+     * 当前色相下与之匹配的预设 id;色相被自定义时不匹配任何预设(返回 null)。
+     *
+     * <p><b>这是"哪个按钮该高亮"的唯一判定</b>,与 {@link #selectedId()} 是两个问题:
+     * 用户选了主题再拖色相滑条时,身份(selectedId)要保持以留住自定义调色板,
+     * 但配色已不再是那个预设,按钮不该继续高亮。设置界面与自检共用本方法,避免各写一遍。</p>
+     */
+    public static String matchingPreset(float hue) {
+        int want = Math.round(hue);
+        for (SaoTheme t : PRESETS) {
+            if (Math.round(t.defaultHue) == want) {
                 return t.id;
             }
         }
+        return null;
+    }
+
+    /** 当前选中预设的 id —— 这是<b>调色板身份</b>,不是"哪个按钮该高亮"。
+     *
+     * <p>两者是不同的问题:用户选了主题再拖色相滑条时,身份要保持(否则自定义调色板丢失),
+     * 但配色已经不再是那个预设了,按钮不该继续高亮。高亮判定见 {@link #matchingPreset(float)}。</p>
+     */
+    public static String selectedId() {
+        resolveFromConfigOnce();
         return selectedId;
     }
 
@@ -89,6 +120,7 @@ public record SaoTheme(String id, float defaultHue, ThemeColors colors) {
     public static void select(String id) {
         SaoTheme t = byId(id);
         selectedId = t.id;
+        resolvedFromConfig = true; // 显式选择优先于冷启动反查
         SAOConfig.setAccentHue(t.defaultHue);
     }
 
@@ -99,7 +131,7 @@ public record SaoTheme(String id, float defaultHue, ThemeColors colors) {
      * 不需要缓存失效逻辑。</p>
      */
     public static SaoTheme active() {
-        SaoTheme preset = byId(selectedId);
+        SaoTheme preset = byId(selectedId());
         return new SaoTheme(preset.id, preset.defaultHue,
                 preset.colors.withAccent(accentFromHue(SAOConfig.accentHue())));
     }
@@ -163,6 +195,7 @@ public record SaoTheme(String id, float defaultHue, ThemeColors colors) {
     /** 测试用:复位到默认预设,并丢掉外部主题文件载入的预设。 */
     static void resetForTest() {
         selectedId = SAO;
+        resolvedFromConfig = false;
         PRESETS.clear();
         PRESETS.addAll(BUILTIN);
     }

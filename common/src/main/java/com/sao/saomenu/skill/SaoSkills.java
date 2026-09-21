@@ -27,6 +27,15 @@ public final class SaoSkills {
     private SaoSkills() {
     }
 
+    /**
+     * 技能快捷键槽位数(同时是技能浮条的格数)。
+     *
+     * <p>键位表必须在注册期就是定长数组,所以这里是个硬上界;注册的技能多于槽位时,
+     * {@link com.sao.saomenu.skill.SaoSkillRegistry#registerBuiltins()} 会记一条警告,
+     * 而不是像以前那样静默丢掉后面的技能(菜单列有、快捷键与浮条却没有)。</p>
+     */
+    public static final int HOTKEY_SLOTS = 9;
+
     /** 内置技能,顺序 = 菜单技能列顺序。 */
     public static List<SaoSkill> all() {
         return List.of(

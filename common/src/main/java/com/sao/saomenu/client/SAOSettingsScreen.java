@@ -87,6 +87,8 @@ public class SAOSettingsScreen extends Screen {
     private long transitionStart = -1;
     private boolean transitionForward;
     private int clickedCat = -1;
+    /** 仅供预览自检:上一次渲染主题预设行时每个色块的"id[选中标记]@x"实录。 */
+    private String lastPresetDebug = "";
     private long pageStartMs;
     private long lastFrameMs;
     private boolean initialized;
@@ -673,13 +675,19 @@ public class SAOSettingsScreen extends Screen {
         int n = Math.max(1, presets.size());
         int bw = Math.min(78, (x1 - x0 - 150 - 12) / n);
         int bh = Math.max(12, rh - 10);
-        String selId = com.sao.saomenu.ui.SaoTheme.selectedId();
+        // 高亮判定与"调色板身份"是两件事:只有色相恰好等于该预设默认色相才算选中。
+        // 用 SaoTheme.selectedId() 会撒谎——用户拖过色相滑条后它仍指向某个预设,
+        // 而配色已经完全不是它了。
+        String selId = com.sao.saomenu.ui.SaoTheme.matchingPreset(SAOConfig.accentHue());
+        StringBuilder swatches = new StringBuilder();
         for (int t = 0; t < presets.size(); t++) {
             var preset = presets.get(t);
             int bx = x1 - 10 - (n - t) * (bw + 6) + 6;
             boolean sel = preset.id().equals(selId);
+            swatches.append(preset.id()).append(sel ? "*" : "").append('@').append(bx).append(' ');
             fillSlab(g, bx + bw / 2f, y + rh / 2f, bw, bh, -4f,
-                    withAlpha(sel ? RGB_WHITE : hsvToArgb(preset.defaultHue()),
+                    withAlpha(sel ? RGB_WHITE
+                                    : com.sao.saomenu.ui.SaoTheme.hsvToRgb(preset.defaultHue(), 1f, 1f),
                             Math.round(a * (sel ? 1f : 0.85f))));
             var pose = g.pose();
             pose.pushPose();
@@ -690,6 +698,8 @@ public class SAOSettingsScreen extends Screen {
                     sel ? RGB_DARK_TEXT : RGB_WHITE, false);
             pose.popPose();
         }
+        lastPresetDebug = "hue=" + Math.round(SAOConfig.accentHue()) + " y=" + (y + 5)
+                + " bh=" + bh + " bw=" + bw + " | " + swatches.toString().trim();
     }
 
     private void renderBackButton(GuiGraphics g, float off, int a, int mx, int my) {
@@ -867,6 +877,50 @@ public class SAOSettingsScreen extends Screen {
         saveNow();
     }
 
+    /** 仅供预览自检:当前色相下会被高亮的预设 id(null = 色相被自定义,不指向任何预设)。 */
+    public String debugHighlightedPreset() {
+        return com.sao.saomenu.ui.SaoTheme.matchingPreset(SAOConfig.accentHue());
+    }
+
+    /**
+     * 仅供预览自检:上一次渲染预设行时,<b>每个色块实际用到的</b> id、是否选中、以及它的 x。
+     *
+     * <p>记录的是渲染当时的取值而不是另算一遍,所以据此裁图/取样必然对得上真东西。</p>
+     */
+    public String debugLastPresetRow() {
+        return lastPresetDebug;
+    }
+
+    /** 仅供预览自检:直接切到某个分类页(或 ROOT),绕开分类按钮的悬停与转场状态机以保证可复现。 */
+    public void debugShowPage(String name) {
+        Page want = null;
+        if (Page.ROOT.name().equalsIgnoreCase(name)) {
+            want = Page.ROOT;
+        } else {
+            for (Page p : CATS) {
+                if (p.name().equalsIgnoreCase(name)) {
+                    want = p;
+                }
+            }
+        }
+        if (want == null) {
+            return;
+        }
+        for (int i = 0; i < CATS.length; i++) {
+            if (CATS[i] == want) {
+                this.clickedCat = i;
+            }
+        }
+        this.page = want;
+        this.transitionFrom = want;
+        this.transitionStart = -1;
+        // 与真实转场结束后的状态对齐:-1 = 没有分类处于选中态(见转场状态机完成分支)
+        this.clickedCat = -1;
+        // 把面板入场动画视为已播完:自检要拍稳定态,不是动画中间帧。
+        // 若沿用当前时间戳,每次切换都会把入场重播一遍,截图与基线就对不上了。
+        this.pageStartMs = net.minecraft.Util.getMillis() - 1000L;
+    }
+
     private void applyPresetClick(int mx) {
         var presets = com.sao.saomenu.ui.SaoTheme.presets();
         int n = Math.max(1, presets.size());
@@ -940,27 +994,6 @@ public class SAOSettingsScreen extends Screen {
 
     private static int alpha(float fade, float base) {
         return Math.round(Mth.clamp(fade, 0f, 1f) * base * 255f);
-    }
-
-    /** HSV(H,1,1)→ARGB,用于主题预设色块(与 SAOConfig.accent() 同源)。 */
-    private static int hsvToArgb(float hue) {
-        float hp = (hue % 360f) / 60f;
-        float x = 1f - Math.abs(hp % 2f - 1f);
-        float r = 0f;
-        float gg = 0f;
-        float b = 0f;
-        switch ((int) hp) {
-            case 0 -> { r = 1f; gg = x; }
-            case 1 -> { r = x; gg = 1f; }
-            case 2 -> { gg = 1f; b = x; }
-            case 3 -> { gg = x; b = 1f; }
-            case 4 -> { r = x; b = 1f; }
-            default -> { r = 1f; b = x; }
-        }
-        return 0xFF000000
-                | (Math.round(r * 255f) << 16)
-                | (Math.round(gg * 255f) << 8)
-                | Math.round(b * 255f);
     }
 
     private static float easeOutBack(float t) {

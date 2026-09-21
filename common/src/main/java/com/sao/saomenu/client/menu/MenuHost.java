@@ -19,12 +19,6 @@ public interface MenuHost {
     /** 选中第 index 个主按钮;传 -1 收起面板。 */
     void selectMain(int index);
 
-    /** 展开/收起一级项的第 index 项二级列;-1 表示全部收起。 */
-    void expandItem(int index);
-
-    /** 展示第 index 个二级子项的装备列;-1 表示收起。 */
-    void showEquipColumn(int childIndex);
-
     /** 弹出"确认关闭菜单"对话框。 */
     void openCloseConfirm();
 

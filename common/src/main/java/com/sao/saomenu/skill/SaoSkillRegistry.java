@@ -57,6 +57,13 @@ public final class SaoSkillRegistry {
         for (SaoSkill s : SaoSkills.all()) {
             register(s);
         }
+        // 快捷键表是定长的:技能多于槽位时后面的技能将没有快捷键、也不上浮条。
+        // 静默截断过(菜单列 7 项、快捷键只有 6 个),所以这里把溢出说出来。
+        if (SKILLS.size() > SaoSkills.HOTKEY_SLOTS) {
+            com.sao.saomenu.SAOMenu.LOGGER.warn(
+                    "[SAOMenu] 已注册 {} 个技能,但只有 {} 个快捷键槽位;多出的技能将没有快捷键与浮条格",
+                    SKILLS.size(), SaoSkills.HOTKEY_SLOTS);
+        }
     }
 
     /** 清空(仅测试用)。 */

@@ -4,7 +4,6 @@ import com.sao.saomenu.client.SAOConfig;
 import com.sao.saomenu.client.SAONotification;
 import com.sao.saomenu.client.SAOAdvancementsScreen;
 import com.sao.saomenu.client.SAOSettingsScreen;
-import com.sao.saomenu.client.SAOStatsScreen;
 import com.sao.saomenu.party.InviteC2S;
 import com.sao.saomenu.party.LeaveC2S;
 import com.sao.saomenu.skill.SaoSkill;
@@ -228,5 +227,4 @@ public final class SaoPanels {
         ctx.host().openCloseConfirm();
     }
 
-    // ------------------------------------------------------------ 二刀流
 }

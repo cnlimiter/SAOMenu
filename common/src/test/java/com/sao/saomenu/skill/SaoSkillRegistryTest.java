@@ -70,6 +70,13 @@ class SaoSkillRegistryTest {
     }
 
     @Test
+    void everyRegisteredSkillFitsAHotkeySlot() {
+        SaoSkillRegistry.registerBuiltins();
+        assertTrue(SaoSkillRegistry.skills().size() <= SaoSkills.HOTKEY_SLOTS,
+                "注册的技能多于快捷键槽位时会静默截断:菜单列有、快捷键与浮条却没有");
+    }
+
+    @Test
     void onlyDualWieldIsImplementedToday() {
         SaoSkillRegistry.registerBuiltins();
         // 占位技能的共同特征:预检恒不通过(于是激活只给提示),且没有冷却
