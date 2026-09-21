@@ -1,5 +1,10 @@
 package com.sao.saomenu.client;
 
+import com.sao.saomenu.client.options.OptionSpec;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+
 import com.mojang.math.Axis;
 import com.sao.saomenu.SAOMenuPlatform;
 import net.minecraft.Util;
@@ -229,214 +234,132 @@ public class SAOSettingsScreen extends Screen {
 
     // ------------------------------------------------------------ 行模型(滑块/开关/预设)
 
+    /** 每个分类的设置行。加一项设置 = 在这张表里追加一条。 */
+    private static final Map<Page, List<OptionSpec>> ROWS = buildRows();
+
+    private static Map<Page, List<OptionSpec>> buildRows() {
+        Map<Page, List<OptionSpec>> m = new EnumMap<>(Page.class);
+        m.put(Page.LAYOUT, List.of(
+                OptionSpec.slider("saomenu.config.anchor_x", SAOConfig::anchorX, SAOConfig::setAnchorX,
+                        SAOConfig.ANCHOR_MIN, SAOConfig.ANCHOR_MAX, OptionSpec.Fmt.PERCENT),
+                OptionSpec.slider("saomenu.config.anchor_y", SAOConfig::anchorY, SAOConfig::setAnchorY,
+                        SAOConfig.ANCHOR_MIN, SAOConfig.ANCHOR_MAX, OptionSpec.Fmt.PERCENT),
+                OptionSpec.slider("saomenu.config.scale", SAOConfig::menuScale, SAOConfig::setMenuScale,
+                        SAOConfig.SCALE_MIN, SAOConfig.SCALE_MAX, OptionSpec.Fmt.MULT2),
+                OptionSpec.slider("saomenu.config.bob", SAOConfig::bobAmp, SAOConfig::setBobAmp,
+                        SAOConfig.BOB_MIN, SAOConfig.BOB_MAX, OptionSpec.Fmt.MULT1),
+                OptionSpec.toggle("saomenu.config.follow_mouse", SAOConfig::anchorFollowMouse,
+                        () -> SAOConfig.setAnchorFollowMouse(!SAOConfig.anchorFollowMouse())),
+                OptionSpec.toggle("saomenu.config.hide_hotbar", SAOConfig::hideHotbar,
+                        () -> SAOConfig.setHideHotbar(!SAOConfig.hideHotbar())),
+                OptionSpec.toggle("saomenu.config.auto_sprint", SAOConfig::autoSprint,
+                        () -> SAOConfig.setAutoSprint(!SAOConfig.autoSprint())),
+                OptionSpec.toggle("saomenu.config.hide_vanilla_health", SAOConfig::hideVanillaHealth,
+                        () -> SAOConfig.setHideVanillaHealth(!SAOConfig.hideVanillaHealth()))));
+        m.put(Page.COMBAT, List.of(
+                OptionSpec.toggle("saomenu.config.show_hud", SAOConfig::showHud,
+                        () -> SAOConfig.setShowHud(!SAOConfig.showHud())),
+                OptionSpec.toggle("saomenu.config.show_avatar", SAOConfig::showAvatar,
+                        () -> SAOConfig.setShowAvatar(!SAOConfig.showAvatar())),
+                OptionSpec.toggle("saomenu.config.target_bar", SAOConfig::showTargetBar,
+                        () -> SAOConfig.setShowTargetBar(!SAOConfig.showTargetBar())),
+                OptionSpec.toggle("saomenu.config.damage_numbers", SAOConfig::showDamageNumbers,
+                        () -> SAOConfig.setShowDamageNumbers(!SAOConfig.showDamageNumbers())),
+                OptionSpec.toggle("saomenu.config.death_shatter", SAOConfig::deathShatter,
+                        () -> SAOConfig.setDeathShatter(!SAOConfig.deathShatter())),
+                OptionSpec.slider("saomenu.config.shatter_density", SAOConfig::deathShatterDensity,
+                        SAOConfig::setDeathShatterDensity,
+                        SAOConfig.SHATTER_MIN, SAOConfig.SHATTER_MAX, OptionSpec.Fmt.MULT1),
+                OptionSpec.toggle("saomenu.config.boss_banner", SAOConfig::showBossBanner,
+                        () -> SAOConfig.setShowBossBanner(!SAOConfig.showBossBanner()))));
+        m.put(Page.HUD, List.of(
+                OptionSpec.toggle("saomenu.config.show_clock", SAOConfig::showClock,
+                        () -> SAOConfig.setShowClock(!SAOConfig.showClock())),
+                OptionSpec.slider("saomenu.config.clock_scale", SAOConfig::clockScale, SAOConfig::setClockScale,
+                        SAOConfig.CLOCK_SCALE_MIN, SAOConfig.CLOCK_SCALE_MAX, OptionSpec.Fmt.MULT2),
+                OptionSpec.toggle("saomenu.config.clock_24h", SAOConfig::clock24h,
+                        () -> SAOConfig.setClock24h(!SAOConfig.clock24h())),
+                OptionSpec.toggle("saomenu.config.clock_date", SAOConfig::clockDate,
+                        () -> SAOConfig.setClockDate(!SAOConfig.clockDate())),
+                OptionSpec.toggle("saomenu.config.show_welcome", SAOConfig::showWelcome,
+                        () -> SAOConfig.setShowWelcome(!SAOConfig.showWelcome())),
+                OptionSpec.toggle("saomenu.config.sao_toasts", SAOConfig::saoToasts,
+                        () -> SAOConfig.setSaoToasts(!SAOConfig.saoToasts())),
+                OptionSpec.toggle("saomenu.config.sounds", SAOConfig::sounds,
+                        () -> SAOConfig.setSounds(!SAOConfig.sounds())),
+                OptionSpec.slider("saomenu.config.hotbar_scale", SAOConfig::hotbarScale, SAOConfig::setHotbarScale,
+                        SAOConfig.HOTBAR_MIN, SAOConfig.HOTBAR_MAX, OptionSpec.Fmt.MULT2),
+                OptionSpec.toggle("saomenu.config.third_person", SAOConfig::thirdPersonMenu,
+                        () -> SAOConfig.setThirdPersonMenu(!SAOConfig.thirdPersonMenu())),
+                OptionSpec.toggle("saomenu.config.clock_menu_only", SAOConfig::clockOnlyInMenu,
+                        () -> SAOConfig.setClockOnlyInMenu(!SAOConfig.clockOnlyInMenu()))));
+        m.put(Page.THEME, List.of(
+                OptionSpec.slider("saomenu.config.theme", SAOConfig::accentHue, SAOConfig::setAccentHue,
+                        0f, 360f, OptionSpec.Fmt.DEG),
+                OptionSpec.preset("saomenu.config.theme", SAOConfig::accentHue, SAOConfig::setAccentHue)));
+        return m;
+    }
+
+    private static List<OptionSpec> rows(Page p) {
+        return ROWS.getOrDefault(p, List.of());
+    }
+
+    /** 第 i 行;越界返回 null(null 安全的取值交给各访问器兜底)。 */
+    private static OptionSpec spec(Page p, int i) {
+        List<OptionSpec> list = rows(p);
+        return i >= 0 && i < list.size() ? list.get(i) : null;
+    }
+
     private int rowCount(Page p) {
-        return switch (p) {
-            case LAYOUT -> 8;
-            case COMBAT -> 7;
-            case HUD -> 10;
-            case THEME -> 2;
-            default -> 0;
-        };
+        return rows(p).size();
     }
 
     private boolean rowIsSlider(Page p, int i) {
-        return switch (p) {
-            case LAYOUT -> i < 4;
-            case COMBAT -> i == 5;
-            case HUD -> i == 1 || i == 7;
-            case THEME -> i == 0;
-            default -> false;
-        };
+        OptionSpec s = spec(p, i);
+        return s != null && s.isSlider();
     }
 
     private String rowLabel(Page p, int i) {
-        String key = switch (p) {
-            case LAYOUT -> switch (i) {
-                case 0 -> "saomenu.config.anchor_x";
-                case 1 -> "saomenu.config.anchor_y";
-                case 2 -> "saomenu.config.scale";
-                case 3 -> "saomenu.config.bob";
-                case 4 -> "saomenu.config.follow_mouse";
-                case 5 -> "saomenu.config.hide_hotbar";
-                case 6 -> "saomenu.config.auto_sprint";
-                default -> "saomenu.config.hide_vanilla_health";
-            };
-            case COMBAT -> switch (i) {
-                case 0 -> "saomenu.config.show_hud";
-                case 1 -> "saomenu.config.show_avatar";
-                case 2 -> "saomenu.config.target_bar";
-                case 3 -> "saomenu.config.damage_numbers";
-                case 4 -> "saomenu.config.death_shatter";
-                case 5 -> "saomenu.config.shatter_density";
-                default -> "saomenu.config.boss_banner";
-            };
-            case HUD -> switch (i) {
-                case 0 -> "saomenu.config.show_clock";
-                case 1 -> "saomenu.config.clock_scale";
-                case 2 -> "saomenu.config.clock_24h";
-                case 3 -> "saomenu.config.clock_date";
-                case 4 -> "saomenu.config.show_welcome";
-                case 5 -> "saomenu.config.sao_toasts";
-                case 6 -> "saomenu.config.sounds";
-                case 7 -> "saomenu.config.hotbar_scale";
-                case 8 -> "saomenu.config.third_person";
-                default -> "saomenu.config.clock_menu_only";
-            };
-            default -> "saomenu.config.theme";
-        };
-        return tr(key);
+        OptionSpec s = spec(p, i);
+        return tr(s == null ? "" : s.labelKey());
     }
 
     private float sliderGet(Page p, int i) {
-        return switch (p) {
-            case LAYOUT -> switch (i) {
-                case 0 -> SAOConfig.anchorX();
-                case 1 -> SAOConfig.anchorY();
-                case 2 -> SAOConfig.menuScale();
-                default -> SAOConfig.bobAmp();
-            };
-            case COMBAT -> SAOConfig.deathShatterDensity();
-            case HUD -> i == 1 ? SAOConfig.clockScale() : SAOConfig.hotbarScale();
-            default -> SAOConfig.accentHue();
-        };
+        OptionSpec s = spec(p, i);
+        return s == null || s.get() == null ? 0f : s.get().get();
     }
 
     private void sliderSet(Page p, int i, float v) {
-        switch (p) {
-            case LAYOUT -> {
-                switch (i) {
-                    case 0 -> SAOConfig.setAnchorX(v);
-                    case 1 -> SAOConfig.setAnchorY(v);
-                    case 2 -> SAOConfig.setMenuScale(v);
-                    default -> SAOConfig.setBobAmp(v);
-                }
-            }
-            case COMBAT -> SAOConfig.setDeathShatterDensity(v);
-            case HUD -> {
-                if (i == 1) {
-                    SAOConfig.setClockScale(v);
-                } else {
-                    SAOConfig.setHotbarScale(v);
-                }
-            }
-            default -> SAOConfig.setAccentHue(v);
+        OptionSpec s = spec(p, i);
+        if (s != null && s.set() != null) {
+            s.set().set(v);
         }
     }
 
     private float sliderMin(Page p, int i) {
-        if (p == Page.THEME) {
-            return 0f;
-        }
-        if (p == Page.LAYOUT) {
-            return switch (i) {
-                case 0, 1 -> SAOConfig.ANCHOR_MIN;
-                case 2 -> SAOConfig.SCALE_MIN;
-                default -> SAOConfig.BOB_MIN;
-            };
-        }
-        if (p == Page.HUD) {
-            return i == 1 ? SAOConfig.CLOCK_SCALE_MIN : SAOConfig.HOTBAR_MIN;
-        }
-        return p == Page.COMBAT ? SAOConfig.SHATTER_MIN : SAOConfig.CLOCK_SCALE_MIN;
+        OptionSpec s = spec(p, i);
+        return s == null ? 0f : s.min();
     }
 
     private float sliderMax(Page p, int i) {
-        if (p == Page.THEME) {
-            return 360f;
-        }
-        if (p == Page.LAYOUT) {
-            return switch (i) {
-                case 0, 1 -> SAOConfig.ANCHOR_MAX;
-                case 2 -> SAOConfig.SCALE_MAX;
-                default -> SAOConfig.BOB_MAX;
-            };
-        }
-        if (p == Page.HUD) {
-            return i == 1 ? SAOConfig.CLOCK_SCALE_MAX : SAOConfig.HOTBAR_MAX;
-        }
-        return p == Page.COMBAT ? SAOConfig.SHATTER_MAX : SAOConfig.CLOCK_SCALE_MAX;
+        OptionSpec s = spec(p, i);
+        return s == null ? 0f : s.max();
     }
 
     private String sliderText(Page p, int i, float v) {
-        if (p == Page.THEME) {
-            return Math.round(v) + "°";
-        }
-        if (p == Page.LAYOUT && i < 2) {
-            return String.format(Locale.ROOT, "%.0f%%", v * 100f);
-        }
-        if ((p == Page.LAYOUT && i == 2) || p == Page.HUD) {
-            return String.format(Locale.ROOT, "%.2fx", v);
-        }
-        return String.format(Locale.ROOT, "%.1fx", v);
+        OptionSpec s = spec(p, i);
+        return s == null ? "" : s.format(v);
     }
 
     private boolean toggleGet(Page p, int i) {
-        return switch (p) {
-            case LAYOUT -> switch (i) {
-                case 4 -> SAOConfig.anchorFollowMouse();
-                case 6 -> SAOConfig.autoSprint();
-                case 7 -> SAOConfig.hideVanillaHealth();
-                default -> SAOConfig.hideHotbar();
-            };
-            case COMBAT -> switch (i) {
-                case 0 -> SAOConfig.showHud();
-                case 1 -> SAOConfig.showAvatar();
-                case 2 -> SAOConfig.showTargetBar();
-                case 3 -> SAOConfig.showDamageNumbers();
-                case 4 -> SAOConfig.deathShatter();
-                default -> SAOConfig.showBossBanner();
-            };
-            case HUD -> switch (i) {
-                case 0 -> SAOConfig.showClock();
-                case 2 -> SAOConfig.clock24h();
-                case 3 -> SAOConfig.clockDate();
-                case 4 -> SAOConfig.showWelcome();
-                case 5 -> SAOConfig.saoToasts();
-                case 6 -> SAOConfig.sounds();
-                case 8 -> SAOConfig.thirdPersonMenu();
-                default -> SAOConfig.clockOnlyInMenu();
-            };
-            default -> false;
-        };
+        OptionSpec s = spec(p, i);
+        return s != null && s.boolGet() != null && s.boolGet().get();
     }
 
     private void toggleFlip(Page p, int i) {
-        switch (p) {
-            case LAYOUT -> {
-                if (i == 4) {
-                    SAOConfig.setAnchorFollowMouse(!SAOConfig.anchorFollowMouse());
-                } else if (i == 6) {
-                    SAOConfig.setAutoSprint(!SAOConfig.autoSprint());
-                } else if (i == 7) {
-                    SAOConfig.setHideVanillaHealth(!SAOConfig.hideVanillaHealth());
-                } else {
-                    SAOConfig.setHideHotbar(!SAOConfig.hideHotbar());
-                }
-            }
-            case COMBAT -> {
-                switch (i) {
-                    case 0 -> SAOConfig.setShowHud(!SAOConfig.showHud());
-                    case 1 -> SAOConfig.setShowAvatar(!SAOConfig.showAvatar());
-                    case 2 -> SAOConfig.setShowTargetBar(!SAOConfig.showTargetBar());
-                    case 3 -> SAOConfig.setShowDamageNumbers(!SAOConfig.showDamageNumbers());
-                    case 4 -> SAOConfig.setDeathShatter(!SAOConfig.deathShatter());
-                    default -> SAOConfig.setShowBossBanner(!SAOConfig.showBossBanner());
-                }
-            }
-            case HUD -> {
-                switch (i) {
-                    case 0 -> SAOConfig.setShowClock(!SAOConfig.showClock());
-                    case 2 -> SAOConfig.setClock24h(!SAOConfig.clock24h());
-                    case 3 -> SAOConfig.setClockDate(!SAOConfig.clockDate());
-                    case 4 -> SAOConfig.setShowWelcome(!SAOConfig.showWelcome());
-                    case 5 -> SAOConfig.setSaoToasts(!SAOConfig.saoToasts());
-                    case 6 -> SAOConfig.setSounds(!SAOConfig.sounds());
-                    case 8 -> SAOConfig.setThirdPersonMenu(!SAOConfig.thirdPersonMenu());
-                    default -> SAOConfig.setClockOnlyInMenu(!SAOConfig.clockOnlyInMenu());
-                }
-            }
-            default -> {
-            }
+        OptionSpec s = spec(p, i);
+        if (s != null && s.boolFlip() != null) {
+            s.boolFlip().flip();
         }
     }
 
