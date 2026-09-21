@@ -37,6 +37,7 @@ public class SAOMenuForge {
         public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
             if (event.getEntity() instanceof ServerPlayer sp) {
                 SAOTeamManager.clearPending(sp.getUUID());
+                com.sao.saomenu.skill.SaoSkillCooldowns.clearPlayer(sp.getUUID());
                 if (SAOTeamManager.teamOf(sp.getServer(), sp) != null) {
                     SAOTeamManager.handleLeave(sp.getServer(), sp);
                 }

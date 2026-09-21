@@ -139,5 +139,11 @@
   "saomenu.skill.dual_wield.need_two": "インベントリに剣が2本必要",
   "saomenu.inv.pinned": "ピン留め",
   "saomenu.inv.unpinned": "ピン留め解除",
-  "saomenu.inv.empty": "インベントリは空です"
+  "saomenu.inv.empty": "インベントリは空です",
+  "key.saomenu.skill_slot1": "スキル 1",
+  "key.saomenu.skill_slot2": "スキル 2",
+  "key.saomenu.skill_slot3": "スキル 3",
+  "key.saomenu.skill_slot4": "スキル 4",
+  "key.saomenu.skill_slot5": "スキル 5",
+  "key.saomenu.skill_slot6": "スキル 6"
 }

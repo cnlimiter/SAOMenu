@@ -139,5 +139,11 @@
   "saomenu.skill.dual_wield.need_two": "背包里需要两把剑",
   "saomenu.inv.pinned": "已置顶",
   "saomenu.inv.unpinned": "已取消置顶",
-  "saomenu.inv.empty": "背包里什么都没有"
+  "saomenu.inv.empty": "背包里什么都没有",
+  "key.saomenu.skill_slot1": "技能 1",
+  "key.saomenu.skill_slot2": "技能 2",
+  "key.saomenu.skill_slot3": "技能 3",
+  "key.saomenu.skill_slot4": "技能 4",
+  "key.saomenu.skill_slot5": "技能 5",
+  "key.saomenu.skill_slot6": "技能 6"
 }

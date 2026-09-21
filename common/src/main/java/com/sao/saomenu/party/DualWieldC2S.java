@@ -48,6 +48,13 @@ public final class DualWieldC2S extends BaseC2SMessage {
         int o = this.offSlot;
         ctx.queue(() -> {
             if (ctx.getPlayer() instanceof ServerPlayer sp) {
+                // 冷却记账在服务端:客户端预检只是提示,不作为扣冷却的依据
+                com.sao.saomenu.skill.SaoSkill skill =
+                        com.sao.saomenu.skill.SaoSkillRegistry.byId(
+                                com.sao.saomenu.skill.SaoSkills.DUAL_WIELD);
+                if (!com.sao.saomenu.skill.SaoSkillCooldowns.tryUse(sp, skill)) {
+                    return;
+                }
                 SAOItemActions.handleDualWield(sp, m, o);
             }
         });

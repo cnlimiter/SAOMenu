@@ -1,14 +1,15 @@
 package com.sao.saomenu.client.menu;
 
 import com.sao.saomenu.client.SAOConfig;
-import com.sao.saomenu.client.SAODualWield;
 import com.sao.saomenu.client.SAONotification;
 import com.sao.saomenu.client.SAOAdvancementsScreen;
 import com.sao.saomenu.client.SAOSettingsScreen;
 import com.sao.saomenu.client.SAOStatsScreen;
 import com.sao.saomenu.party.InviteC2S;
 import com.sao.saomenu.party.LeaveC2S;
-import com.sao.saomenu.party.DualWieldC2S;
+import com.sao.saomenu.skill.SaoSkill;
+import com.sao.saomenu.skill.SaoSkillRegistry;
+import com.sao.saomenu.skill.SaoSkills;
 import com.sao.saomenu.ui.SaoText;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.OptionsScreen;
@@ -66,29 +67,20 @@ public final class SaoPanels {
     }
 
     /**
-     * 剑技列。
+     * 剑技列:直接由 {@link SaoSkillRegistry} 生成。
      *
-     * <p>目前除二刀流外都还没有系统支撑,点一下给"暂未开放"提示。
-     * 将来把技能注册表接上来之后,这里改为遍历注册的技能即可,菜单屏无需改动。</p>
+     * <p>菜单项不再知道任何具体技能——加一个技能只需注册它,技能列自动出现,
+     * 且与技能快捷键走同一个激活入口,两个入口行为一致。</p>
      */
     private static List<MenuEntry> skillItems() {
-        return List.of(
-                MenuEntry.action("saomenu.skill.dual_wield", "item_weapon", SaoPanels::dualWield),
-                skill("saomenu.skill.horizontal"),
-                skill("saomenu.skill.slant"),
-                skill("saomenu.skill.vertical"),
-                skill("saomenu.skill.linear"),
-                MenuEntry.action("saomenu.skill.sonic_leap", "item_run", SaoPanels::notYet),
-                skill("saomenu.skill.starburst"));
-    }
-
-    private static MenuEntry skill(String labelKey) {
-        return MenuEntry.action(labelKey, "item_weapon", SaoPanels::notYet);
-    }
-
-    private static void notYet(MenuContext ctx) {
-        ctx.host().playClick();
-        SAONotification.push(SaoText.tr("saomenu.coming_soon"), "");
+        List<MenuEntry> out = new ArrayList<>();
+        for (SaoSkill skill : SaoSkillRegistry.skills()) {
+            out.add(MenuEntry.action(skill.nameKey(), skill.icon(), ctx -> {
+                ctx.host().playClick();
+                SaoSkills.activate(ctx.player(), skill);
+            }));
+        }
+        return out;
     }
 
     private static List<MenuEntry> equipItems() {
@@ -237,27 +229,4 @@ public final class SaoPanels {
     }
 
     // ------------------------------------------------------------ 二刀流
-
-    /**
-     * 二刀流:挑两把剑交给服务端,并延后切史诗战斗的战斗模式。
-     *
-     * <p>延后切模式是必须的:Epic Fight 进战斗模式时按"当前主手武器"解析动作集,
-     * 必须等服务端把剑同步回客户端之后再切,否则它按空手解析,
-     * 表现为切了模式但没进入持剑架势。</p>
-     */
-    private static void dualWield(MenuContext ctx) {
-        ctx.host().playClick();
-        LocalPlayer p = ctx.player();
-        int[] slots = p == null ? null : SAODualWield.findTwoSwords(p);
-        if (slots == null) {
-            SAONotification.push(SaoText.tr("saomenu.skill.dual_wield.need_two"), "");
-            return;
-        }
-        new DualWieldC2S(slots[0], slots[1]).sendToServer();
-        SAODualWield.requestBattleMode();
-        SAONotification.push(SaoText.tr("saomenu.skill.dual_wield"),
-                SAODualWield.epicFightPresent()
-                        ? SaoText.tr("saomenu.skill.dual_wield.on")
-                        : SaoText.tr("saomenu.skill.dual_wield.no_ef"));
-    }
 }

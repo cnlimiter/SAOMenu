@@ -139,5 +139,11 @@
   "saomenu.skill.dual_wield.need_two": "Need two swords in inventory",
   "saomenu.inv.pinned": "Pinned",
   "saomenu.inv.unpinned": "Unpinned",
-  "saomenu.inv.empty": "Nothing in inventory"
+  "saomenu.inv.empty": "Nothing in inventory",
+  "key.saomenu.skill_slot1": "Skill 1",
+  "key.saomenu.skill_slot2": "Skill 2",
+  "key.saomenu.skill_slot3": "Skill 3",
+  "key.saomenu.skill_slot4": "Skill 4",
+  "key.saomenu.skill_slot5": "Skill 5",
+  "key.saomenu.skill_slot6": "Skill 6"
 }
