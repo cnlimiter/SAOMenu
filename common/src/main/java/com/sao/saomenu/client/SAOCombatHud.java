@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import static com.sao.saomenu.ui.SaoDraw.mulAlpha;
 
 /**
  * SAO 战斗 HUD:准星目标血条、伤害数字、击杀/获得经验通知、升级金色光环。
@@ -201,11 +202,6 @@ public final class SAOCombatHud {
         return (r == Math.rint(r)) ? String.valueOf((int) r) : String.valueOf(r);
     }
 
-    private static int mulAlpha(int argb, float factor) {
-        int a = (argb >>> 24) & 0xFF;
-        int rgb = argb & 0xFFFFFF;
-        return (Math.round(a * Mth.clamp(factor, 0f, 1f)) << 24) | rgb;
-    }
 
     private record DamageNumber(int entityId, String text, int color, long at, float offset) {
     }

@@ -10,6 +10,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import static com.sao.saomenu.ui.SaoDraw.mulAlpha;
 
 /**
  * 常驻 SAO HUD:左上角血条/等级板(参照 Kirito 血条样式) +
@@ -675,11 +676,6 @@ public final class SAOHud {
                 Mth.clamp(alpha, 0f, 1f));
     }
 
-    private static int mulAlpha(int argb, float factor) {
-        int a = (argb >>> 24) & 0xFF;
-        int rgb = argb & 0xFFFFFF;
-        return (Math.round(a * Mth.clamp(factor, 0f, 1f)) << 24) | rgb;
-    }
 
     /** 贴图路径小工具,避免 SAOHud 与菜单 Screen 重复拼接。 */
     static final class ResourceLocationHelper {

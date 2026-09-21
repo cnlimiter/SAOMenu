@@ -10,6 +10,9 @@ import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
+import static com.sao.saomenu.ui.SaoDraw.mulAlpha;
+import static com.sao.saomenu.ui.SaoMotion.clamp01;
+import static com.sao.saomenu.ui.SaoMotion.easeOutCubic;
 
 /**
  * 进入世界时的 SAO 欢迎动画:顶部 "Welcome to Sword Art Online !" 横幅落下,
@@ -252,17 +255,5 @@ public final class SAOWelcome {
         RenderSystem.setShaderColor(1f, 1f, 1f, Mth.clamp(a, 0f, 1f));
     }
 
-    private static int mulAlpha(int argb, float factor) {
-        int a = (argb >>> 24) & 0xFF;
-        return (Math.round(a * clamp01(factor)) << 24) | (argb & 0xFFFFFF);
-    }
 
-    private static float clamp01(float v) {
-        return v < 0f ? 0f : Math.min(v, 1f);
-    }
-
-    private static float easeOutCubic(float t) {
-        float u = 1f - clamp01(t);
-        return 1f - u * u * u;
-    }
 }

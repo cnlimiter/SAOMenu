@@ -17,6 +17,7 @@ import net.minecraft.world.level.saveddata.maps.MapDecoration;
 import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.MapItem;
+import static com.sao.saomenu.ui.SaoDraw.mulAlpha;
 
 /**
  * SAO 风格悬浮地图面板(参照动画里亚丝娜手持的地图卡):
@@ -483,11 +484,6 @@ public final class SAOMapPanel {
         return s;
     }
 
-    private static int mulAlpha(int argb, float factor) {
-        int a = (argb >>> 24) & 0xFF;
-        int rgb = argb & 0xFFFFFF;
-        return (Math.round(a * Mth.clamp(factor, 0f, 1f)) << 24) | rgb;
-    }
 
     private static void setTint(int argb, float alpha) {
         RenderSystem.setShaderColor(

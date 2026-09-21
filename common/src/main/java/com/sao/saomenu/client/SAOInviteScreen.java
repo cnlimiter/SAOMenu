@@ -11,6 +11,7 @@ import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
+import static com.sao.saomenu.ui.SaoDraw.mulAlpha;
 
 /**
  * SAO 风格组队邀请窗(参照动画 Invite 卡):
@@ -195,9 +196,4 @@ public final class SAOInviteScreen extends Screen {
         }
     }
 
-    private static int mulAlpha(int argb, float factor) {
-        int a = (argb >>> 24) & 0xFF;
-        int rgb = argb & 0xFFFFFF;
-        return (Math.round(a * Mth.clamp(factor, 0f, 1f)) << 24) | rgb;
-    }
 }

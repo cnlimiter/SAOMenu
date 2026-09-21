@@ -10,6 +10,9 @@ import net.minecraft.util.Mth;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import static com.sao.saomenu.ui.SaoDraw.mulAlpha;
+import static com.sao.saomenu.ui.SaoMotion.clamp01;
+import static com.sao.saomenu.ui.SaoMotion.easeOutCubic;
 
 /**
  * SAO 风格通知系统:右上角白底半透明横幅(主题色镶边),滑入停留后淡出。
@@ -139,18 +142,4 @@ public final class SAONotification {
         return net.minecraft.Util.getMillis();
     }
 
-    private static float clamp01(float v) {
-        return v < 0f ? 0f : Math.min(v, 1f);
-    }
-
-    private static float easeOutCubic(float t) {
-        float u = 1f - t;
-        return 1f - u * u * u;
-    }
-
-    private static int mulAlpha(int argb, float factor) {
-        int a = (argb >>> 24) & 0xFF;
-        int rgb = argb & 0xFFFFFF;
-        return (Math.round(a * Mth.clamp(factor, 0f, 1f)) << 24) | rgb;
-    }
 }

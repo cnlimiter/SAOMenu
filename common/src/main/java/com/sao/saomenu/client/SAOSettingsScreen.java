@@ -14,6 +14,10 @@ import org.lwjgl.glfw.GLFW;
 
 import java.nio.file.Path;
 import java.util.Locale;
+import static com.sao.saomenu.ui.SaoMotion.clamp01;
+import static com.sao.saomenu.ui.SaoMotion.easeOutCubic;
+import static com.sao.saomenu.ui.SaoMotion.easeInCubic;
+import static com.sao.saomenu.ui.SaoMotion.easeInOutCubic;
 
 /**
  * 女神异闻录(P5)风格模组设置界面,以「设置背景.mp4」帧动画为背景:
@@ -1028,25 +1032,6 @@ public class SAOSettingsScreen extends Screen {
                 | (Math.round(r * 255f) << 16)
                 | (Math.round(gg * 255f) << 8)
                 | Math.round(b * 255f);
-    }
-
-    private static float clamp01(float v) {
-        return Mth.clamp(v, 0f, 1f);
-    }
-
-    private static float easeOutCubic(float t) {
-        t = clamp01(t);
-        return 1f - (1f - t) * (1f - t) * (1f - t);
-    }
-
-    private static float easeInCubic(float t) {
-        t = clamp01(t);
-        return t * t * t;
-    }
-
-    private static float easeInOutCubic(float t) {
-        t = clamp01(t);
-        return t < 0.5f ? 4f * t * t * t : 1f - (float) Math.pow(-2f * t + 2f, 3) / 2f;
     }
 
     private static float easeOutBack(float t) {

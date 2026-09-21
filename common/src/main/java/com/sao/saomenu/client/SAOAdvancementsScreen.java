@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import static com.sao.saomenu.ui.SaoDraw.mulAlpha;
 
 /**
  * SAO 成就图鉴:好友面板"成就图鉴"项打开。
@@ -256,11 +257,6 @@ public class SAOAdvancementsScreen extends Screen {
         return Component.translatable(key).getString();
     }
 
-    private static int mulAlpha(int argb, float factor) {
-        int a = (argb >>> 24) & 0xFF;
-        int rgb = argb & 0xFFFFFF;
-        return (Math.round(a * Mth.clamp(factor, 0f, 1f)) << 24) | rgb;
-    }
 
     // ------------------------------------------------------------ 交互
 
