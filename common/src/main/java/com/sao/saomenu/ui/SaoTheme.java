@@ -2,6 +2,7 @@ package com.sao.saomenu.ui;
 
 import com.sao.saomenu.client.SAOConfig;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -23,10 +24,14 @@ public record SaoTheme(String id, float defaultHue, ThemeColors colors) {
     /** GGO:枪界红。 */
     public static final String GGO = "ggo";
 
-    private static final List<SaoTheme> PRESETS = List.of(
+    /** 内置预设:永远在,且顺序固定(决定设置页按钮顺序)。 */
+    private static final List<SaoTheme> BUILTIN = List.of(
             new SaoTheme(SAO, 41.44f, ThemeColors.sao()),
             new SaoTheme(ALO, 202f, ThemeColors.sao()),
             new SaoTheme(GGO, 355f, ThemeColors.sao()));
+
+    /** 当前可用预设 = 内置 + {@code config/saomenu/themes/*.json} 载入的。 */
+    private static final List<SaoTheme> PRESETS = new ArrayList<>(BUILTIN);
 
     private static String selectedId = SAO;
 
@@ -40,13 +45,43 @@ public record SaoTheme(String id, float defaultHue, ThemeColors colors) {
         return PRESETS.get(0);
     }
 
-    /** 全部内置预设。 */
+    /** 全部可用预设(内置 + 外部主题文件)。返回不可变副本,避免调用点改到注册表。 */
     public static List<SaoTheme> presets() {
-        return PRESETS;
+        return List.copyOf(PRESETS);
     }
 
-    /** 当前选中的预设 id。 */
+    /**
+     * 注册一个外部主题(来自 {@code config/saomenu/themes/*.json})。
+     *
+     * <p>id 与已有预设相同则<b>替换</b>它(主题包改写内置预设),否则追加到末尾。
+     * 不需要处理"当前选中项被替换":{@link #active()} 每次都按 id 重新查。</p>
+     */
+    public static void register(SaoTheme theme) {
+        for (int i = 0; i < PRESETS.size(); i++) {
+            if (PRESETS.get(i).id.equals(theme.id)) {
+                PRESETS.set(i, theme);
+                return;
+            }
+        }
+        PRESETS.add(theme);
+    }
+
+    /**
+     * 当前选中的预设 id。
+     *
+     * <p>选择只有<b>色相</b>被写进配置(那里没有 themeId 字段),所以重启后按色相反查;
+     * 内存里的选择若与色相一致则直接采信,避免两个主题同色相时高亮跳回靠前那个。</p>
+     */
     public static String selectedId() {
+        int hue = Math.round(SAOConfig.accentHue());
+        if (Math.round(byId(selectedId).defaultHue) == hue) {
+            return selectedId;
+        }
+        for (SaoTheme t : PRESETS) {
+            if (Math.round(t.defaultHue) == hue) {
+                return t.id;
+            }
+        }
         return selectedId;
     }
 
@@ -125,8 +160,10 @@ public record SaoTheme(String id, float defaultHue, ThemeColors colors) {
                 | Math.round((b + m) * 255f);
     }
 
-    /** 测试用:复位到默认预设。 */
+    /** 测试用:复位到默认预设,并丢掉外部主题文件载入的预设。 */
     static void resetForTest() {
         selectedId = SAO;
+        PRESETS.clear();
+        PRESETS.addAll(BUILTIN);
     }
 }

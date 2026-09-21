@@ -57,6 +57,9 @@ public final class SAOKeybinds {
         tickHooked = true;
         // 加载客户端配置(锚点/缩放/浮动/音效/HUD),供布局与渲染读取
         SAOConfig.load(Minecraft.getInstance().gameDirectory.toPath().resolve("config").resolve("saomenu.json"));
+        // 外部主题:config/saomenu/themes/*.json(坏文件只跳过它自己,内置预设不受影响)
+        com.sao.saomenu.ui.SaoThemeLibrary.load(
+                Minecraft.getInstance().gameDirectory.toPath().resolve("config").resolve("saomenu"));
         // 注册内置面板(个人/队伍/好友/设置);顺序即主按钮列顺序
         com.sao.saomenu.client.menu.SaoMenuRegistry.registerBuiltins();
         // 注册内置技能(二刀流 + 六项占位剑技);顺序即技能列顺序

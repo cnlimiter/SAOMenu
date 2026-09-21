@@ -668,21 +668,25 @@ public class SAOSettingsScreen extends Screen {
     }
 
     private void renderPresets(GuiGraphics g, int x0, int x1, int y, int rh, int a) {
-        String[] keys = {"saomenu.theme.sao", "saomenu.theme.alo", "saomenu.theme.ggo"};
-        float[] hues = {41.44f, 202f, 355f};
-        int bw = Math.min(78, (x1 - x0 - 150 - 12) / 3);
+        // 预设表来自 SaoTheme(唯一来源):外部主题文件载入后自动多出按钮
+        var presets = com.sao.saomenu.ui.SaoTheme.presets();
+        int n = Math.max(1, presets.size());
+        int bw = Math.min(78, (x1 - x0 - 150 - 12) / n);
         int bh = Math.max(12, rh - 10);
-        for (int t = 0; t < 3; t++) {
-            int bx = x1 - 10 - (3 - t) * (bw + 6) + 6;
-            boolean sel = Math.round(SAOConfig.accentHue()) == Math.round(hues[t]);
+        String selId = com.sao.saomenu.ui.SaoTheme.selectedId();
+        for (int t = 0; t < presets.size(); t++) {
+            var preset = presets.get(t);
+            int bx = x1 - 10 - (n - t) * (bw + 6) + 6;
+            boolean sel = preset.id().equals(selId);
             fillSlab(g, bx + bw / 2f, y + rh / 2f, bw, bh, -4f,
-                    withAlpha(sel ? RGB_WHITE : hsvToArgb(hues[t]),
+                    withAlpha(sel ? RGB_WHITE : hsvToArgb(preset.defaultHue()),
                             Math.round(a * (sel ? 1f : 0.85f))));
             var pose = g.pose();
             pose.pushPose();
             pose.translate(bx, y, 0);
             pose.mulPose(Axis.ZP.rotationDegrees(-4f));
-            drawScaled(g, tr(keys[t]), 3, (rh - 8) / 2 + 1, 0.85f,
+            drawScaled(g, com.sao.saomenu.ui.SaoThemeLibrary.label(preset.id()),
+                    3, (rh - 8) / 2 + 1, 0.85f,
                     sel ? RGB_DARK_TEXT : RGB_WHITE, false);
             pose.popPose();
         }
@@ -864,12 +868,14 @@ public class SAOSettingsScreen extends Screen {
     }
 
     private void applyPresetClick(int mx) {
-        float[] hues = {41.44f, 202f, 355f};
-        int bw = Math.min(78, (rowX1() - rowX0() - 150 - 12) / 3);
-        for (int t = 0; t < 3; t++) {
-            int bx = rowX1() - 10 - (3 - t) * (bw + 6) + 6;
+        var presets = com.sao.saomenu.ui.SaoTheme.presets();
+        int n = Math.max(1, presets.size());
+        int bw = Math.min(78, (rowX1() - rowX0() - 150 - 12) / n);
+        for (int t = 0; t < presets.size(); t++) {
+            int bx = rowX1() - 10 - (n - t) * (bw + 6) + 6;
             if (mx >= bx - 4 && mx <= bx + bw + 4) {
-                SAOConfig.setAccentHue(hues[t]);
+                // 走主题层的 select:它会一并把该预设的默认色相写进配置
+                com.sao.saomenu.ui.SaoTheme.select(presets.get(t).id());
                 saveNow();
                 return;
             }
