@@ -68,6 +68,12 @@ public class SAOSettingsScreen extends Screen {
     private static final long TR_TOTAL_MS = 480;
     private static final long ENTER_STAGGER_MS = 55;
 
+    // ------------------------------------------------------------ 主题预设色块
+    /** 单块最小宽度:再窄标签就糊成一团,宁可换行。 */
+    private static final int MIN_PRESET_W = 44;
+    /** 单行最大列数(与旧版观感一致的上限)。 */
+    private static final int MAX_PRESET_COLS = 4;
+
     // ------------------------------------------------------------ 双主题:桐人蓝白 / 亚斯娜粉白(RGB,透明度运行时合成)
     private static final int KIRITO_BLUE = 0x4FA8E8;
     private static final int KIRITO_BRIGHT = 0xA8DFFF;
@@ -669,12 +675,35 @@ public class SAOSettingsScreen extends Screen {
                 withAlpha(on ? accent : 0x55565A, a));
     }
 
+    /** 预设色块每行列数:保证单块宽度不低于 {@link #MIN_PRESET_W},最多 {@link #MAX_PRESET_COLS} 列。 */
+    private int presetCols() {
+        int usable = rowX1() - rowX0() - 150 - 12;
+        return Mth.clamp(usable / (MIN_PRESET_W + 6), 1, MAX_PRESET_COLS);
+    }
+
+    private int presetBlockW(int cols) {
+        return Math.min(78, (rowX1() - rowX0() - 150 - 12) / Math.max(1, cols));
+    }
+
+    /**
+     * 第 t 个预设色块的位置与大小 {@code {x, y, 宽, 高}}。
+     *
+     * <p>渲染与点击命中共用同一份几何 —— 主题多到换行时,两处各算一遍必然错位。
+     * 装不下就换行,行向<b>下</b>排(数据行下方是空的),每行仍右对齐,列数不变时观感与旧版一致。</p>
+     */
+    private int[] presetRect(int t, int y, int rh) {
+        int cols = presetCols();
+        int bw = presetBlockW(cols);
+        int bh = Math.max(12, rh - 10);
+        int col = t % cols;
+        int row = t / cols;
+        int x = rowX1() - 10 - (cols - col) * (bw + 6) + 6;
+        return new int[]{x, y + row * (bh + 6), bw, bh};
+    }
+
     private void renderPresets(GuiGraphics g, int x0, int x1, int y, int rh, int a) {
         // 预设表来自 SaoTheme(唯一来源):外部主题文件载入后自动多出按钮
         var presets = com.sao.saomenu.ui.SaoTheme.presets();
-        int n = Math.max(1, presets.size());
-        int bw = Math.min(78, (x1 - x0 - 150 - 12) / n);
-        int bh = Math.max(12, rh - 10);
         // 高亮判定与"调色板身份"是两件事:只有色相恰好等于该预设默认色相才算选中。
         // 用 SaoTheme.selectedId() 会撒谎——用户拖过色相滑条后它仍指向某个预设,
         // 而配色已经完全不是它了。
@@ -682,24 +711,29 @@ public class SAOSettingsScreen extends Screen {
         StringBuilder swatches = new StringBuilder();
         for (int t = 0; t < presets.size(); t++) {
             var preset = presets.get(t);
-            int bx = x1 - 10 - (n - t) * (bw + 6) + 6;
+            int[] r = presetRect(t, y, rh);
+            int bx = r[0];
+            int by = r[1];
+            int bw = r[2];
+            int bh = r[3];
             boolean sel = preset.id().equals(selId);
-            swatches.append(preset.id()).append(sel ? "*" : "").append('@').append(bx).append(' ');
-            fillSlab(g, bx + bw / 2f, y + rh / 2f, bw, bh, -4f,
+            swatches.append(preset.id()).append(sel ? "*" : "")
+                    .append('@').append(bx).append(',').append(by).append(' ');
+            fillSlab(g, bx + bw / 2f, by + bh / 2f, bw, bh, -4f,
                     withAlpha(sel ? RGB_WHITE
                                     : com.sao.saomenu.ui.SaoTheme.hsvToRgb(preset.defaultHue(), 1f, 1f),
                             Math.round(a * (sel ? 1f : 0.85f))));
             var pose = g.pose();
             pose.pushPose();
-            pose.translate(bx, y, 0);
+            pose.translate(bx, by, 0);
             pose.mulPose(Axis.ZP.rotationDegrees(-4f));
             drawScaled(g, com.sao.saomenu.ui.SaoThemeLibrary.label(preset.id()),
                     3, (rh - 8) / 2 + 1, 0.85f,
                     sel ? RGB_DARK_TEXT : RGB_WHITE, false);
             pose.popPose();
         }
-        lastPresetDebug = "hue=" + Math.round(SAOConfig.accentHue()) + " y=" + (y + 5)
-                + " bh=" + bh + " bw=" + bw + " | " + swatches.toString().trim();
+        lastPresetDebug = "hue=" + Math.round(SAOConfig.accentHue()) + " cols=" + presetCols()
+                + " | " + swatches.toString().trim();
     }
 
     private void renderBackButton(GuiGraphics g, float off, int a, int mx, int my) {
@@ -832,15 +866,22 @@ public class SAOSettingsScreen extends Screen {
                 playClick();
                 return true;
             }
+            // 预设行可能换行(色块排到本行矩形之外),所以整行在这里先判,
+            // 不走下面按行矩形分发的逻辑,否则换行出去的那几块点不到。
+            if (this.page == Page.THEME && applyPresetClick(mx, my)) {
+                playClick();
+                return true;
+            }
             for (int i = 0; i < rowCount(this.page); i++) {
+                if (this.page == Page.THEME && i == 1) {
+                    continue; // 预设行已在上方处理
+                }
                 if (!rowHovered(i, mx, my)) {
                     continue;
                 }
                 if (rowIsSlider(this.page, i)) {
                     this.dragRow = i;
                     applySliderAt(i, mx);
-                } else if (this.page == Page.THEME && i == 1) {
-                    applyPresetClick(mx);
                 } else {
                     toggleFlip(this.page, i);
                     saveNow();
@@ -921,19 +962,22 @@ public class SAOSettingsScreen extends Screen {
         this.pageStartMs = net.minecraft.Util.getMillis() - 1000L;
     }
 
-    private void applyPresetClick(int mx) {
+    /** 命中主题预设色块则选中它并返回 true。几何与渲染共用 {@link #presetRect}。 */
+    private boolean applyPresetClick(int mx, int my) {
         var presets = com.sao.saomenu.ui.SaoTheme.presets();
-        int n = Math.max(1, presets.size());
-        int bw = Math.min(78, (rowX1() - rowX0() - 150 - 12) / n);
+        int y = rowY(1);
+        int rh = rowH();
         for (int t = 0; t < presets.size(); t++) {
-            int bx = rowX1() - 10 - (n - t) * (bw + 6) + 6;
-            if (mx >= bx - 4 && mx <= bx + bw + 4) {
-                // 走主题层的 select:它会一并把该预设的默认色相写进配置
+            int[] r = presetRect(t, y, rh);
+            if (mx >= r[0] - 4 && mx <= r[0] + r[2] + 4
+                    && my >= r[1] - 2 && my <= r[1] + r[3] + 2) {
+                // 走主题层的 select:它会把 id 与该预设的默认色相一并写进配置
                 com.sao.saomenu.ui.SaoTheme.select(presets.get(t).id());
                 saveNow();
-                return;
+                return true;
             }
         }
+        return false;
     }
 
     @Override

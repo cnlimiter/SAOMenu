@@ -202,6 +202,49 @@ class SAOConfigTest {
     }
 
     @Test
+    void skillBarAnchorDefaultsAboveHotbarAndPersists() {
+        assertEquals(SAOConfig.DEF_SKILL_BAR_X, SAOConfig.skillBarX(), "默认水平居中");
+        assertEquals(SAOConfig.DEF_SKILL_BAR_Y, SAOConfig.skillBarY(), "默认在圆点物品栏上方");
+        SAOConfig.setSkillBarX(0.2f);
+        SAOConfig.setSkillBarY(0.3f);
+        Path file = tmp.resolve("skillbar.json");
+        SAOConfig.save(file);
+        SAOConfig.reset();
+        assertEquals(SAOConfig.DEF_SKILL_BAR_X, SAOConfig.skillBarX(), "reset 应回到默认位置");
+        SAOConfig.load(file);
+        assertEquals(0.2f, SAOConfig.skillBarX());
+        assertEquals(0.3f, SAOConfig.skillBarY(), "技能浮条锚点应持久化");
+    }
+
+    @Test
+    void skillBarAnchorIsClampedToScreen() {
+        SAOConfig.setSkillBarX(9f);
+        SAOConfig.setSkillBarY(-4f);
+        assertEquals(1f, SAOConfig.skillBarX(), "X 超出范围应钳制");
+        assertEquals(0f, SAOConfig.skillBarY(), "Y 超出范围应钳制");
+    }
+
+    @Test
+    void themeIdPersistsAndDefaultsToSao() {
+        assertEquals(com.sao.saomenu.ui.SaoTheme.SAO, SAOConfig.themeId(), "默认 SAO");
+        SAOConfig.setThemeId("qinglan");
+        Path file = tmp.resolve("theme-id.json");
+        SAOConfig.save(file);
+        SAOConfig.reset();
+        assertEquals(com.sao.saomenu.ui.SaoTheme.SAO, SAOConfig.themeId(), "reset 应回到 SAO");
+        SAOConfig.load(file);
+        assertEquals("qinglan", SAOConfig.themeId(), "主题 id 应持久化");
+    }
+
+    @Test
+    void blankOrNullThemeIdFallsBackToSao() {
+        SAOConfig.setThemeId("   ");
+        assertEquals(com.sao.saomenu.ui.SaoTheme.SAO, SAOConfig.themeId());
+        SAOConfig.setThemeId(null);
+        assertEquals(com.sao.saomenu.ui.SaoTheme.SAO, SAOConfig.themeId());
+    }
+
+    @Test
     void partialJsonFallsBackToDefaultsForMissingFields() throws Exception {
         Path file = tmp.resolve("partial.json");
         java.nio.file.Files.writeString(file,

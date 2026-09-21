@@ -722,6 +722,8 @@ public class SAOMenuScreen extends Screen implements MenuHost {
             SAOHud.renderTeamBars(g, mc(), hudPx, hudPy + SAOHud.plateH(this.width) + 2, this.width, pp);
         }
         SAOClockPanel.render(g, mc(), this.width, this.height, globalAlpha);
+        // 技能浮条:菜单打开期间由本屏接管 HUD 绘制,不在这里补画它就会消失
+        SaoSkillBar.render(g, mc(), this.width, this.height, globalAlpha);
         if (pp != null && pp.getMaxHealth() > 0f) {
             SAOHud.renderLowHpVignette(g, this.width, this.height, pp.getHealth() / pp.getMaxHealth());
         }
@@ -1759,6 +1761,7 @@ public class SAOMenuScreen extends Screen implements MenuHost {
             SAOClockPanel.dragTo(this.width, this.height, (int) mouseX, (int) mouseY);
             SAOHud.dragPlateTo(mc(), this.width, this.height, (int) mouseX, (int) mouseY);
             SAOHud.dragFoodTo(this.width, this.height, (int) mouseX, (int) mouseY);
+            SaoSkillBar.dragTo(this.width, this.height, (int) mouseX, (int) mouseY);
         }
         if (pinDragFrom >= 0) {
             pinDragMx = (int) mouseX;
@@ -1779,6 +1782,7 @@ public class SAOMenuScreen extends Screen implements MenuHost {
         SAOClockPanel.endDragAndSave();
         SAOHud.endPlateDragAndSave();
         SAOHud.endFoodDragAndSave();
+        SaoSkillBar.endDragAndSave();
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
@@ -1814,6 +1818,13 @@ public class SAOMenuScreen extends Screen implements MenuHost {
         // 时钟面板拖动(优先于地图面板,体积更小)
         if (SAOClockPanel.hitCard(this.width, this.height, mx, my)) {
             SAOClockPanel.beginDrag(this.width, this.height, mx, my);
+            return true;
+        }
+
+        // 技能浮条拖动:先于血条板/饥饿条判定 —— 默认位置在底部居中,
+        // 与饥饿条同处下方,浮条优先才拖得动
+        if (SAOConfig.showHud() && SaoSkillBar.hitSkillBar(this.width, this.height, mx, my)) {
+            SaoSkillBar.beginDrag(this.width, this.height, mx, my);
             return true;
         }
 

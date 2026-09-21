@@ -663,6 +663,35 @@ public final class SAOMenuPreview {
                     GLFW.GLFW_KEY_F5, 0, GLFW.GLFW_PRESS, 0);
             client.keyboardHandler.keyPress(client.getWindow().getWindow(),
                     GLFW.GLFW_KEY_F5, 0, GLFW.GLFW_RELEASE, 0);
+        } else if (menuTicks == 184) {
+            // 技能浮条拖动自检:走真实拖动 API(按下 → 移动 → 松手落盘),不直接改配置。
+            // 必须排在 194 之前 —— 194 会 client.stop()。
+            int w = client.getWindow().getGuiScaledWidth();
+            int h = client.getWindow().getGuiScaledHeight();
+            int count = SaoSkillBar.slotCount();
+            int bw = SaoSkillBar.barWidth(h, count);
+            SAOMenu.LOGGER.info("[SAOMenu] preview skillbar default x={} y={} w={} h={} slots={}",
+                    SaoSkillBar.barX(w, bw), SaoSkillBar.barY(h, SaoSkillBar.slotSize(h)),
+                    bw, SaoSkillBar.slotSize(h), count);
+            int sx = SaoSkillBar.barX(w, bw) + bw / 2;
+            int sy = SaoSkillBar.barY(h, SaoSkillBar.slotSize(h)) + SaoSkillBar.slotSize(h) / 2;
+            SaoSkillBar.beginDrag(w, h, sx, sy);
+            SaoSkillBar.dragTo(w, h, Math.round(w * 0.18f), Math.round(h * 0.78f));
+            SaoSkillBar.endDragAndSave();
+        } else if (menuTicks == 186) {
+            int w = client.getWindow().getGuiScaledWidth();
+            int h = client.getWindow().getGuiScaledHeight();
+            int count = SaoSkillBar.slotCount();
+            int bw = SaoSkillBar.barWidth(h, count);
+            SAOMenu.LOGGER.info("[SAOMenu] preview skillbar moved x={} y={} cfgX={} cfgY={}",
+                    SaoSkillBar.barX(w, bw), SaoSkillBar.barY(h, SaoSkillBar.slotSize(h)),
+                    SAOConfig.skillBarX(), SAOConfig.skillBarY());
+            grab(client, out, "hud_skillbar.png");
+        } else if (menuTicks == 188) {
+            // 复位并落盘:别把拖动结果留给下一次运行的位置基线
+            SAOConfig.setSkillBarX(SAOConfig.DEF_SKILL_BAR_X);
+            SAOConfig.setSkillBarY(SAOConfig.DEF_SKILL_BAR_Y);
+            SAOConfig.save(SAOConfig.path());
         } else if (menuTicks == 192) {
             SAOMenu.LOGGER.info("[SAOMenu] preview world_menu cam={}",
                     client.options.getCameraType());

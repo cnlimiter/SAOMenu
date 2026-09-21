@@ -33,6 +33,7 @@ class SaoThemeLibraryTest {
     void setUp() throws IOException {
         SaoTheme.resetForTest();
         SaoThemeLibrary.resetForTest();
+        com.sao.saomenu.client.SAOConfig.setThemeId(SaoTheme.SAO);
         themesDir = configDir.resolve(SaoThemeLibrary.DIR_NAME);
         Files.createDirectories(themesDir);
     }
@@ -173,6 +174,47 @@ class SaoThemeLibraryTest {
         SaoThemeLibrary.load(configDir);
         // 没有 name、也没有对应翻译键时,展示名回落到 id 本身(而不是裸露的翻译键)
         assertEquals("bare", SaoThemeLibrary.label("bare"));
+    }
+
+    @Test
+    void customPaletteSurvivesHueDragThenRestart() throws IOException {
+        write("p.json", "{\"id\":\"p\",\"defaultHue\":150,\"colors\":{\"divider\":\"#7FA8B0\"}}");
+        SaoThemeLibrary.load(configDir);
+        SaoTheme.select("p");
+
+        // 用户接着把色相拖到恰好等于另一个预设(ALO 202°)的位置
+        com.sao.saomenu.client.SAOConfig.setAccentHue(202f);
+        // 模拟重启:主题层内存状态清零,配置保留
+        SaoTheme.resetForTest();
+        SaoThemeLibrary.load(configDir);
+
+        assertEquals(0xFF7FA8B0, SaoTheme.active().colors().divider(),
+                "重启后自定义调色板不得丢失 —— 这正是只按色相反查做不到的那一步");
+        assertEquals("p", SaoTheme.selectedId());
+    }
+
+    @Test
+    void unknownThemeIdFallsBackToHueLookup() throws IOException {
+        write("p.json", "{\"id\":\"p\",\"defaultHue\":150,\"colors\":{\"divider\":\"#7FA8B0\"}}");
+        SaoThemeLibrary.load(configDir);
+
+        // 模拟旧配置(没有 themeId)或主题文件已被删除:配置里指向一个不存在的主题
+        com.sao.saomenu.client.SAOConfig.setThemeId("gone");
+        com.sao.saomenu.client.SAOConfig.setAccentHue(150f);
+        SaoTheme.resetForTest();
+        SaoThemeLibrary.load(configDir);
+
+        assertEquals("p", SaoTheme.selectedId(), "themeId 无效时应按色相反查兜底");
+        assertEquals(0xFF7FA8B0, SaoTheme.active().colors().divider());
+    }
+
+    @Test
+    void selectPersistsThemeId() throws IOException {
+        write("p.json", "{\"id\":\"p\",\"defaultHue\":150}");
+        SaoThemeLibrary.load(configDir);
+        SaoTheme.select("p");
+        assertEquals("p", com.sao.saomenu.client.SAOConfig.themeId(),
+                "选择主题必须把 id 写进配置,否则拖过色相后无法恢复");
     }
 
     @Test

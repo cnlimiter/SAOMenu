@@ -45,6 +45,9 @@ public final class SaoThemeLibrary {
     /** id → 展示名:只有外部文件会登记,内置预设走 {@code saomenu.theme.<id>} 翻译键。 */
     private static final Map<String, String> LABELS = new LinkedHashMap<>();
 
+    /** id → 语言键:外部文件写 {@code nameKey} 时登记,优先于字面 {@code name}。 */
+    private static final Map<String, String> LABEL_KEYS = new LinkedHashMap<>();
+
     private SaoThemeLibrary() {
     }
 
@@ -159,18 +162,33 @@ public final class SaoThemeLibrary {
         }
 
         SaoTheme.register(new SaoTheme(id, hue, base));
+        // nameKey 优先:主题包可以只给语言键,由资源包做本地化
+        String labelKey = str(obj, "nameKey");
         String label = str(obj, "name");
-        if (label != null && !label.isBlank()) {
+        if (labelKey != null && !labelKey.isBlank()) {
+            LABEL_KEYS.put(id, labelKey);
+            LABELS.remove(id);
+        } else if (label != null && !label.isBlank()) {
             LABELS.put(id, label);
+            LABEL_KEYS.remove(id);
         }
         return true;
     }
 
-    /** 主题的展示名:外部文件自带 name > 翻译键 > id 本身。 */
+    /** 主题的展示名:外部文件的 nameKey(已翻译)> 外部文件的 name > 翻译键 > id 本身。 */
     public static String label(String id) {
-        String custom = LABELS.get(id);
-        if (custom != null) {
-            return custom;
+        String literal = LABELS.get(id);
+        if (literal != null) {
+            return literal;
+        }
+        String customKey = LABEL_KEYS.get(id);
+        if (customKey != null) {
+            String translated = SaoText.resolveLabel(customKey);
+            if (translated != null && !translated.equals(customKey)) {
+                return translated;
+            }
+            // 语言键没解析到(缺资源包):退回 id,而不是把裸键名显示在界面上
+            return id;
         }
         String key = "saomenu.theme." + id;
         String resolved = SaoText.resolveLabel(key);
@@ -180,6 +198,7 @@ public final class SaoThemeLibrary {
     /** 测试用:清掉外部主题留下的展示名登记。 */
     static void resetForTest() {
         LABELS.clear();
+        LABEL_KEYS.clear();
     }
 
     private static String str(JsonObject o, String key) {

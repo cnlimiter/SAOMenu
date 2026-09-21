@@ -57,6 +57,15 @@ public final class SAOConfig {
     public static final float DEF_FOOD_PANEL_X = 0.5f;
     public static final float DEF_FOOD_PANEL_Y = 1f;
 
+    /**
+     * 技能浮条锚点默认值:X 居中、Y 落在底部圆点物品栏正上方。
+     *
+     * <p>0.94 是原硬编码位置的等效比例(圆点圆心在 97.2%H、直径 2.8%H,
+     * 浮条底边与圆点顶边留 8px),换成分数后各分辨率下位置一致。</p>
+     */
+    public static final float DEF_SKILL_BAR_X = 0.5f;
+    public static final float DEF_SKILL_BAR_Y = 0.94f;
+
     /** 地图面板默认锚点(屏幕比例;参照动画里地图卡浮在人物左前方)。 */
     public static final float DEF_MAP_PANEL_X = 0.10f;
     public static final float DEF_MAP_PANEL_Y = 0.28f;
@@ -114,6 +123,16 @@ public final class SAOConfig {
     private static boolean hideVanillaHealth = DEF_HIDE_VANILLA_HEALTH;
     private static float foodPanelX = DEF_FOOD_PANEL_X;
     private static float foodPanelY = DEF_FOOD_PANEL_Y;
+    /** 技能浮条锚点(屏幕比例)。 */
+    private static float skillBarX = DEF_SKILL_BAR_X;
+    private static float skillBarY = DEF_SKILL_BAR_Y;
+    /**
+     * 当前选中的主题 id。
+     *
+     * <p>比色相更权威:色相只决定主题色,拖过色相滑条后已经无法反推是哪个主题,
+     * 于是 JSON 主题的自定义调色板会在重启后丢失。这里把它记下来。</p>
+     */
+    private static String themeId = com.sao.saomenu.ui.SaoTheme.SAO;
     /** 置顶物品(注册名),按加入顺序排在物品列最前。 */
     private static final java.util.List<String> pinnedItems = new java.util.ArrayList<>();
     /** 手动拖动排出的顺序(注册名);与置顶无关,不带角标。 */
@@ -421,6 +440,32 @@ public final class SAOConfig {
         foodPanelY = clamp(v, 0f, 1f);
     }
 
+    /** 技能浮条锚点(屏幕比例;X/Y 都是 0-1 的比例,不是像素)。 */
+    public static float skillBarX() {
+        return skillBarX;
+    }
+
+    public static float skillBarY() {
+        return skillBarY;
+    }
+
+    public static void setSkillBarX(float v) {
+        skillBarX = clamp(v, 0f, 1f);
+    }
+
+    public static void setSkillBarY(float v) {
+        skillBarY = clamp(v, 0f, 1f);
+    }
+
+    /** 当前选中的主题 id(未知 id 由主题层回落,这里只负责存取)。 */
+    public static String themeId() {
+        return themeId;
+    }
+
+    public static void setThemeId(String v) {
+        themeId = v == null || v.isBlank() ? com.sao.saomenu.ui.SaoTheme.SAO : v;
+    }
+
     /** 置顶物品注册名列表(只读快照)。 */
     public static java.util.List<String> pinnedItems() {
         return java.util.List.copyOf(pinnedItems);
@@ -544,6 +589,9 @@ public final class SAOConfig {
         hideVanillaHealth = DEF_HIDE_VANILLA_HEALTH;
         foodPanelX = DEF_FOOD_PANEL_X;
         foodPanelY = DEF_FOOD_PANEL_Y;
+        skillBarX = DEF_SKILL_BAR_X;
+        skillBarY = DEF_SKILL_BAR_Y;
+        themeId = com.sao.saomenu.ui.SaoTheme.SAO;
         pinnedItems.clear();
         itemOrder.clear();
     }
@@ -606,6 +654,12 @@ public final class SAOConfig {
             hideVanillaHealth = d.hideVanillaHealth;
             setFoodPanelX(d.foodPanelX);
             setFoodPanelY(d.foodPanelY);
+            setSkillBarX(d.skillBarX);
+            setSkillBarY(d.skillBarY);
+            // 旧配置文件没有 themeId:留空即回落 SAO,由主题层按色相反查兜底
+            if (d.themeId != null && !d.themeId.isBlank()) {
+                themeId = d.themeId;
+            }
             pinnedItems.clear();
             if (d.pinnedItems != null) {
                 for (String id : d.pinnedItems) {
@@ -625,7 +679,7 @@ public final class SAOConfig {
         if (file == null) {
             return;
         }
-        Data d = new Data(anchorX, anchorY, menuScale, bobAmp, sounds, hideHotbar, showHud, showAvatar, anchorFollowMouse, showTargetBar, showDamageNumbers, saoToasts, showClock, clock24h, clockDate, showWelcome, deathShatter, deathShatterDensity, accentHue, mapPanelX, mapPanelY, mapPinned, clockPanelX, clockPanelY, clockScale, hasOpenedSettings, hotbarScale, thirdPersonMenu, showBossBanner, platePanelX, platePanelY, clockOnlyInMenu, autoSprint, hideVanillaHealth, foodPanelX, foodPanelY, new java.util.ArrayList<>(pinnedItems), new java.util.ArrayList<>(itemOrder));
+        Data d = new Data(anchorX, anchorY, menuScale, bobAmp, sounds, hideHotbar, showHud, showAvatar, anchorFollowMouse, showTargetBar, showDamageNumbers, saoToasts, showClock, clock24h, clockDate, showWelcome, deathShatter, deathShatterDensity, accentHue, mapPanelX, mapPanelY, mapPinned, clockPanelX, clockPanelY, clockScale, hasOpenedSettings, hotbarScale, thirdPersonMenu, showBossBanner, platePanelX, platePanelY, clockOnlyInMenu, autoSprint, hideVanillaHealth, foodPanelX, foodPanelY, new java.util.ArrayList<>(pinnedItems), new java.util.ArrayList<>(itemOrder), skillBarX, skillBarY, themeId);
         try {
             Path parent = file.getParent();
             if (parent != null) {
@@ -678,15 +732,18 @@ public final class SAOConfig {
         boolean hideVanillaHealth;
         float foodPanelX;
         float foodPanelY;
+        float skillBarX;
+        float skillBarY;
+        String themeId;
         java.util.List<String> pinnedItems;
         java.util.List<String> itemOrder;
         boolean hasOpenedSettings;
 
         Data() {
-            this(DEF_ANCHOR_X, DEF_ANCHOR_Y, DEF_MENU_SCALE, DEF_BOB_AMP, true, true, true, true, false, true, true, true, true, true, false, true, true, DEF_SHATTER_DENSITY, DEF_ACCENT_HUE, DEF_MAP_PANEL_X, DEF_MAP_PANEL_Y, false, DEF_CLOCK_PANEL_X, DEF_CLOCK_PANEL_Y, DEF_CLOCK_SCALE, false, DEF_HOTBAR_SCALE, DEF_THIRD_PERSON, DEF_BOSS_BANNER, DEF_PLATE_PANEL_X, DEF_PLATE_PANEL_Y, DEF_CLOCK_MENU_ONLY, DEF_AUTO_SPRINT, DEF_HIDE_VANILLA_HEALTH, DEF_FOOD_PANEL_X, DEF_FOOD_PANEL_Y, new java.util.ArrayList<>(), new java.util.ArrayList<>());
+            this(DEF_ANCHOR_X, DEF_ANCHOR_Y, DEF_MENU_SCALE, DEF_BOB_AMP, true, true, true, true, false, true, true, true, true, true, false, true, true, DEF_SHATTER_DENSITY, DEF_ACCENT_HUE, DEF_MAP_PANEL_X, DEF_MAP_PANEL_Y, false, DEF_CLOCK_PANEL_X, DEF_CLOCK_PANEL_Y, DEF_CLOCK_SCALE, false, DEF_HOTBAR_SCALE, DEF_THIRD_PERSON, DEF_BOSS_BANNER, DEF_PLATE_PANEL_X, DEF_PLATE_PANEL_Y, DEF_CLOCK_MENU_ONLY, DEF_AUTO_SPRINT, DEF_HIDE_VANILLA_HEALTH, DEF_FOOD_PANEL_X, DEF_FOOD_PANEL_Y, new java.util.ArrayList<>(), new java.util.ArrayList<>(), DEF_SKILL_BAR_X, DEF_SKILL_BAR_Y, com.sao.saomenu.ui.SaoTheme.SAO);
         }
 
-        Data(float ax, float ay, float ms, float bob, boolean s, boolean hh, boolean sh, boolean av, boolean fm, boolean tb, boolean dn, boolean st, boolean sc, boolean c24, boolean cd, boolean sw, boolean ds, float dsd, float hue, float mx, float my, boolean mp, float cx, float cy, float cs, boolean hos, float hbs, boolean tpm, boolean bb, float ppx, float ppy, boolean cim, boolean asp, boolean hvh, float fpx, float fpy, java.util.List<String> pin, java.util.List<String> ord) {
+        Data(float ax, float ay, float ms, float bob, boolean s, boolean hh, boolean sh, boolean av, boolean fm, boolean tb, boolean dn, boolean st, boolean sc, boolean c24, boolean cd, boolean sw, boolean ds, float dsd, float hue, float mx, float my, boolean mp, float cx, float cy, float cs, boolean hos, float hbs, boolean tpm, boolean bb, float ppx, float ppy, boolean cim, boolean asp, boolean hvh, float fpx, float fpy, java.util.List<String> pin, java.util.List<String> ord, float sbx, float sby, String tid) {
             anchorX = ax;
             anchorY = ay;
             menuScale = ms;
@@ -725,6 +782,9 @@ public final class SAOConfig {
             foodPanelY = fpy;
             pinnedItems = pin;
             itemOrder = ord;
+            skillBarX = sbx;
+            skillBarY = sby;
+            themeId = tid;
         }
     }
 }

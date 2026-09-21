@@ -35,14 +35,23 @@ public record SaoTheme(String id, float defaultHue, ThemeColors colors) {
 
     private static String selectedId = SAO;
 
-    /** 按 id 取预设;未知 id 回落到 SAO(配置文件被手改坏了也不至于崩)。 */
-    public static SaoTheme byId(String id) {
+    /** 按 id 取预设;不存在返回 null(与 {@link #byId} 不同,这里不做回落)。 */
+    private static SaoTheme findById(String id) {
+        if (id == null) {
+            return null;
+        }
         for (SaoTheme t : PRESETS) {
             if (t.id.equals(id)) {
                 return t;
             }
         }
-        return PRESETS.get(0);
+        return null;
+    }
+
+    /** 按 id 取预设;未知 id 回落到 SAO(配置文件被手改坏了也不至于崩)。 */
+    public static SaoTheme byId(String id) {
+        SaoTheme found = findById(id);
+        return found != null ? found : PRESETS.get(0);
     }
 
     /** 全部可用预设(内置 + 外部主题文件)。返回不可变副本,避免调用点改到注册表。 */
@@ -80,6 +89,14 @@ public record SaoTheme(String id, float defaultHue, ThemeColors colors) {
             return;
         }
         resolvedFromConfig = true;
+        // 首选配置里的 themeId:它不受色相滑条影响,所以"选中 JSON 主题 → 拖色相 → 重启"
+        // 也能保住自定义调色板(按色相反查做不到这一点)。
+        String stored = SAOConfig.themeId();
+        if (findById(stored) != null) {
+            selectedId = stored;
+            return;
+        }
+        // 兜底:旧配置没有 themeId,或该主题文件已被删除 —— 按色相反查
         int hue = Math.round(SAOConfig.accentHue());
         for (SaoTheme t : PRESETS) {
             if (Math.round(t.defaultHue) == hue) {
@@ -116,11 +133,12 @@ public record SaoTheme(String id, float defaultHue, ThemeColors colors) {
         return selectedId;
     }
 
-    /** 选择预设;同时把该预设的默认色相写入配置。 */
+    /** 选择预设;把 id 与默认色相一并写入配置。 */
     public static void select(String id) {
         SaoTheme t = byId(id);
         selectedId = t.id;
         resolvedFromConfig = true; // 显式选择优先于冷启动反查
+        SAOConfig.setThemeId(t.id);
         SAOConfig.setAccentHue(t.defaultHue);
     }
 
