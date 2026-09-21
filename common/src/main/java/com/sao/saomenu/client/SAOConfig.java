@@ -177,9 +177,9 @@ public final class SAOConfig {
         return showDamageNumbers;
     }
 
-    /** 当前主题色 ARGB(由色相实时换算)。 */
+    /** 当前主题色 ARGB(由色相实时换算;公式见 {@link com.sao.saomenu.ui.SaoTheme})。 */
     public static int accent() {
-        return hsvToRgb(accentHue, 0.987f, 0.937f);
+        return com.sao.saomenu.ui.SaoTheme.accentFromHue(accentHue);
     }
 
     /** 地图面板锚点 X(屏幕比例 0-1,拖动后持久化)。 */
@@ -281,28 +281,7 @@ public final class SAOConfig {
         hasOpenedSettings = true;
     }
 
-    /** HSV(H,1,1)→ARGB,颜色分量随色相旋转。 */
-    private static int hsvToRgb(float hue, float s, float v) {
-        float c = v * s;
-        float hp = (hue % 360f) / 60f;
-        float x = c * (1f - Math.abs(hp % 2f - 1f));
-        float r = 0f;
-        float g = 0f;
-        float b = 0f;
-        switch ((int) hp) {
-            case 0 -> { r = c; g = x; }
-            case 1 -> { r = x; g = c; }
-            case 2 -> { g = c; b = x; }
-            case 3 -> { g = x; b = c; }
-            case 4 -> { r = x; b = c; }
-            default -> { r = c; b = x; }
-        }
-        float m = v - c;
-        return 0xFF000000
-                | (Math.round((r + m) * 255f) << 16)
-                | (Math.round((g + m) * 255f) << 8)
-                | Math.round((b + m) * 255f);
-    }
+    // 主题色换算见 com.sao.saomenu.ui.SaoTheme(唯一一处 HSV 实现)。
 
     // ------------------------------------------------------------ 修改(带钳制;由界面负责 save)
 

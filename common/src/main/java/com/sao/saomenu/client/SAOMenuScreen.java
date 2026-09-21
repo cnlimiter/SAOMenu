@@ -2,6 +2,9 @@ package com.sao.saomenu.client;
 
 import com.sao.saomenu.SAOMenu;
 import com.sao.saomenu.SAOMenuPlatform;
+import com.sao.saomenu.ui.SaoDraw;
+import com.sao.saomenu.ui.SaoTheme;
+import com.sao.saomenu.ui.ThemeColors;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.KeyMapping;
@@ -26,6 +29,21 @@ import net.minecraft.world.item.ItemStack;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.sao.saomenu.ui.SaoDraw.mulAlpha;
+import static com.sao.saomenu.ui.SaoDraw.shaderAlpha;
+import static com.sao.saomenu.ui.SaoMotion.BOB_PERIOD_MS;
+import static com.sao.saomenu.ui.SaoMotion.CLOSE_MS;
+import static com.sao.saomenu.ui.SaoMotion.ITEM_MS;
+import static com.sao.saomenu.ui.SaoMotion.ITEM_STAGGER_MS;
+import static com.sao.saomenu.ui.SaoMotion.OPEN_MS;
+import static com.sao.saomenu.ui.SaoMotion.PANEL_MS;
+import static com.sao.saomenu.ui.SaoMotion.PRESS_MS;
+import static com.sao.saomenu.ui.SaoMotion.UNFOLD_MS;
+import static com.sao.saomenu.ui.SaoMotion.UNFOLD_STAGGER_MS;
+import static com.sao.saomenu.ui.SaoMotion.clamp01;
+import static com.sao.saomenu.ui.SaoMotion.easeOutBack;
+import static com.sao.saomenu.ui.SaoMotion.easeOutCubic;
+
 /**
  * SAO Utils 风格圆形菜单主界面。
  *
@@ -36,11 +54,8 @@ import java.util.List;
  */
 public class SAOMenuScreen extends Screen {
 
-    // ---------------------------------------------------------------- 配色(参考截图实测)
-    private static final int CARD_LINE = 0xFFA09FA0;      // 名字下划线
-    private static final int SHADOW = 0x3A303030;         // box-shadow 3px 3px 2px #888
-    private static final int TEXT_DARK = 0xFF3C3C3D;
-    private static final int TEXT_ON_ORANGE = 0xFFF9F9F9;
+    // 配色改由主题提供:SaoTheme.colors()。accent 随用户色相实时派生,
+    // 其余 token 是主题预设固定值(见 ui/ThemeColors)。
 
     private static final ResourceLocation TEX_BTN = tex("btn_circle.png");
     private static final ResourceLocation TEX_BTN_NORMAL = tex("btn_normal.png");
@@ -71,17 +86,7 @@ public class SAOMenuScreen extends Screen {
         return new ResourceLocation(SAOMenu.MOD_ID, "textures/gui/" + name);
     }
 
-    /**
-     * 开混合后贴 GUI 贴图。
-     *
-     * <p>{@code GuiGraphics.fill()} 收尾会把混合关掉,而 {@code blit()} 不管理混合状态;
-     * 「fill 阴影 → blit 面板」这种顺序会让贴图边缘的低 alpha 像素(柔和阴影)
-     * 以实心纯黑画出,表现为面板四周一圈黑框(与 SAOWelcome 面板同款问题)。</p>
-     */
-    private static void blitBlended(GuiGraphics g, ResourceLocation tex, int x, int y, int w, int h) {
-        RenderSystem.enableBlend();
-        g.blit(tex, x, y, 0, 0, w, h, w, h);
-    }
+    // 图元与缓动改由 ui/SaoDraw 与 ui/SaoMotion 提供(见文件头静态导入)。
 
     // ---------------------------------------------------------------- 菜单模型
 
@@ -183,13 +188,8 @@ public class SAOMenuScreen extends Screen {
     };
 
     // ---------------------------------------------------------------- 动画状态
+    // 时长常量见 ui/SaoMotion(静态导入)。
 
-    private static final long OPEN_MS = 260;
-    private static final long PANEL_MS = 200;
-    private static final long ITEM_STAGGER_MS = 45;
-    private static final long ITEM_MS = 180;
-    private static final long CLOSE_MS = 170;
-    private static final long BOB_PERIOD_MS = 2800;
 
     private long openedAt;
     /** 开启动画只在新实例首次 init 时计时(resize 触发的 init 不重置)。 */
@@ -446,7 +446,7 @@ public class SAOMenuScreen extends Screen {
                 g.pose().pushPose();
                 g.pose().translate(0, 0, 400f);
                 // 插入位置示意:目标行上缘一条主题色横线
-                g.fill(at.x(), at.y() - 1, at.x() + at.w(), at.y() + 1, SAOConfig.accent());
+                g.fill(at.x(), at.y() - 1, at.x() + at.w(), at.y() + 1, theme().accent());
                 g.pose().popPose();
             }
         }
@@ -687,7 +687,7 @@ public class SAOMenuScreen extends Screen {
     }
 
     // 按压态:点击瞬间高亮对应图元(模拟视频里手指点触反馈),120ms 后回弹
-    private static final long PRESS_MS = 120;
+
     private long mainPressAt = Long.MIN_VALUE;
     private int mainPressIndex = -1;
     private long itemPressAt = Long.MIN_VALUE;
@@ -923,24 +923,24 @@ public class SAOMenuScreen extends Screen {
         // 物品图标延迟合批先刷掉;垫近实心底防菜单内容透出(同信息弹窗)
         g.flush();
         RenderSystem.disableDepthTest();
-        g.fill(at.x() + 3, at.y() + 3, at.x() + at.w() + 3, at.y() + at.h() + 3, mulAlpha(0x6E303030, alpha));
+        g.fill(at.x() + 3, at.y() + 3, at.x() + at.w() + 3, at.y() + at.h() + 3, mulAlpha(theme().dialogShadow(), alpha));
         int insX = Math.max(2, Math.round(at.w() * 0.02f));
         int insTop = Math.max(2, Math.round(at.h() * 0.045f));
         int insBot = Math.max(2, Math.round(at.h() * 0.02f));
         g.fill(at.x() + insX, at.y() + insTop, at.x() + at.w() - insX, at.y() + at.h() - insBot,
-                mulAlpha(0xE6FFFFFF, alpha));
+                mulAlpha(theme().dialogSurface(), alpha));
         shaderAlpha(alpha);
-        blitBlended(g, TEX_ALERT, at.x(), at.y(), at.w(), at.h());
+        SaoDraw.blendedBlit(g, TEX_ALERT, at.x(), at.y(), at.w(), at.h());
         shaderAlpha(1f);
 
         Font f = this.font;
         String title = tr("saomenu.logout.title");
         g.drawString(f, title, at.centerX() - f.width(title) / 2, at.y() + 10,
-                mulAlpha(TEXT_DARK, alpha), false);
+                mulAlpha(theme().textOnSurface(), alpha), false);
         String msg = tr("saomenu.logout.msg");
         g.drawString(f, msg, at.centerX() - f.width(msg) / 2,
                 at.y() + Math.round(at.h() * 0.44f),
-                mulAlpha(TEXT_DARK, alpha), false);
+                mulAlpha(theme().textOnSurface(), alpha), false);
 
         // 官方圆钮:蓝◎确认 / 粉✕取消(悬停换亮版贴图)
         int d = 26;
@@ -1017,14 +1017,14 @@ public class SAOMenuScreen extends Screen {
         // 底下垫一层近实心白,菜单内容才不会透出弹窗
         g.flush();
         RenderSystem.disableDepthTest();
-        g.fill(at.x() + 3, at.y() + 3, at.x() + at.w() + 3, at.y() + at.h() + 3, mulAlpha(0x6E303030, alpha));
+        g.fill(at.x() + 3, at.y() + 3, at.x() + at.w() + 3, at.y() + at.h() + 3, mulAlpha(theme().dialogShadow(), alpha));
         int insX = Math.max(2, Math.round(at.w() * 0.02f));
         int insTop = Math.max(2, Math.round(at.h() * 0.045f));
         int insBot = Math.max(2, Math.round(at.h() * 0.02f));
         g.fill(at.x() + insX, at.y() + insTop, at.x() + at.w() - insX, at.y() + at.h() - insBot,
-                mulAlpha(0xE6FFFFFF, alpha));
+                mulAlpha(theme().dialogSurface(), alpha));
         shaderAlpha(alpha);
-        blitBlended(g, TEX_ALERT, at.x(), at.y(), at.w(), at.h());
+        SaoDraw.blendedBlit(g, TEX_ALERT, at.x(), at.y(), at.w(), at.h());
         shaderAlpha(1f);
 
         Font f = this.font;
@@ -1039,7 +1039,7 @@ public class SAOMenuScreen extends Screen {
         int maxLines = 7;
         for (int i = 0; i < Math.min(lines.size(), maxLines); i++) {
             g.drawString(f, lines.get(i), at.centerX() - f.width(lines.get(i)) / 2,
-                    ly + i * 11, mulAlpha(TEXT_DARK, alpha), false);
+                    ly + i * 11, mulAlpha(theme().textOnSurface(), alpha), false);
         }
 
         // 单个确认圆钮:底部中央,点击任意处只关闭弹窗(菜单保持打开)
@@ -1331,25 +1331,15 @@ public class SAOMenuScreen extends Screen {
         return out;
     }
 
-    private void shaderAlpha(float a) {
-        RenderSystem.setShaderColor(1f, 1f, 1f, Mth.clamp(a, 0f, 1f));
-    }
-
-    /** 按主题色 ARGB 染色(把白色贴图染成主题色)。 */
-    private static void setTint(int argb, float alpha) {
-        RenderSystem.setShaderColor(
-                ((argb >> 16) & 0xFF) / 255f,
-                ((argb >> 8) & 0xFF) / 255f,
-                (argb & 0xFF) / 255f,
-                Mth.clamp(alpha, 0f, 1f));
+    /** 当前主题调色板(每次取用都反映最新色相)。 */
+    private static ThemeColors theme() {
+        return SaoTheme.palette();
     }
 
     // ---------------------------------------------------------------- 主按钮
 
-    /** 主按钮堆叠展开:单按钮时长(ms)。 */
-    private static final long UNFOLD_MS = 240;
-    /** 相邻按钮的展开错峰间隔(ms)。 */
-    private static final long UNFOLD_STAGGER_MS = 45;
+    // 主按钮堆叠展开的时长与错峰见 ui/SaoMotion。
+
 
     private void renderMainButtons(GuiGraphics g, float globalAlpha) {
         // 堆叠向下展开(参照 SAO-World):打开时所有按钮叠在首按钮位,
@@ -1416,7 +1406,7 @@ public class SAOMenuScreen extends Screen {
         int split = Math.max(Math.round(at.h() * 0.40f), at.h() - (statLines * 10 + 6));
         // SAO Utils 官方玩家卡面板贴图(上半白、下半浅灰属性区)
         shaderAlpha(alpha);
-        blitBlended(g, TEX_PANEL, at.x(), at.y(), at.w(), at.h());
+        SaoDraw.blendedBlit(g, TEX_PANEL, at.x(), at.y(), at.w(), at.h());
         shaderAlpha(1f);
 
         // 名字 + 下划线(头部区尽量紧凑,把空间让给剪影)
@@ -1424,20 +1414,20 @@ public class SAOMenuScreen extends Screen {
         String name = playerName();
         int nameY = at.y() + 3;
         g.drawString(f, name, at.centerX() - f.width(name) / 2, nameY,
-                mulAlpha(TEXT_DARK, alpha), false);
+                mulAlpha(theme().textOnSurface(), alpha), false);
         int lineY = nameY + 10;
-        g.fill(at.x() + at.w() / 10, lineY, at.x() + at.w() - at.w() / 10, lineY + 1, mulAlpha(CARD_LINE, alpha));
+        g.fill(at.x() + at.w() / 10, lineY, at.x() + at.w() - at.w() / 10, lineY + 1, mulAlpha(theme().divider(), alpha));
 
         // 手持物品图标(卡片左上角,SAO 槽位样式)
         if (hasHeld) {
             int isz = 14;
             int ix = at.x() + 8;
             int iy = at.y() + 5;
-            g.fill(ix, iy, ix + isz, iy + isz, mulAlpha(0x52F9F9F9, alpha));
-            g.fill(ix, iy, ix + isz, iy + 1, mulAlpha(SAOConfig.accent(), alpha));
-            g.fill(ix, iy + isz - 1, ix + isz, iy + isz, mulAlpha(SAOConfig.accent(), alpha));
-            g.fill(ix, iy, ix + 1, iy + isz, mulAlpha(SAOConfig.accent(), alpha));
-            g.fill(ix + isz - 1, iy, ix + isz, iy + isz, mulAlpha(SAOConfig.accent(), alpha));
+            g.fill(ix, iy, ix + isz, iy + isz, mulAlpha(theme().surfaceSlot(), alpha));
+            g.fill(ix, iy, ix + isz, iy + 1, mulAlpha(theme().accent(), alpha));
+            g.fill(ix, iy + isz - 1, ix + isz, iy + isz, mulAlpha(theme().accent(), alpha));
+            g.fill(ix, iy, ix + 1, iy + isz, mulAlpha(theme().accent(), alpha));
+            g.fill(ix + isz - 1, iy, ix + isz, iy + isz, mulAlpha(theme().accent(), alpha));
             g.pose().pushPose();
             g.pose().translate(ix + isz / 2f, iy + isz / 2f, 120f);
             g.pose().scale(isz / 16f, isz / 16f, 1f);
@@ -1497,7 +1487,7 @@ public class SAOMenuScreen extends Screen {
             stats.add(tr("saomenu.stat.resistance", trim((float) p.getAttributeValue(Attributes.ARMOR))));
             for (int i = 0; i < stats.size(); i++) {
                 g.drawString(f, stats.get(i), at.x() + 8, statsTop + 4 + i * lineStep,
-                        mulAlpha(TEXT_DARK, alpha), false);
+                        mulAlpha(theme().textOnSurface(), alpha), false);
             }
         }
 
@@ -1552,21 +1542,21 @@ public class SAOMenuScreen extends Screen {
         MenuLayout.Rect at = new MenuLayout.Rect(rect.x() + slide, rect.y(), rect.w(), rect.h());
 
         shaderAlpha(alpha);
-        blitBlended(g, TEX_PANEL, at.x(), at.y(), at.w(), at.h());
+        SaoDraw.blendedBlit(g, TEX_PANEL, at.x(), at.y(), at.w(), at.h());
         shaderAlpha(1f);
 
         Font f = this.font;
         g.drawString(f, title, at.centerX() - f.width(title) / 2,
-                at.y() + 5, mulAlpha(TEXT_DARK, alpha), false);
+                at.y() + 5, mulAlpha(theme().textOnSurface(), alpha), false);
         int lineY;
         if (subtitle != null && !subtitle.isEmpty()) {
             g.drawString(f, subtitle, at.centerX() - f.width(subtitle) / 2,
-                    at.y() + 17, mulAlpha(TEXT_DARK, alpha), false);
+                    at.y() + 17, mulAlpha(theme().textOnSurface(), alpha), false);
             lineY = at.y() + 30;
         } else {
             lineY = at.y() + 18;
         }
-        g.fill(at.x() + at.w() / 10, lineY, at.x() + at.w() - at.w() / 10, lineY + 1, mulAlpha(CARD_LINE, alpha));
+        g.fill(at.x() + at.w() / 10, lineY, at.x() + at.w() - at.w() / 10, lineY + 1, mulAlpha(theme().divider(), alpha));
 
         // 行数按卡片实际高度自适应,超出部分折叠为 "+N 更多"
         int maxRows = Mth.clamp((at.h() - 56) / 12, 1, 8);
@@ -1579,15 +1569,15 @@ public class SAOMenuScreen extends Screen {
         int rowY = lineY + 6;
         for (int i = 0; i < rows.size(); i++) {
             g.drawString(f, rows.get(i), at.x() + 12, rowY + i * 12,
-                    mulAlpha(TEXT_DARK, alpha), false);
+                    mulAlpha(theme().textOnSurface(), alpha), false);
         }
         if (rows.isEmpty() && (subtitle == null || subtitle.isEmpty())) {
             g.drawString(f, tr("saomenu.panel.no_players"), at.x() + 12, rowY,
-                    mulAlpha(TEXT_DARK, alpha), false);
+                    mulAlpha(theme().textOnSurface(), alpha), false);
         }
 
         g.drawString(f, footer, at.x() + at.w() - 12 - f.width(footer),
-                at.y() + at.h() - 13, mulAlpha(TEXT_DARK, alpha), false);
+                at.y() + at.h() - 13, mulAlpha(theme().textOnSurface(), alpha), false);
         renderArrowRight(g, at, anchorY, alpha);
     }
 
@@ -1687,7 +1677,7 @@ public class SAOMenuScreen extends Screen {
                     if (hv) {
                         String lbl = tr(ACT_KEYS[b]);
                         g.drawString(this.font, lbl, full.centerX() - this.font.width(lbl) / 2,
-                                full.y() - 11, mulAlpha(0xFFFFFFFF, globalAlpha), true);
+                                full.y() - 11, mulAlpha(theme().highlight(), globalAlpha), true);
                     }
                 }
             }
@@ -1730,11 +1720,11 @@ public class SAOMenuScreen extends Screen {
 
     /** 单个装备条目:SAO Utils 条目贴图 + 物品图标(3D)+ 名称;空条目为灰色占位。 */
     private void renderEquipItem(GuiGraphics g, MenuLayout.Rect at, EquipEntry e, boolean hovered, float alpha) {
-        fillRounded(g, at.x() + 2, at.y() + 2, at.w(), at.h(),
-                Math.max(2, Math.round(at.h() * 0.12f)), mulAlpha(SHADOW, alpha));
+        SaoDraw.roundedRect(g, at.x() + 2, at.y() + 2, at.w(), at.h(),
+                Math.max(2, Math.round(at.h() * 0.12f)), mulAlpha(theme().shadow(), alpha));
         if (hovered) {
-            setTint(SAOConfig.accent(), alpha);
-            blitBlended(g, TEX_LIST_HOVER, at.x(), at.y(), at.w(), at.h());
+            SaoDraw.tint(theme().accent(), alpha);
+            SaoDraw.blendedBlit(g, TEX_LIST_HOVER, at.x(), at.y(), at.w(), at.h());
         } else {
             RenderSystem.enableBlend();
             shaderAlpha(alpha * 0.92f);
@@ -1758,8 +1748,8 @@ public class SAOMenuScreen extends Screen {
         int textX = iconX + iconSize + Math.round(at.h() * 0.18f);
         int maxW = at.x() + at.w() - textX - 6;
         int textY = at.y() + (at.h() - f.lineHeight) / 2;
-        int color = e.empty() ? mulAlpha(0xFF9A9DA0, alpha)
-                : hovered ? mulAlpha(TEXT_ON_ORANGE, alpha) : mulAlpha(TEXT_DARK, alpha);
+        int color = e.empty() ? mulAlpha(theme().textMuted(), alpha)
+                : hovered ? mulAlpha(theme().textOnAccent(), alpha) : mulAlpha(theme().textOnSurface(), alpha);
         drawScrollingLabel(g, f, label, textX, textY, maxW, color, hovered);
     }
 
@@ -1795,12 +1785,12 @@ public class SAOMenuScreen extends Screen {
     private void renderMenuItem(GuiGraphics g, MenuLayout.Rect at, String labelKey, String icon,
                                 boolean hovered, boolean child, float alpha, boolean pressed, ItemStack stack) {
         int r = Math.max(2, Math.round(at.h() * 0.12f));
-        fillRounded(g, at.x() + 2, at.y() + 2, at.w(), at.h(), r, mulAlpha(SHADOW, alpha));
+        SaoDraw.roundedRect(g, at.x() + 2, at.y() + 2, at.w(), at.h(), r, mulAlpha(theme().shadow(), alpha));
         if (pressed) {
-            blitBlended(g, TEX_LIST_PRESS, at.x(), at.y(), at.w(), at.h());
+            SaoDraw.blendedBlit(g, TEX_LIST_PRESS, at.x(), at.y(), at.w(), at.h());
         } else if (hovered) {
-            setTint(SAOConfig.accent(), alpha);
-            blitBlended(g, TEX_LIST_HOVER, at.x(), at.y(), at.w(), at.h());
+            SaoDraw.tint(theme().accent(), alpha);
+            SaoDraw.blendedBlit(g, TEX_LIST_HOVER, at.x(), at.y(), at.w(), at.h());
         } else {
             RenderSystem.enableBlend();
             shaderAlpha(alpha * 0.9f);
@@ -1839,12 +1829,12 @@ public class SAOMenuScreen extends Screen {
             for (int row = 0; row < t; row++) {
                 int wRow = t - row;
                 g.fill(at.x() + 1, at.y() + 1 + row, at.x() + 1 + wRow, at.y() + 2 + row,
-                        mulAlpha(SAOConfig.accent(), alpha));
+                        mulAlpha(theme().accent(), alpha));
             }
             // 斜边高光,深色条目上也看得清
             for (int row = 0; row < t; row++) {
                 int xr = at.x() + (t - row);
-                g.fill(xr, at.y() + 1 + row, xr + 1, at.y() + 2 + row, mulAlpha(0xFFFFFFFF, alpha));
+                g.fill(xr, at.y() + 1 + row, xr + 1, at.y() + 2 + row, mulAlpha(theme().highlight(), alpha));
             }
             g.pose().popPose();
         }
@@ -1855,7 +1845,7 @@ public class SAOMenuScreen extends Screen {
         int textX = at.x() + Math.round(at.h() * 0.18f) + iconSize + Math.round(at.h() * 0.22f);
         int textY = at.y() + (at.h() - f.lineHeight) / 2;
         int maxW = at.x() + at.w() - textX - Math.round(at.h() * 0.16f);
-        int color = hovered ? mulAlpha(TEXT_ON_ORANGE, alpha) : mulAlpha(TEXT_DARK, alpha);
+        int color = hovered ? mulAlpha(theme().textOnAccent(), alpha) : mulAlpha(theme().textOnSurface(), alpha);
         drawScrollingLabel(g, f, label, textX, textY, maxW, color, hovered);
     }
 
@@ -1890,11 +1880,7 @@ public class SAOMenuScreen extends Screen {
         }
     }
 
-    /** 圆角矩形填充:两条直条相交,四角各留 r×r 缺口(背景透出即圆角)。 */
-    private static void fillRounded(GuiGraphics g, int x, int y, int w, int h, int r, int color) {
-        g.fill(x + r, y, x + w - r, y + h, color);
-        g.fill(x, y + r, x + w, y + h - r, color);
-    }
+    /** 圆角矩形填充:见 {@link SaoDraw#roundedRect}。 */
 
     // ---------------------------------------------------------------- 输入
 
@@ -2443,27 +2429,7 @@ public class SAOMenuScreen extends Screen {
         return (r == Math.rint(r)) ? String.valueOf((int) r) : String.valueOf(r);
     }
 
-    private static float clamp01(float v) {
-        return v < 0f ? 0f : Math.min(v, 1f);
-    }
 
-    private static float easeOutCubic(float t) {
-        float u = 1f - t;
-        return 1f - u * u * u;
-    }
-
-    private static float easeOutBack(float t) {
-        float u = t - 1f;
-        return 1f + 2.70158f * u * u * u + 1.70158f * u * u;
-    }
-
-    /** 把基础色(含 alpha)整体乘一个透明度系数。 */
-    private static int mulAlpha(int argb, float factor) {
-        int a = (argb >>> 24) & 0xFF;
-        int rgb = argb & 0xFFFFFF;
-        int na = Math.round(a * Mth.clamp(factor, 0f, 1f));
-        return (na << 24) | rgb;
-    }
 
     private void playLauncher() {
         if (!SAOConfig.sounds()) {
