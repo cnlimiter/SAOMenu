@@ -194,6 +194,8 @@ public final class SAOHud {
         detectEvents(p);
         SAONotification.render(g, w, h, net.minecraft.Util.getMillis());
         SAOClockPanel.render(g, mc, w, h, 1f);
+        // 技能浮条:注册表里有技能才画,位置贴在底部圆点物品栏上方
+        SaoSkillBar.render(g, mc, w, h, 1f);
         renderLowHpVignette(g, w, h, p.getMaxHealth() <= 0f ? 0f : p.getHealth() / p.getMaxHealth());
     }
 

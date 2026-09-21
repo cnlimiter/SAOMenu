@@ -594,6 +594,15 @@ public final class SAOMenuPreview {
         } else if (menuTicks == 158 && childClicked) {
             SAOMenu.LOGGER.info("[SAOMenu] preview stats screen={}",
                     client.screen == null ? "null" : client.screen.getClass().getSimpleName());
+            // 点击命中不稳定,直接构造一次属性面板,把真实行内容打出来(否则这条自检只证明"点空了")
+            if (client.player != null) {
+                SAOStatsScreen probe = new SAOStatsScreen(null, client.player);
+                probe.init(client, client.getWindow().getGuiScaledWidth(),
+                        client.getWindow().getGuiScaledHeight());
+                java.util.List<String> labels = probe.debugRowLabels();
+                SAOMenu.LOGGER.info("[SAOMenu] preview stats rows={} {}", labels.size(),
+                        String.join(" | ", labels));
+            }
             grab(client, out, "stats.png");
         } else if (menuTicks == 160 && childClicked) {
             // 关闭属性面板,回到菜单

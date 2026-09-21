@@ -27,6 +27,9 @@ public final class SAOKeybinds {
 
     private static boolean tickHooked = false;
 
+    /** 上一 tick 是否有客户端玩家:用于在世界切换时一次性清掉纯客户端的显示状态。 */
+    private static boolean hadPlayer = false;
+
     /** 技能快捷键:槽位 i 对应注册表里第 i 个技能(未绑定按键 = 不触发)。 */
     public static final KeyMapping[] SKILL_KEYS = new KeyMapping[6];
 
@@ -61,6 +64,16 @@ public final class SAOKeybinds {
         ClientTickEvent.CLIENT_POST.register(client -> {
             // 进入世界检测:无世界→有世界时播放 SAO 欢迎动画
             SAOWelcome.clientTick(client);
+            // 退出世界:清空技能冷却显示(计时基准是本地毫秒,不跨世界保留)。
+            // 只在"有→无"那一次执行,不在无世界期间逐 tick 重复清空。
+            if (client.player == null) {
+                if (hadPlayer) {
+                    hadPlayer = false;
+                    com.sao.saomenu.skill.SaoSkillClientState.reset();
+                }
+            } else {
+                hadPlayer = true;
+            }
             // Alt 自由观察逐 tick 轮询(进入/退出/锁定状态机)
             SAOFreeLook.tick(client);
             // 生物死亡检测:死亡当帧爆散蓝色碎片

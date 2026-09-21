@@ -24,7 +24,15 @@ public class SAOStatsScreen extends Screen {
     private static final int TEXT_GRAY = 0xFF9A9B9D;
 
     private static final int ROW_H = 14;
-    private static final Attribute[] ATTRIBUTES = {
+
+    /**
+     * 已知属性的展示顺序。
+     *
+     * <p>属性表<b>不再写死</b>:遍历玩家身上真实存在的属性,模组新增的属性因此自动出现。
+     * 但这个列表里的属性优先按原顺序排,其余按注册名追加在后面 —— 既保证同一玩家每次
+     * 打开的顺序稳定,又不改变原版属性的既有排列。</p>
+     */
+    private static final List<Attribute> PREFERRED = List.of(
             Attributes.MAX_HEALTH,
             Attributes.ARMOR,
             Attributes.ARMOR_TOUGHNESS,
@@ -33,8 +41,8 @@ public class SAOStatsScreen extends Screen {
             Attributes.ATTACK_KNOCKBACK,
             Attributes.KNOCKBACK_RESISTANCE,
             Attributes.MOVEMENT_SPEED,
-            Attributes.LUCK,
-    };
+            Attributes.LUCK
+    );
 
     private final Screen lastScreen;
     private final Player player;
@@ -54,11 +62,21 @@ public class SAOStatsScreen extends Screen {
     @Override
     protected void init() {
         rows.clear();
-        for (Attribute a : ATTRIBUTES) {
-            // 平台未注册的属性跳过(Fabric 1.20.1 无 attack_knockback,Forge 有)
-            if (player.getAttribute(a) == null) {
-                continue;
+        // 玩家实际拥有哪些属性由同步过来的属性表决定:平台或模组没注册的自然不在其中
+        // (Fabric 1.20.1 没有 attack_knockback,它会自动缺席,不需要逐个判空)
+        List<Attribute> present = new ArrayList<>();
+        for (Attribute a : net.minecraft.core.registries.BuiltInRegistries.ATTRIBUTE) {
+            if (player.getAttribute(a) != null) {
+                present.add(a);
             }
+        }
+        present.sort(java.util.Comparator
+                .comparingInt((Attribute a) -> {
+                    int i = PREFERRED.indexOf(a);
+                    return i < 0 ? Integer.MAX_VALUE : i;
+                })
+                .thenComparing(Attribute::getDescriptionId));
+        for (Attribute a : present) {
             String name = Component.translatable(a.getDescriptionId()).getString();
             String value = trim(player.getAttributeValue(a));
             rows.add(new String[]{name, value});
@@ -66,6 +84,15 @@ public class SAOStatsScreen extends Screen {
     }
 
     // ------------------------------------------------------------ 布局
+
+    /** 仅供预览自检:当前属性行"名=值",按渲染顺序。 */
+    public List<String> debugRowLabels() {
+        List<String> out = new ArrayList<>();
+        for (String[] r : rows) {
+            out.add(r[0] + "=" + r[1]);
+        }
+        return out;
+    }
 
     private int panelW() {
         return Math.min(320, this.width - 20);

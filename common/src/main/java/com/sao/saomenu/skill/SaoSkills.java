@@ -70,6 +70,8 @@ public final class SaoSkills {
             return;
         }
         skill.request().send(player);
+        // 浮条乐观计时:服务端仍会独立校验,这里只是为了让冷却条立刻转起来
+        SaoSkillClientState.markUsed(skill);
     }
 
     /**
