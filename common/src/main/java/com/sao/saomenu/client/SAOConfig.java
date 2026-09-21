@@ -704,7 +704,7 @@ public final class SAOConfig {
         boolean hasOpenedSettings;
 
         Data() {
-            this(DEF_ANCHOR_X, DEF_ANCHOR_Y, DEF_MENU_SCALE, DEF_BOB_AMP, true, true, true, true, true, true, true, true, true, true, false, true, true, DEF_SHATTER_DENSITY, DEF_ACCENT_HUE, DEF_MAP_PANEL_X, DEF_MAP_PANEL_Y, false, DEF_CLOCK_PANEL_X, DEF_CLOCK_PANEL_Y, DEF_CLOCK_SCALE, false, DEF_HOTBAR_SCALE, DEF_THIRD_PERSON, DEF_BOSS_BANNER, DEF_PLATE_PANEL_X, DEF_PLATE_PANEL_Y, DEF_CLOCK_MENU_ONLY, DEF_AUTO_SPRINT, DEF_HIDE_VANILLA_HEALTH, DEF_FOOD_PANEL_X, DEF_FOOD_PANEL_Y, new java.util.ArrayList<>(), new java.util.ArrayList<>());
+            this(DEF_ANCHOR_X, DEF_ANCHOR_Y, DEF_MENU_SCALE, DEF_BOB_AMP, true, true, true, true, false, true, true, true, true, true, false, true, true, DEF_SHATTER_DENSITY, DEF_ACCENT_HUE, DEF_MAP_PANEL_X, DEF_MAP_PANEL_Y, false, DEF_CLOCK_PANEL_X, DEF_CLOCK_PANEL_Y, DEF_CLOCK_SCALE, false, DEF_HOTBAR_SCALE, DEF_THIRD_PERSON, DEF_BOSS_BANNER, DEF_PLATE_PANEL_X, DEF_PLATE_PANEL_Y, DEF_CLOCK_MENU_ONLY, DEF_AUTO_SPRINT, DEF_HIDE_VANILLA_HEALTH, DEF_FOOD_PANEL_X, DEF_FOOD_PANEL_Y, new java.util.ArrayList<>(), new java.util.ArrayList<>());
         }
 
         Data(float ax, float ay, float ms, float bob, boolean s, boolean hh, boolean sh, boolean av, boolean fm, boolean tb, boolean dn, boolean st, boolean sc, boolean c24, boolean cd, boolean sw, boolean ds, float dsd, float hue, float mx, float my, boolean mp, float cx, float cy, float cs, boolean hos, float hbs, boolean tpm, boolean bb, float ppx, float ppy, boolean cim, boolean asp, boolean hvh, float fpx, float fpy, java.util.List<String> pin, java.util.List<String> ord) {

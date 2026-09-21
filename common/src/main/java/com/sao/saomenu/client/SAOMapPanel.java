@@ -309,8 +309,8 @@ public final class SAOMapPanel {
         int gx = pc[0];
         int gy = pc[1];
         int ia = Math.round(255 * Mth.clamp(alpha, 0f, 1f)) << 24;
-        g.fill(gx, gy - d / 4, gx + 1, gy + d / 4, 0xFFFFFFFF & ia | ia);
-        g.fill(gx - 1, gy - d / 3, gx + 2, gy - d / 4 + 1, 0xFFFFFFFF & ia | ia);
+        g.fill(gx, gy - d / 4, gx + 1, gy + d / 4, 0xFFFFFF | ia);
+        g.fill(gx - 1, gy - d / 3, gx + 2, gy - d / 4 + 1, 0xFFFFFF | ia);
     }
 
     /**

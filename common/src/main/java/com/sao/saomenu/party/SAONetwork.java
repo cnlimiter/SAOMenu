@@ -8,8 +8,9 @@ import net.minecraft.server.level.ServerPlayer;
 /**
  * SAO 组队网络层:4 条消息构成邀请握手与队伍同步。
  *
- * <p>组队模型直接用 MC 原生 scoreboard team(服务端权威,原版 /team 命令
- * 创建的队伍同样可被识别),模组只补上「SAO 式邀请确认」流程:</p>
+ * <p>组队模型直接用 MC 原生 scoreboard team(服务端权威),但只认模组自己建的
+ * {@code saomenu_<队长UUID>} 队伍——原版 /team 建的队伍不参与组队逻辑
+ * (客户端队伍面板仍会照常显示它们)。模组只补上「SAO 式邀请确认」流程:</p>
  * <ol>
  *   <li>C2S {@code INVITE}:发起者把被邀请人名字发给服务端,服务端建队/
  *       校验后向被邀请人发 S2C {@code INVITE_REQUEST}(客户端弹 SAO 邀请窗)</li>

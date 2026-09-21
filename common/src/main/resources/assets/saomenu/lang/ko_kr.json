@@ -138,5 +138,6 @@
   "saomenu.skill.dual_wield.no_ef": "쌍검 장착(Epic Fight 없음)",
   "saomenu.skill.dual_wield.need_two": "인벤토리에 검 2개 필요",
   "saomenu.inv.pinned": "고정됨",
-  "saomenu.inv.unpinned": "고정 해제"
+  "saomenu.inv.unpinned": "고정 해제",
+  "saomenu.inv.empty": "인벤토리가 비어 있음"
 }

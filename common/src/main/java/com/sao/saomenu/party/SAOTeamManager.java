@@ -6,6 +6,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.scores.PlayerTeam;
+import net.minecraft.world.scores.Scoreboard;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -93,7 +94,7 @@ public final class SAOTeamManager {
             target.sendSystemMessage(Component.translatable("saomenu.party.msg.full", MAX_PARTY_SIZE));
             return;
         }
-        team.getPlayers().add(target.getGameProfile().getName());
+        server.getScoreboard().addPlayerToTeam(target.getGameProfile().getName(), team);
         syncTeam(server, team);
         // SAO 接受音效(双方)
         playAccept(server, target);
@@ -102,14 +103,14 @@ public final class SAOTeamManager {
         }
     }
 
-    /** 离开当前队伍;若为队长且队内还有他人,队长位转移给字典序第一的成员。 */
+    /** 离开当前队伍;队长位不做转移,队伍随最后一人离开而解散。 */
     public static void handleLeave(MinecraftServer server, ServerPlayer leaver) {
         PlayerTeam team = teamOf(server, leaver);
         if (team == null || !team.getName().startsWith(PREFIX)) {
             leaver.sendSystemMessage(Component.translatable("saomenu.party.msg.no_party"));
             return;
         }
-        team.getPlayers().remove(leaver.getGameProfile().getName());
+        server.getScoreboard().removePlayerFromTeam(leaver.getGameProfile().getName(), team);
         if (team.getPlayers().isEmpty()) {
             server.getScoreboard().removePlayerTeam(team);
         } else {
@@ -143,11 +144,41 @@ public final class SAOTeamManager {
 
     private static final String PREFIX = "saomenu_";
 
-    /** 玩家所在的模组队伍;不在任何队伍返回 null(原版自建队伍不算)。 */
+    /**
+     * 玩家所在的模组队伍;不在任何队伍返回 null(原版自建队伍不算)。
+     *
+     * <p>成员关系必须同时写在两处:{@code PlayerTeam.players} 是成员表,
+     * {@code Scoreboard} 内部的 {@code teamsByPlayer} 索引才供 {@code getPlayersTeam}
+     * 查询,而该索引只由 {@link net.minecraft.world.scores.Scoreboard#addPlayerToTeam} 维护。
+     * 因此这里按索引查不到时会再按成员表反查一次,命中就地补登记——
+     * 既修好旧存档里「只写成员表」留下的不一致,也不影响正常路径的开销。</p>
+     */
     public static PlayerTeam teamOf(MinecraftServer server, ServerPlayer p) {
-        PlayerTeam team = server.getScoreboard().getPlayersTeam(p.getGameProfile().getName());
+        return teamOf(server.getScoreboard(), p.getGameProfile().getName());
+    }
+
+    /**
+     * 解析玩家所在的模组队伍;不在任何队伍返回 null(原版自建队伍不算)。
+     *
+     * <p>成员关系必须同时写在两处:{@code PlayerTeam.players} 是成员表,
+     * {@code Scoreboard} 内部的 {@code teamsByPlayer} 索引才供 {@code getPlayersTeam}
+     * 查询,而该索引只由 {@link net.minecraft.world.scores.Scoreboard#addPlayerToTeam} 维护。
+     * 因此索引查不到时会再按成员表反查一次,命中就地补登记——
+     * 既修好旧存档里「只写成员表」留下的不一致,也不影响正常路径的开销。</p>
+     *
+     * <p>只收 {@code Scoreboard} 而非 {@code MinecraftServer}:核心逻辑不依赖服务端,
+     * 可直接单测。</p>
+     */
+    static PlayerTeam teamOf(Scoreboard scoreboard, String playerName) {
+        PlayerTeam team = scoreboard.getPlayersTeam(playerName);
         if (team != null && team.getName().startsWith(PREFIX)) {
             return team;
+        }
+        for (PlayerTeam candidate : scoreboard.getPlayerTeams()) {
+            if (candidate.getName().startsWith(PREFIX) && candidate.getPlayers().contains(playerName)) {
+                scoreboard.addPlayerToTeam(playerName, candidate);
+                return candidate;
+            }
         }
         return null;
     }
@@ -159,7 +190,7 @@ public final class SAOTeamManager {
             String name = PREFIX + captain.getUUID();
             team = server.getScoreboard().addPlayerTeam(name);
             team.setDisplayName(Component.literal(captain.getGameProfile().getName()));
-            team.getPlayers().add(captain.getGameProfile().getName());
+            server.getScoreboard().addPlayerToTeam(captain.getGameProfile().getName(), team);
         }
         return team;
     }

@@ -258,6 +258,11 @@ public class SAOMenuScreen extends Screen {
                 this.width, this.height, baseAnchorX, baseAnchorY);
     }
 
+    /** 个人面板一级项数量(预览自检复用,避免与 {@link #PROFILE_ITEMS} 长度脱钩)。 */
+    static int profileItemCount() {
+        return PROFILE_ITEMS.length;
+    }
+
     /** 第 index 个主按钮圆心 Y(基于打开时锚点)。 */
     private int buttonY(int index) {
         return MenuLayout.buttonCenterYAt(this.height, baseAnchorY, index);
@@ -377,8 +382,9 @@ public class SAOMenuScreen extends Screen {
         int childAnchor = MenuLayout.menuItemRectAt(this.width, this.height, items.length,
                 baseAnchorX, anchorY, shown).centerY();
         // 菜单组有浮动/缩放变换:命中必须先逆变换回菜单本地坐标
-        int lx = localX(mx);
-        int ly = localY(my);
+        computeLocal(mx, my);
+        int lx = Math.round(localPtX);
+        int ly = Math.round(localPtY);
         for (int i = 0; i < children.length; i++) {
             ItemStack st = children[i].stack();
             if (st == null || st.isEmpty()) {
@@ -1088,8 +1094,9 @@ public class SAOMenuScreen extends Screen {
             return;
         }
         // 菜单组有浮动/缩放变换,先逆变换回菜单本地坐标再做命中
-        int lx = localX(mouseX);
-        int ly = localY(mouseY);
+        computeLocal(mouseX, mouseY);
+        int lx = Math.round(localPtX);
+        int ly = Math.round(localPtY);
         hoverMain = MenuLayout.hoveredMainButtonAt(this.width, this.height, baseAnchorX, baseAnchorY, lx, ly);
         hoverItem = -1;
         hoverChild = -1;
@@ -1232,23 +1239,96 @@ public class SAOMenuScreen extends Screen {
         return list;
     }
 
-    /** 屏幕坐标 -> 菜单本地坐标(逆用渲染时的浮动/缩放/左移/漂移变换)。 */
-    private int localX(int mx) {
-        return Math.round(menuAnchorX + shiftXs + (mx - menuAnchorX - followPxX) / menuScale);
+    /**
+     * 屏幕坐标 → 菜单本地坐标,结果写入 {@link #localPtX}/{@link #localPtY}。
+     *
+     * <p>逆用 {@link #render} 里 pushPose 的那一整条变换链,顺序为
+     * 锚点位移 → 漂移 → 左移 → 缩放 → 错切 → Z 轴旋转 的逆序。</p>
+     *
+     * <p>X/Y 必须一起算:错切与 Z 轴旋转都会把两个轴耦合起来,
+     * 分别逆 X、逆 Y 在数学上就还原不了——旧实现只逆了缩放与位移,
+     * 屏幕边缘处(错切量最大)命中会偏出一个条目高。</p>
+     */
+    private void computeLocal(double mx, double my) {
+        float dx = (float) mx - menuAnchorX;
+        float dy = (float) my - menuAnchorY;
+        float cos = Mth.cos(swayXs * 0.03f);
+        float sin = Mth.sin(swayXs * 0.03f);
+        // 逆 Z 轴旋转
+        float rx = cos * dx + sin * dy;
+        float ry = -sin * dx + cos * dy;
+        // 逆错切:x' = x + a*y, y' = y + b*x
+        float a = swayXs * 0.06f;
+        float b = swayYs * 0.05f;
+        float det = Math.abs(1f - a * b) < 1.0e-4f ? 1.0e-4f : 1f - a * b;
+        float ux = (rx - a * ry) / det;
+        float uy = (ry - b * rx) / det;
+        // 逆缩放,再补回漂移/左移/锚点
+        float s = Math.abs(menuScale) < 1.0e-4f ? 1.0e-4f : menuScale;
+        localPtX = ux / s + menuAnchorX + shiftXs - followPxX;
+        localPtY = uy / s + menuAnchorY - followPxY;
     }
 
-    /** 菜单本地坐标 -> 屏幕视觉 X(变换正变换;剪裁框等屏幕图元用)。 */
-    private int visualX(int localXPos) {
-        return Math.round(menuAnchorX + (localXPos - menuAnchorX - shiftXs) * menuScale + followPxX);
+    /** {@link #computeLocal} 的输出(避免每帧装箱/分配)。 */
+    private float localPtX;
+    private float localPtY;
+
+    /** 正向变换的临时输出(菜单本地坐标 → 屏幕坐标)。 */
+    private final float[] ptOut = new float[2];
+
+    /**
+     * 菜单本地坐标 → 屏幕坐标。与 {@link #computeLocal} 严格互逆,
+     * 同为 render 里 pose 链的正序:漂移 → 左移 → 缩放 → 错切 → Z 轴旋转 → 锚点位移。
+     */
+    private void localToScreen(float lx, float ly, float[] out) {
+        float x = (lx + followPxX - shiftXs - menuAnchorX) * menuScale;
+        float y = (ly + followPxY - menuAnchorY) * menuScale;
+        float a = swayXs * 0.06f;
+        float b = swayYs * 0.05f;
+        float sx = x + a * y;
+        float sy = y + b * x;
+        float cos = Mth.cos(swayXs * 0.03f);
+        float sin = Mth.sin(swayXs * 0.03f);
+        out[0] = cos * sx - sin * sy + menuAnchorX;
+        out[1] = sin * sx + cos * sy + menuAnchorY;
     }
 
-    /** 菜单本地坐标 -> 屏幕视觉 Y。 */
-    private int visualY(int localYPos) {
-        return Math.round(menuAnchorY + (localYPos - menuAnchorY) * menuScale + followPxY);
+    /**
+     * 菜单本地矩形 → 屏幕轴对齐包围盒。
+     *
+     * <p>剪裁框(enableScissor)只收屏幕空间的轴对齐矩形,而菜单整组带旋转与错切,
+     * 四角投影后不再是轴对齐的;取四角外接盒,代价是略微裁宽(安全方向)。</p>
+     */
+    private MenuLayout.Rect localBoxToScreen(int lx, int ly, int w, int h) {
+        localToScreen(lx, ly, ptOut);
+        float minX = ptOut[0];
+        float maxX = ptOut[0];
+        float minY = ptOut[1];
+        float maxY = ptOut[1];
+        int[][] corners = {{lx + w, ly}, {lx, ly + h}, {lx + w, ly + h}};
+        for (int[] c : corners) {
+            localToScreen(c[0], c[1], ptOut);
+            minX = Math.min(minX, ptOut[0]);
+            maxX = Math.max(maxX, ptOut[0]);
+            minY = Math.min(minY, ptOut[1]);
+            maxY = Math.max(maxY, ptOut[1]);
+        }
+        int x0 = Math.round(minX);
+        int y0 = Math.round(minY);
+        return new MenuLayout.Rect(x0, y0, Math.max(1, Math.round(maxX) - x0), Math.max(1, Math.round(maxY) - y0));
     }
 
-    private int localY(int my) {
-        return Math.round(menuAnchorY + (my - menuAnchorY) / menuScale);
+    /**
+     * 菜单本地坐标 → 屏幕坐标(预览自检复用),返回 {@code {x, y}}。
+     *
+     * <p>自检经 {@code Screen#mouseClicked} 直接注入事件,收的是<b>屏幕</b>坐标,
+     * 而布局算式给的是本地坐标;整组带缩放/左移(展开二级列时整组左移一列宽)/
+     * 漂移/错切,不换算就会按偏,展开二级列后点按钮会直接落到空白处。</p>
+     */
+    float[] screenPointOf(float lx, float ly) {
+        float[] out = new float[2];
+        localToScreen(lx, ly, out);
+        return out;
     }
 
     private void shaderAlpha(float a) {
@@ -1380,8 +1460,8 @@ public class SAOMenuScreen extends Screen {
             float dy = feetY - mouseY;
             // 剪裁框必须跟随视觉变换(缩放/左移/浮动):菜单整组左移后,
             // 3D 人物画在新位置,旧坐标的剪裁框会把人物整个裁掉
-            g.enableScissor(visualX(anchorX - halfW), visualY(areaTop),
-                    visualX(anchorX + halfW), visualY(areaTop + areaH));
+            MenuLayout.Rect clip = localBoxToScreen(anchorX - halfW, areaTop, halfW * 2, areaH);
+            g.enableScissor(clip.x(), clip.y(), clip.x() + clip.w(), clip.y() + clip.h());
             shaderAlpha(alpha);
             InventoryScreen.renderEntityInInventoryFollowsMouse(g, anchorX, feetY, k, dx, dy, mc().player);
             shaderAlpha(1f);
@@ -1827,7 +1907,7 @@ public class SAOMenuScreen extends Screen {
                 SAOMapPanel.dragTo(this.width, this.height, (int) mouseX, (int) mouseY);
             }
             SAOClockPanel.dragTo(this.width, this.height, (int) mouseX, (int) mouseY);
-            SAOHud.dragPlateTo(this.width, this.height, (int) mouseX, (int) mouseY);
+            SAOHud.dragPlateTo(mc(), this.width, this.height, (int) mouseX, (int) mouseY);
             SAOHud.dragFoodTo(this.width, this.height, (int) mouseX, (int) mouseY);
         }
         if (pinDragFrom >= 0) {
@@ -1945,8 +2025,9 @@ public class SAOMenuScreen extends Screen {
             return true;
         }
 
-        int lx = localX(mx);
-        int ly = localY(my);
+        computeLocal(mx, my);
+        int lx = Math.round(localPtX);
+        int ly = Math.round(localPtY);
 
         // 物品操作按钮(装备/信息/丢弃):优先于其他命中。
         // 几何必须与渲染完全一致:行矩形按窗口化 children 的长度布局
@@ -2283,8 +2364,9 @@ public class SAOMenuScreen extends Screen {
                 // 物品条目列:命中任一可见行(或其附近)即滚动
                 MenuItem[] children = items[shown].children();
                 int rows = childVisibleRows();
-                int lx = localX((int) mouseX);
-                int ly = localY((int) mouseY);
+                computeLocal(mouseX, mouseY);
+                int lx = Math.round(localPtX);
+                int ly = Math.round(localPtY);
                 int anchorY = MenuLayout.menuItemRectAt(this.width, this.height, items.length, baseAnchorX, buttonY(main), shown).centerY();
                 boolean over = false;
                 for (int v = 0; v < Math.min(rows, children.length); v++) {

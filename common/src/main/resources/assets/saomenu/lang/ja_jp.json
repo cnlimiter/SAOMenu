@@ -138,5 +138,6 @@
   "saomenu.skill.dual_wield.no_ef": "二刀を装備(Epic Fight 未検出)",
   "saomenu.skill.dual_wield.need_two": "インベントリに剣が2本必要",
   "saomenu.inv.pinned": "ピン留め",
-  "saomenu.inv.unpinned": "ピン留め解除"
+  "saomenu.inv.unpinned": "ピン留め解除",
+  "saomenu.inv.empty": "インベントリは空です"
 }

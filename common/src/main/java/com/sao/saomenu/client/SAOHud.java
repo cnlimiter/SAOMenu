@@ -111,14 +111,15 @@ public final class SAOHud {
         plateDraggedSinceDown = false;
     }
 
-    public static void dragPlateTo(int screenW, int screenH, int mx, int my) {
+    public static void dragPlateTo(Minecraft mc, int screenW, int screenH, int mx, int my) {
         if (!plateDragging) {
             return;
         }
         int w = plateW(screenW);
         float fx = (mx - plateGrabFx * w) / (float) Math.max(1, screenW - w);
-        // Y 的可动范围与 plateY 的钳制一致(底部留 20 格给圆点物品栏)
-        float fy = (my - plateGrabFy * 20f) / (float) Math.max(1, screenH - 20);
+        // 抓取偏移按整组高度换算(beginPlateDrag 用的是同一基准),Y 的可动范围
+        // 与 plateY 的钳制一致(底部留 20 格给圆点物品栏)
+        float fy = (my - plateGrabFy * plateGroupH(screenW, mc)) / (float) Math.max(1, screenH - 20);
         SAOConfig.setPlatePanelX(fx);
         SAOConfig.setPlatePanelY(fy);
         plateDraggedSinceDown = true;

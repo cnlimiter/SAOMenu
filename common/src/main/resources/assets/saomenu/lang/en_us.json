@@ -138,5 +138,6 @@
   "saomenu.skill.dual_wield.no_ef": "Two swords equipped (Epic Fight not found)",
   "saomenu.skill.dual_wield.need_two": "Need two swords in inventory",
   "saomenu.inv.pinned": "Pinned",
-  "saomenu.inv.unpinned": "Unpinned"
+  "saomenu.inv.unpinned": "Unpinned",
+  "saomenu.inv.empty": "Nothing in inventory"
 }

@@ -138,5 +138,6 @@
   "saomenu.skill.dual_wield.no_ef": "已装备双剑(未检测到史诗战斗)",
   "saomenu.skill.dual_wield.need_two": "背包里需要两把剑",
   "saomenu.inv.pinned": "已置顶",
-  "saomenu.inv.unpinned": "已取消置顶"
+  "saomenu.inv.unpinned": "已取消置顶",
+  "saomenu.inv.empty": "背包里什么都没有"
 }

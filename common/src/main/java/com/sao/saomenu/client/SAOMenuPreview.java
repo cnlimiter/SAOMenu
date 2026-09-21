@@ -368,7 +368,8 @@ public final class SAOMenuPreview {
             // 模拟点击"装备"展开二级菜单
             int w = client.getWindow().getGuiScaledWidth();
             int h = client.getWindow().getGuiScaledHeight();
-            var rect = MenuLayout.menuItemRect(w, h, 3, MenuLayout.buttonCenterY(h, 0), 1);
+            var rect = MenuLayout.menuItemRect(w, h, SAOMenuScreen.profileItemCount(),
+                    MenuLayout.buttonCenterY(h, 0), 1);
             moveCursorTo(client, rect.centerX(), rect.centerY());
             clickScreen(client, rect.centerX(), rect.centerY(), 0);
             childClicked = true;
@@ -384,7 +385,7 @@ public final class SAOMenuPreview {
                     new ItemStack(Items.IRON_BOOTS));
             int w = client.getWindow().getGuiScaledWidth();
             int h = client.getWindow().getGuiScaledHeight();
-            var child = MenuLayout.childItemRect(w, h, 3, MenuLayout.buttonCenterY(h, 0), 1);
+            var child = MenuLayout.childItemRect(w, h, 3, childAnchorY(client, 0, 1), 1);
             moveCursorTo(client, child.centerX(), child.centerY());
             clickScreen(client, child.centerX(), child.centerY(), 0);
         } else if (menuTicks == 82 && childClicked && client.screen instanceof SAOMenuScreen) {
@@ -393,7 +394,7 @@ public final class SAOMenuPreview {
             // 悬停"武器"子项:装备列应切到武器分类(主手钻石剑)
             int w = client.getWindow().getGuiScaledWidth();
             int h = client.getWindow().getGuiScaledHeight();
-            var child = MenuLayout.childItemRect(w, h, 3, MenuLayout.buttonCenterY(h, 0), 0);
+            var child = MenuLayout.childItemRect(w, h, 3, childAnchorY(client, 0, 1), 0);
             moveCursorTo(client, child.centerX(), child.centerY());
             moveScreen(client, child.centerX(), child.centerY());
         } else if (menuTicks == 90 && childClicked && client.screen instanceof SAOMenuScreen) {
@@ -402,7 +403,7 @@ public final class SAOMenuPreview {
             // 悬停"首饰":副手盾牌
             int w = client.getWindow().getGuiScaledWidth();
             int h = client.getWindow().getGuiScaledHeight();
-            var child = MenuLayout.childItemRect(w, h, 3, MenuLayout.buttonCenterY(h, 0), 2);
+            var child = MenuLayout.childItemRect(w, h, 3, childAnchorY(client, 0, 1), 2);
             moveCursorTo(client, child.centerX(), child.centerY());
             moveScreen(client, child.centerX(), child.centerY());
         } else if (menuTicks == 97 && childClicked && client.screen instanceof SAOMenuScreen) {
@@ -587,7 +588,8 @@ public final class SAOMenuPreview {
             // 点击"技能"菜单项 → 打开属性面板
             int w = client.getWindow().getGuiScaledWidth();
             int h = client.getWindow().getGuiScaledHeight();
-            var rect = MenuLayout.menuItemRect(w, h, 3, MenuLayout.buttonCenterY(h, 0), 0);
+            var rect = MenuLayout.menuItemRect(w, h, SAOMenuScreen.profileItemCount(),
+                    MenuLayout.buttonCenterY(h, 0), 0);
             clickScreen(client, rect.centerX(), rect.centerY(), 0);
         } else if (menuTicks == 158 && childClicked) {
             SAOMenu.LOGGER.info("[SAOMenu] preview stats screen={}",
@@ -671,28 +673,66 @@ public final class SAOMenuPreview {
         }
     }
 
+    /**
+     * 二级列锚点 Y = 被展开的一级项行的纵向中心。
+     *
+     * <p>菜单屏内部就是这么定位二级列的;自检若改用主按钮圆心当锚点,
+     * 整列会偏半格,点击落到条目之外(会触发关菜单)。</p>
+     */
+    private static int childAnchorY(Minecraft client, int mainIndex, int itemIndex) {
+        int w = client.getWindow().getGuiScaledWidth();
+        int h = client.getWindow().getGuiScaledHeight();
+        return MenuLayout.menuItemRect(w, h, SAOMenuScreen.profileItemCount(),
+                MenuLayout.buttonCenterY(h, mainIndex), itemIndex).centerY();
+    }
+
     private static void moveCursorTo(Minecraft client, int guiX, int guiY) {
         double scale = client.getWindow().getGuiScale();
-        org.lwjgl.glfw.GLFW.glfwSetCursorPos(client.getWindow().getWindow(), guiX * scale, guiY * scale);
+        double x = guiX;
+        double y = guiY;
+        // 菜单本地坐标 → 屏幕坐标(整组带缩放/左移/漂移),否则光标会停错位置
+        if (client.screen instanceof SAOMenuScreen menu) {
+            float[] p = menu.screenPointOf(guiX, guiY);
+            x = p[0];
+            y = p[1];
+        }
+        org.lwjgl.glfw.GLFW.glfwSetCursorPos(client.getWindow().getWindow(), x * scale, y * scale);
     }
 
     // ------------------------------------------------------------ 界面操作 helper(界面已关时静默跳过,避免自检中断)
 
+    /**
+     * 自检注入的坐标是菜单<b>本地</b>坐标,而 {@code mouseClicked/mouseMoved/mouseScrolled}
+     * 收的是<b>屏幕</b>坐标:菜单整组带缩放、错切,展开二级列时还会整体左移一列宽,
+     * 所以交给菜单屏之前必须先过一遍正向变换,否则点击会按偏(此前二级菜单、
+     * 装备列、属性面板、成就图鉴几个自检都因此静默跳过)。
+     */
+    private static double[] toScreen(Minecraft client, double x, double y) {
+        if (client.screen instanceof SAOMenuScreen menu) {
+            float[] p = menu.screenPointOf((float) x, (float) y);
+            return new double[]{p[0], p[1]};
+        }
+        return new double[]{x, y};
+    }
+
     private static void clickScreen(Minecraft client, double x, double y, int btn) {
         if (client.screen != null) {
-            client.screen.mouseClicked(x, y, btn);
+            double[] p = toScreen(client, x, y);
+            client.screen.mouseClicked(p[0], p[1], btn);
         }
     }
 
     private static void moveScreen(Minecraft client, double x, double y) {
         if (client.screen != null) {
-            client.screen.mouseMoved(x, y);
+            double[] p = toScreen(client, x, y);
+            client.screen.mouseMoved(p[0], p[1]);
         }
     }
 
     private static void scrollScreen(Minecraft client, double x, double y, double delta) {
         if (client.screen != null) {
-            client.screen.mouseScrolled(x, y, delta);
+            double[] p = toScreen(client, x, y);
+            client.screen.mouseScrolled(p[0], p[1], delta);
         }
     }
 
