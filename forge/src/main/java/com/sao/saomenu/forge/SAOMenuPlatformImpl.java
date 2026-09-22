@@ -2,14 +2,8 @@ package com.sao.saomenu.forge;
 
 import com.sao.saomenu.forge.registry.SAOMenuForgeParticles;
 import com.sao.saomenu.forge.registry.SAOMenuForgeSounds;
-import com.sao.saomenu.mixin.accessor.ClientAdvancementsAccessor;
-import net.minecraft.advancements.Advancement;
-import net.minecraft.advancements.AdvancementProgress;
-import net.minecraft.client.multiplayer.ClientAdvancements;
 import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.sounds.SoundEvent;
-
-import java.util.Map;
 
 /**
  * ExpectPlatform 实现(Forge):音效事件来自 DeferredRegister。
@@ -33,10 +27,6 @@ public class SAOMenuPlatformImpl {
 
     public static SoundEvent alertSound() {
         return SAOMenuForgeSounds.ALERT.get();
-    }
-
-    public static Map<Advancement, AdvancementProgress> advancementProgress(ClientAdvancements ca) {
-        return ((ClientAdvancementsAccessor) ca).saomenu$progress();
     }
 
     public static SimpleParticleType shardParticle() {

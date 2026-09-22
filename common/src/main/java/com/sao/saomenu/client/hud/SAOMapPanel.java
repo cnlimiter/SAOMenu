@@ -21,6 +21,7 @@ import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.MapItem;
 import com.sao.saomenu.ui.render.SaoDraw;
+import com.sao.saomenu.ui.theme.SaoTheme;
 import static com.sao.saomenu.ui.render.SaoDraw.mulAlpha;
 
 /**
@@ -66,11 +67,6 @@ public final class SAOMapPanel {
     private static boolean shown;
     private static long openAt;
 
-    /** 拖动状态。 */
-    private static boolean dragging;
-    private static float dragGrabFx;
-    private static float dragGrabFy;
-    private static boolean draggedSinceDown;
 
     /** 地图纹理缓存。 */
     private static DynamicTexture mapTexture;
@@ -172,44 +168,25 @@ public final class SAOMapPanel {
         return MenuLayout.inCircle(pc[0], pc[1], r, mx, my);
     }
 
-    /** 开始拖动(记录抓住点相对面板的比例)。 */
-    public static void beginDrag(int screenW, int screenH, int mx, int my) {
-        MenuLayout.Rect card = cardRect(screenW, screenH);
-        dragGrabFx = (mx - card.x()) / (float) card.w();
-        dragGrabFy = (my - card.y()) / (float) card.h();
-        dragging = true;
-        draggedSinceDown = false;
+    public static int cardX(int screenW, int screenH) {
+        return cardRect(screenW, screenH).x();
     }
 
-    /** 拖动中:更新配置位置(屏幕比例,拖出屏幕自然钳制)。 */
-    public static void dragTo(int screenW, int screenH, int mx, int my) {
-        if (!dragging) {
-            return;
-        }
+    public static int cardY(int screenW, int screenH) {
+        return cardRect(screenW, screenH).y();
+    }
+
+    static void moveTo(int screenW, int screenH, float grabFx, float grabFy, int mx, int my) {
         int w = panelW(screenH);
         int h = panelH(screenH);
-        float fx = (mx - dragGrabFx * w) / (float) Math.max(1, screenW - w);
-        float fy = (my - dragGrabFy * h) / (float) Math.max(1, screenH - h);
+        float fx = (mx - grabFx * w) / (float) Math.max(1, screenW - w);
+        float fy = (my - grabFy * h) / (float) Math.max(1, screenH - h);
         SAOConfig.setMapPanelX(fx);
         SAOConfig.setMapPanelY(fy);
-        draggedSinceDown = true;
-    }
-
-    /** 松手:若真拖动过则落盘。 */
-    public static void endDragAndSave() {
-        if (dragging && draggedSinceDown) {
-            savePos();
-        }
-        dragging = false;
     }
 
     private static void savePos() {
-        java.nio.file.Path p = SAOConfig.path();
-        if (p == null) {
-            p = Minecraft.getInstance().gameDirectory.toPath()
-                    .resolve("config").resolve("saomenu.json");
-        }
-        SAOConfig.save(p);
+        SAOConfig.save();
     }
 
     // ------------------------------------------------------------ 渲染
@@ -304,7 +281,7 @@ public final class SAOMapPanel {
         int by = pc[1] - d / 2;
         boolean pinned = SAOConfig.mapPinned();
         if (pinned) {
-            setTint(SAOConfig.accent(), alpha);
+            setTint(SaoTheme.accent(), alpha);
         } else {
             setTint(0xFF83868A, alpha);
         }
@@ -467,7 +444,6 @@ public final class SAOMapPanel {
     /** 换世界/退服:释放纹理并收回面板(图钉偏好在配置里保留)。 */
     public static void reset() {
         shown = false;
-        dragging = false;
         if (textureRegistered) {
             Minecraft mc = Minecraft.getInstance();
             if (mc != null) {

@@ -11,9 +11,11 @@ import com.sao.saomenu.client.input.SAOFreeLook;
 import com.sao.saomenu.client.menu.MenuLayout;
 import com.sao.saomenu.client.menu.SAOMenuScreen;
 import com.sao.saomenu.client.render.target.SAOTargetBar3D;
+import com.sao.saomenu.client.screen.SAOAdvancementsScreen;
 import com.sao.saomenu.client.screen.SAOStatsScreen;
 import com.sao.saomenu.client.screen.settings.SAOSettingsScreen;
 import com.sao.saomenu.config.SAOConfig;
+import com.sao.saomenu.ui.text.SaoText;
 import dev.architectury.event.events.client.ClientTickEvent;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
@@ -57,6 +59,7 @@ public final class SAOMenuPreview {
     private static boolean langReloadDone = false;
     /** 预览把 guiScale 改成 1 抓大 GUI,退出前必须写回,否则 options.txt 落盘污染下次启动。 */
     private static int savedGuiScale = -1;
+    private static java.util.concurrent.CompletableFuture<Void> serverChecks;
 
     private SAOMenuPreview() {
     }
@@ -291,7 +294,7 @@ public final class SAOMenuPreview {
                 if (worldReadyTicks == 110) {
                     SAOMenu.LOGGER.info("[SAOMenu] preview lang2={} stat2={}",
                             client.getLanguageManager().getSelected(),
-                            SAOHud.tr("saomenu.stat.level", 41));
+                            SaoText.tr("saomenu.stat.level", 41));
                     grab(client, out, "hud_red.png");
                 }
                 if (worldReadyTicks == 116) {
@@ -299,11 +302,11 @@ public final class SAOMenuPreview {
                     SAOConfig.setAccentHue(SAOConfig.DEF_ACCENT_HUE);
                 }
                 if (worldReadyTicks == 97) {
-                    // 用 SAOHud.tr(与 UI 相同的手动替换路径)采样翻译
+                    // 用与 UI 相同的翻译路径采样。
                     SAOMenu.LOGGER.info("[SAOMenu] preview xp level={} queue={} lang={} stat={}",
                             client.player.experienceLevel, SAONotification.size(),
                             client.getLanguageManager().getSelected(),
-                            SAOHud.tr("saomenu.stat.level", client.player.experienceLevel));
+                            SaoText.tr("saomenu.stat.level", client.player.experienceLevel));
                 }
                 if (worldReadyTicks == 123) {
                     // 演示通知:截图前入队(停留 2.6s,hud.png 应可见)
@@ -431,7 +434,7 @@ public final class SAOMenuPreview {
         } else if (menuTicks == 98 && childClicked) {
             // 验证配置持久化:关闭音效并落盘
             SAOConfig.setSounds(false);
-            SAOConfig.save(SAOConfig.path());
+            SAOConfig.save();
             // 打开模组设置界面(提前到 98 给入场动画留足截图余量);
             // 菜单若已被上层时序关闭(tick 66 二级展开回归),用新菜单实例兜底作为返回目标
             client.setScreen(new SAOSettingsScreen(
@@ -469,7 +472,7 @@ public final class SAOMenuPreview {
         } else if (menuTicks == 108 && childClicked) {
             // 主题色落盘验证:蓝色(200°)保存,config.png 应为蓝色主题
             SAOConfig.setAccentHue(200f);
-            SAOConfig.save(SAOConfig.path());
+            SAOConfig.save();
         } else if (menuTicks == 110 && childClicked) {
             // 设置界面入场动画完成后截图(视频背景 + P5 分类按钮)
             // 200° 不匹配任何预设的默认色相:此时不应有按钮显示为选中(高亮判定不许撒谎)
@@ -633,29 +636,20 @@ public final class SAOMenuPreview {
         } else if (menuTicks == 151 && childClicked) {
             grab(client, out, "inventory3.png");
         } else if (menuTicks == 152 && childClicked) {
-            // 关闭物品栏,重新打开菜单测试"技能"面板
+            // 关闭开发物品栏夹具,重新打开菜单作为属性页的返回目标。
             closeScreen(client);
         } else if (menuTicks == 153 && childClicked) {
             client.setScreen(new SAOMenuScreen());
         } else if (menuTicks == 155 && childClicked) {
-            // 点击"技能"菜单项 → 打开属性面板
-            int w = client.getWindow().getGuiScaledWidth();
-            int h = client.getWindow().getGuiScaledHeight();
-            var rect = MenuLayout.menuItemRect(w, h, SAOMenuScreen.profileItemCount(),
-                    MenuLayout.buttonCenterY(h, 0), 0);
-            clickScreen(client, rect.centerX(), rect.centerY(), 0);
+            // 属性页目前没有菜单入口;实际挂载屏幕验证渲染,不把未显示的探针当作页面通过。
+            client.setScreen(new SAOStatsScreen(client.screen, client.player));
         } else if (menuTicks == 158 && childClicked) {
-            SAOMenu.LOGGER.info("[SAOMenu] preview stats screen={}",
-                    client.screen == null ? "null" : client.screen.getClass().getSimpleName());
-            // 点击命中不稳定,直接构造一次属性面板,把真实行内容打出来(否则这条自检只证明"点空了")
-            if (client.player != null) {
-                SAOStatsScreen probe = new SAOStatsScreen(null, client.player);
-                probe.init(client, client.getWindow().getGuiScaledWidth(),
-                        client.getWindow().getGuiScaledHeight());
-                java.util.List<String> labels = probe.debugRowLabels();
-                SAOMenu.LOGGER.info("[SAOMenu] preview stats rows={} {}", labels.size(),
-                        String.join(" | ", labels));
+            if (!(client.screen instanceof SAOStatsScreen stats)) {
+                throw new IllegalStateException("Preview did not open the stats screen");
             }
+            java.util.List<String> labels = stats.debugRowLabels();
+            SAOMenu.LOGGER.info("[SAOMenu] preview stats screen={} rows={} {}",
+                    stats.getClass().getSimpleName(), labels.size(), String.join(" | ", labels));
             grab(client, out, "stats.png");
         } else if (menuTicks == 160 && childClicked) {
             // 关闭属性面板,回到菜单
@@ -672,8 +666,10 @@ public final class SAOMenuPreview {
             var rect = MenuLayout.menuItemRect(w, h, 2, MenuLayout.buttonCenterY(h, 2), 0);
             clickScreen(client, rect.centerX(), rect.centerY(), 0);
         } else if (menuTicks == 172 && childClicked) {
-            SAOMenu.LOGGER.info("[SAOMenu] preview adv screen={}",
-                    client.screen == null ? "null" : client.screen.getClass().getSimpleName());
+            if (!(client.screen instanceof SAOAdvancementsScreen)) {
+                throw new IllegalStateException("Preview did not navigate to advancements");
+            }
+            SAOMenu.LOGGER.info("[SAOMenu] preview adv screen={}", client.screen.getClass().getSimpleName());
             grab(client, out, "adv.png");
         } else if (menuTicks == 174) {
             // 第三人称菜单板自检:重新打开菜单 → F5 切第三人称 → 截图验证
@@ -684,8 +680,7 @@ public final class SAOMenuPreview {
             client.keyboardHandler.keyPress(client.getWindow().getWindow(),
                     GLFW.GLFW_KEY_F5, 0, GLFW.GLFW_RELEASE, 0);
         } else if (menuTicks == 184) {
-            // 技能浮条拖动自检:走真实拖动 API(按下 → 移动 → 松手落盘),不直接改配置。
-            // 必须排在 194 之前 —— 194 会 client.stop()。
+            // 通过菜单真实输入路由拖动 HUD,不直接写配置或私有拖动状态。
             int w = client.getWindow().getGuiScaledWidth();
             int h = client.getWindow().getGuiScaledHeight();
             int count = SaoSkillBar.slotCount();
@@ -695,9 +690,18 @@ public final class SAOMenuPreview {
                     bw, SaoSkillBar.slotSize(h), count);
             int sx = SaoSkillBar.barX(w, bw) + bw / 2;
             int sy = SaoSkillBar.barY(h, SaoSkillBar.slotSize(h)) + SaoSkillBar.slotSize(h) / 2;
-            SaoSkillBar.beginDrag(w, h, sx, sy);
-            SaoSkillBar.dragTo(w, h, Math.round(w * 0.18f), Math.round(h * 0.78f));
-            SaoSkillBar.endDragAndSave();
+            if (!(client.screen instanceof SAOMenuScreen menu)) {
+                throw new IllegalStateException("Skillbar drag requires the real menu screen");
+            }
+            int targetX = Math.round(w * 0.18f);
+            int targetY = Math.round(h * 0.78f);
+            if (!menu.mouseClicked(sx, sy, GLFW.GLFW_MOUSE_BUTTON_LEFT)) {
+                throw new IllegalStateException("Skillbar drag press was not handled");
+            }
+            menu.mouseMoved(targetX, targetY);
+            if (!menu.mouseReleased(targetX, targetY, GLFW.GLFW_MOUSE_BUTTON_LEFT)) {
+                throw new IllegalStateException("Skillbar drag release was not handled");
+            }
         } else if (menuTicks == 186) {
             int w = client.getWindow().getGuiScaledWidth();
             int h = client.getWindow().getGuiScaledHeight();
@@ -711,21 +715,48 @@ public final class SAOMenuPreview {
             // 复位并落盘:别把拖动结果留给下一次运行的位置基线
             SAOConfig.setSkillBarX(SAOConfig.DEF_SKILL_BAR_X);
             SAOConfig.setSkillBarY(SAOConfig.DEF_SKILL_BAR_Y);
-            SAOConfig.save(SAOConfig.path());
+            SAOConfig.save();
         } else if (menuTicks == 192) {
             SAOMenu.LOGGER.info("[SAOMenu] preview world_menu cam={}",
                     client.options.getCameraType());
             grab(client, out, "world_menu.png");
         } else if (menuTicks == 194) {
-            // F5 切回第一人称,收尾
-            client.keyboardHandler.keyPress(client.getWindow().getWindow(),
-                    GLFW.GLFW_KEY_F5, 0, GLFW.GLFW_PRESS, 0);
-            client.keyboardHandler.keyPress(client.getWindow().getWindow(),
-                    GLFW.GLFW_KEY_F5, 0, GLFW.GLFW_RELEASE, 0);
             closeScreen(client);
+            client.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);
+            SAOConfig.setShowHud(false);
+            var server = client.getSingleplayerServer();
+            var playerId = client.player.getUUID();
+            serverChecks = java.util.concurrent.CompletableFuture.runAsync(() -> {
+                var player = server.getPlayerList().getPlayer(playerId);
+                if (player == null) {
+                    throw new IllegalStateException("Preview server player disappeared");
+                }
+                player.setGameMode(GameType.SURVIVAL);
+                ServerInventoryChecks.run(player);
+            }, server);
+        } else if (menuTicks == 202) {
+            if (!serverChecks.isDone()) {
+                throw new IllegalStateException("Preview server checks did not finish");
+            }
+            serverChecks.join();
+            if (client.gameMode.getPlayerMode() != GameType.SURVIVAL) {
+                throw new IllegalStateException("Vanilla HUD fallback requires survival mode");
+            }
+            grab(client, out, "hud_vanilla.png");
+        } else if (menuTicks == 204) {
+            SAOConfig.setShowHud(true);
+        } else if (menuTicks == 208) {
+            grab(client, out, "hud_restored.png");
+        } else if (menuTicks == 210) {
             done = true;
             restoreGuiScale(client);
-            client.stop();
+            if (Boolean.getBoolean("saomenu.preview.keepOpen")) {
+                client.resizeDisplay();
+                client.setScreen(new SAOMenuScreen());
+                SAOMenu.LOGGER.info("[SAOMenu] preview complete; native inspection ready");
+            } else {
+                client.stop();
+            }
         }
     }
 

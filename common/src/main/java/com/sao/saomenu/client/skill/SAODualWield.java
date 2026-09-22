@@ -1,18 +1,15 @@
 package com.sao.saomenu.client.skill;
 
 import com.sao.saomenu.SAOMenu;
+import com.sao.saomenu.skill.DualWieldSkill;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.SwordItem;
-import net.minecraft.world.item.TieredItem;
 
 /**
  * 「二刀流」技能:主手 + 副手各装一把剑,并切换到史诗战斗(Epic Fight)的战斗模式。
  *
- * <p>装备走服务端权威路径({@code SwapToOffhandC2S}),客户端只负责挑选槽位;
- * 战斗模式切换是纯客户端行为——按下 Epic Fight 自己的 {@code SWITCH_MODE}
- * 按键映射,由它的按键处理逻辑走自身网络同步,本模组不直接碰它的能力对象。</p>
+ * <p>装备走服务端权威路径({@code DualWieldC2S}),客户端只负责挑选槽位;
+ * 战斗模式切换调用 Epic Fight 玩家补丁公开方法,由它同步自身模式。</p>
  *
  * <p>Epic Fight 通过反射按需接入:没装该模组时二刀流仍会装备双剑,
  * 只是不切换战斗模式(不抛异常、不产生硬依赖)。</p>
@@ -50,18 +47,10 @@ public final class SAODualWield {
     }
 
     /**
-     * 在背包里挑两把剑的槽位。
-     *
-     * @return {@code [主手槽, 副手槽]};找不到两把剑时返回 null
-     */
-    /** 副手槽哨兵:表示「这把剑已经在副手上」,不是背包下标。 */
-    public static final int OFFHAND = -2;
-
-    /**
      * 挑两把剑的槽位。
      *
      * <p>返回 {@code [主手来源, 副手来源]};槽位是背包下标 0-35,
-     * 或哨兵 {@link #OFFHAND}(该手已经握着剑)。找不到两把返回 null。</p>
+     * 或哨兵 {@link DualWieldSkill#KEEP_HAND}(该手已经握着剑)。找不到两把返回 null。</p>
      *
      * <p>此前把「主手已握剑」记成 {@code inventory.selected}(0-8),
      * 与「背包扫描时跳过该下标」混在一起,当剑在副手 + 背包各一把时
@@ -69,49 +58,31 @@ public final class SAODualWield {
      * 各自独立判定,背包扫描只跳过真正已被占用的下标。</p>
      */
     public static int[] findTwoSwords(Player p) {
-        boolean mainIsSword = isSword(p.getMainHandItem());
-        boolean offIsSword = isSword(p.getOffhandItem());
-        // 两手都是剑:什么都不用搬,只切模式
+        boolean mainIsSword = DualWieldSkill.isSword(p.getMainHandItem());
+        boolean offIsSword = DualWieldSkill.isSword(p.getOffhandItem());
         if (mainIsSword && offIsSword) {
-            return new int[]{OFFHAND, OFFHAND};
+            return new int[]{DualWieldSkill.KEEP_HAND, DualWieldSkill.KEEP_HAND};
         }
+        int first = -1;
         int selected = p.getInventory().selected;
-        // 背包里所有剑的下标(排除主手当前槽——那把已经算在 mainIsSword 里)
-        java.util.List<Integer> spare = new java.util.ArrayList<>();
         for (int i = 0; i < 36; i++) {
-            if (mainIsSword && i == selected) {
+            if ((mainIsSword && i == selected) || !DualWieldSkill.isSword(p.getInventory().getItem(i))) {
                 continue;
             }
-            if (isSword(p.getInventory().getItem(i))) {
-                spare.add(i);
+            if (offIsSword) {
+                return new int[]{i, DualWieldSkill.KEEP_HAND};
             }
+            if (mainIsSword) {
+                return new int[]{DualWieldSkill.KEEP_HAND, i};
+            }
+            if (first >= 0) {
+                return new int[]{first, i};
+            }
+            first = i;
         }
-        if (offIsSword) {
-            // 副手已有剑:主手要么已是剑(上面已返回),要么从背包补一把
-            return spare.isEmpty() ? null : new int[]{spare.get(0), OFFHAND};
-        }
-        if (mainIsSword) {
-            // 主手已是剑:副手从背包补一把
-            return spare.isEmpty() ? null : new int[]{OFFHAND, spare.get(0)};
-        }
-        // 两手都不是剑:背包里得有两把
-        return spare.size() >= 2 ? new int[]{spare.get(0), spare.get(1)} : null;
+        return null;
     }
 
-    /** 是否可作为二刀流的一把「剑」(原版剑 + 其他模组的剑类工具)。 */
-    public static boolean isSword(ItemStack stack) {
-        if (stack.isEmpty()) {
-            return false;
-        }
-        if (stack.getItem() instanceof SwordItem) {
-            return true;
-        }
-        // 其他模组的剑往往只继承 TieredItem;按注册名兜底识别
-        String id = net.minecraft.core.registries.BuiltInRegistries.ITEM
-                .getKey(stack.getItem()).getPath();
-        return stack.getItem() instanceof TieredItem
-                && (id.contains("sword") || id.contains("blade") || id.contains("katana"));
-    }
 
     /** 待切战斗模式的剩余 tick;>0 时每 tick 递减,归零那帧执行切换。 */
     private static int pendingModeTicks;
@@ -127,11 +98,15 @@ public final class SAODualWield {
         pendingModeTicks = 3;
     }
 
-    /** 客户端每 tick 调用(SAOKeybinds 挂钩):到点执行延后的模式切换。 */
+    /** 客户端运行时每 tick 调用:到点执行延后的模式切换。 */
     public static void tick() {
         if (pendingModeTicks > 0 && --pendingModeTicks == 0) {
             toBattleMode();
         }
+    }
+
+    public static void reset() {
+        pendingModeTicks = 0;
     }
 
     /**

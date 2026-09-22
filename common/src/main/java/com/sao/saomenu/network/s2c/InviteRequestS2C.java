@@ -1,11 +1,10 @@
 package com.sao.saomenu.network.s2c;
 
-import com.sao.saomenu.client.party.SAOClientPartyState;
+import com.sao.saomenu.network.ClientboundPartyMessages;
 import com.sao.saomenu.network.SAONetwork;
 import dev.architectury.networking.NetworkManager;
 import dev.architectury.networking.simple.BaseS2CMessage;
 import dev.architectury.networking.simple.MessageType;
-import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
 
 /**
@@ -40,6 +39,6 @@ public final class InviteRequestS2C extends BaseS2CMessage {
     @Override
     public void handle(NetworkManager.PacketContext ctx) {
         String name = this.inviterName;
-        ctx.queue(() -> SAOClientPartyState.onInviteReceived(name));
+        ctx.queue(() -> ClientboundPartyMessages.invite(name));
     }
 }

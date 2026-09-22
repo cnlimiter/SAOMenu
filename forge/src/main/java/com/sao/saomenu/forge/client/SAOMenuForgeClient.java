@@ -3,6 +3,7 @@ package com.sao.saomenu.forge.client;
 import com.sao.saomenu.SAOMenu;
 import com.sao.saomenu.client.input.SAOKeybinds;
 import com.sao.saomenu.client.render.SAOMenu3DPanel;
+import com.sao.saomenu.client.runtime.SaoClientRuntime;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
@@ -30,7 +31,7 @@ public final class SAOMenuForgeClient {
 
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
-        SAOKeybinds.registerTickHandler();
+        event.enqueueWork(SaoClientRuntime::initialize);
     }
 
     /** 菜单屏渲染完成后:把主帧缓冲 blit 到世界菜单板的备用纹理。 */

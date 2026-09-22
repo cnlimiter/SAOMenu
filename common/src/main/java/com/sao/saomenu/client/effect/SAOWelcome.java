@@ -1,9 +1,7 @@
 package com.sao.saomenu.client.effect;
 
-import com.sao.saomenu.client.hud.SAOBossBanner;
-import com.sao.saomenu.client.hud.SAOMapPanel;
+import com.sao.saomenu.client.hud.SAOHud;
 import com.sao.saomenu.client.menu.MenuLayout;
-import com.sao.saomenu.client.render.target.SAOTargetBar3D;
 import com.sao.saomenu.config.SAOConfig;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.sao.saomenu.SAOMenu;
@@ -16,6 +14,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import com.sao.saomenu.ui.render.SaoDraw;
+import com.sao.saomenu.ui.theme.SaoTheme;
 import static com.sao.saomenu.ui.render.SaoDraw.mulAlpha;
 import static com.sao.saomenu.ui.animation.SaoMotion.clamp01;
 import static com.sao.saomenu.ui.animation.SaoMotion.easeOutCubic;
@@ -53,7 +52,7 @@ public final class SAOWelcome {
 
     // ------------------------------------------------------------ 时间轴(毫秒)
 
-    /** LINK START 全屏:淡入 + 停留 + 淡出。与欢迎横幅并行,盖在它上面。 */
+    /** LINK START 全屏:淡入 + 停留 + 淡出;结束后才开始欢迎横幅。 */
     public static final long LINK_IN_MS = 220;
     public static final long LINK_OUT_MS = 280;
     public static final long LINK_MS = 860;
@@ -65,8 +64,8 @@ public final class SAOWelcome {
     public static final long TEXT_IN_MS = 320;
     public static final long HOLD_MS = 2600;
     public static final long FADE_MS = 700;
-    /** 动画总时长:文字出现完毕 + 停留 + 淡出。 */
-    public static final long TOTAL_MS = TEXT_DELAY_MS + TEXT_IN_MS + HOLD_MS + FADE_MS;
+    /** 动画总时长:LINK START + 欢迎文字出现完毕 + 停留 + 淡出。 */
+    public static final long TOTAL_MS = LINK_MS + TEXT_DELAY_MS + TEXT_IN_MS + HOLD_MS + FADE_MS;
 
     /** 淡出开始时刻。 */
     public static final long FADE_AT_MS = TOTAL_MS - FADE_MS;
@@ -74,40 +73,26 @@ public final class SAOWelcome {
     private static long startAt = Long.MIN_VALUE;
     /** 等加载地形屏关掉再开播,避免 4 秒动画在「正在加载地形」期间就播完。 */
     private static boolean pendingStart;
-    private static boolean inWorld;
 
     private SAOWelcome() {
     }
 
     // ------------------------------------------------------------ 触发
 
-    /**
-     * 每客户端 tick 调用:检测「无世界 → 有世界」,但要等加载地形屏关掉、
-     * HUD 真正开始画,才开播。否则 Loading terrain 耗时超过 {@link #TOTAL_MS}
-     * 时,玩家进世界只能看到空。
-     *
-     * <p>维度切换只会替换 level、不会让 player/level 变 null,因此不会重复触发。
-     * 打开暂停菜单把 screen 设成非 null 也不会重播(pending 已清)。</p>
-     */
+    /** Runtime arms one welcome for a new session; loading screens must finish first. */
+    public static void scheduleStart() {
+        dismiss();
+        pendingStart = true;
+    }
+
+    public static void reset() {
+        pendingStart = false;
+        dismiss();
+    }
+
     public static void clientTick(Minecraft mc) {
-        boolean now = mc != null && mc.player != null && mc.level != null;
-        if (now && !inWorld) {
-            pendingStart = true;
-        }
-        if (!now && inWorld) {
-            // 离开世界:清掉依赖实体 id 的缓存,避免换世界后 id 复用导致误显示
-            SAOTargetBar3D.reset();
-            SAODeathEffect.reset();
-            SAOBossBanner.reset();
-            // 地图面板收起并释放动态纹理
-            SAOMapPanel.reset();
-            // 组队状态随世界失效(换服/单人退出)
-            com.sao.saomenu.client.party.SAOClientPartyState.reset();
-            pendingStart = false;
-            dismiss();
-        }
-        inWorld = now;
-        if (pendingStart && now && mc.screen == null && mc.getOverlay() == null) {
+        if (pendingStart && mc.player != null && mc.level != null
+                && mc.screen == null && mc.getOverlay() == null) {
             start();
             pendingStart = false;
         }
@@ -120,12 +105,8 @@ public final class SAOWelcome {
         }
         startAt = net.minecraft.Util.getMillis();
         if (SAOConfig.sounds()) {
-            try {
-                Minecraft.getInstance().getSoundManager()
-                        .play(SimpleSoundInstance.forUI(SAOMenuPlatform.launcherSound(), 0.8F));
-            } catch (Throwable ignored) {
-                // 非客户端环境(单测):忽略
-            }
+            Minecraft.getInstance().getSoundManager()
+                    .play(SimpleSoundInstance.forUI(SAOMenuPlatform.launcherSound(), 0.8F));
         }
     }
 
@@ -148,18 +129,18 @@ public final class SAOWelcome {
 
     /** 横幅:淡入后保持,最后随整体淡出。 */
     public static float bannerAlpha(long elapsed) {
-        return easeOutCubic(clamp01(elapsed / (float) BANNER_IN_MS)) * globalFade(elapsed);
+        return easeOutCubic(clamp01((elapsed - LINK_MS) / (float) BANNER_IN_MS)) * globalFade(elapsed);
     }
 
     /** 面板:延迟后淡入,最后随整体淡出。 */
     public static float panelAlpha(long elapsed) {
-        return easeOutCubic(clamp01((elapsed - PANEL_DELAY_MS) / (float) PANEL_IN_MS))
+        return easeOutCubic(clamp01((elapsed - LINK_MS - PANEL_DELAY_MS) / (float) PANEL_IN_MS))
                 * globalFade(elapsed);
     }
 
     /** 面板内提示文字:面板站稳后才出现。 */
     public static float textAlpha(long elapsed) {
-        return clamp01((elapsed - TEXT_DELAY_MS) / (float) TEXT_IN_MS) * globalFade(elapsed);
+        return clamp01((elapsed - LINK_MS - TEXT_DELAY_MS) / (float) TEXT_IN_MS) * globalFade(elapsed);
     }
 
     /** 整体淡出系数:淡出开始前恒为 1。 */
@@ -172,15 +153,15 @@ public final class SAOWelcome {
 
     /** 面板弹出缩放:0.88 → 1.0。 */
     public static float panelScale(long elapsed) {
-        return 0.88f + 0.12f * easeOutCubic(clamp01((elapsed - PANEL_DELAY_MS) / (float) PANEL_IN_MS));
+        return 0.88f + 0.12f * easeOutCubic(clamp01((elapsed - LINK_MS - PANEL_DELAY_MS) / (float) PANEL_IN_MS));
     }
 
     /** 横幅从中心向外展开的进度(0 → 1)。 */
     public static float bannerReveal(long elapsed) {
-        return easeOutCubic(clamp01(elapsed / (float) BANNER_IN_MS));
+        return easeOutCubic(clamp01((elapsed - LINK_MS) / (float) BANNER_IN_MS));
     }
 
-    /** LINK START 全屏不透明系数:先于欢迎横幅淡入,再在横幅站稳前淡出。 */
+    /** LINK START 全屏不透明系数;欢迎阶段开始前完全归零。 */
     public static float linkAlpha(long elapsed) {
         if (elapsed < 0 || elapsed >= LINK_MS) {
             return 0f;
@@ -214,6 +195,13 @@ public final class SAOWelcome {
         long elapsed = net.minecraft.Util.getMillis() - startAt;
         if (finished(elapsed)) {
             startAt = Long.MIN_VALUE;
+            return;
+        }
+        if (elapsed < LINK_MS) {
+            float alpha = linkAlpha(elapsed);
+            if (alpha > 0.004f) {
+                renderLinkStart(g, screenW, screenH, elapsed, alpha);
+            }
             return;
         }
 
@@ -276,7 +264,7 @@ public final class SAOWelcome {
             int bandTop = Math.round(panelH * 81f / TEX_P_H);
             int bandBot = Math.round(panelH * 161f / TEX_P_H);
             g.fill(bodyL, bandTop, bodyL + Math.max(1, Math.round(panelW * 0.011f)), bandBot,
-                    mulAlpha(SAOConfig.accent(), pa));
+                    mulAlpha(SaoTheme.accent(), pa));
 
             float ta = textAlpha(elapsed);
             if (ta > 0.004f) {
@@ -293,16 +281,11 @@ public final class SAOWelcome {
             }
             g.pose().popPose();
         }
-
-        float la = linkAlpha(elapsed);
-        if (la > 0.004f) {
-            renderLinkStart(g, screenW, screenH, elapsed, la);
-        }
     }
 
     /**
      * LINK START 全屏:深色罩 + 中心横线外扩 + 大字弹出。
-     * 画在欢迎横幅之上,淡出后露出已经站稳的横幅。
+     * 此阶段不推进也不绘制 Welcome 横幅与 Message 面板。
      */
     private static void renderLinkStart(GuiGraphics g, int screenW, int screenH,
                                         long elapsed, float la) {
@@ -313,7 +296,7 @@ public final class SAOWelcome {
         int lineH = Math.max(1, Math.round(screenH * 0.005f));
         int lineY = cy + Math.round(screenH * 0.055f);
         g.fill(screenW / 2 - lineW / 2, lineY, screenW / 2 + lineW / 2, lineY + lineH,
-                mulAlpha(SAOConfig.accent(), la));
+                mulAlpha(SaoTheme.accent(), la));
         Font font = Minecraft.getInstance().font;
         float ts = Math.max(2.6f, screenH / 85f) * linkScale(elapsed);
         SaoDraw.drawCentered(g, font, "LINK START",

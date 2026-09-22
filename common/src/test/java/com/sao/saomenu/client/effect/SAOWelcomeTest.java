@@ -22,29 +22,29 @@ class SAOWelcomeTest {
     @Test
     void bannerFadesInFirst() {
         assertEquals(0f, SAOWelcome.bannerAlpha(0), 0.001f, "起始帧横幅不可见");
-        assertTrue(SAOWelcome.bannerAlpha(SAOWelcome.BANNER_IN_MS / 2) > 0.5f,
+        assertTrue(SAOWelcome.bannerAlpha(SAOWelcome.LINK_MS + SAOWelcome.BANNER_IN_MS / 2) > 0.5f,
                 "缓出曲线在中点应已过半");
-        assertEquals(1f, SAOWelcome.bannerAlpha(SAOWelcome.BANNER_IN_MS), 0.001f);
+        assertEquals(1f, SAOWelcome.bannerAlpha(SAOWelcome.LINK_MS + SAOWelcome.BANNER_IN_MS), 0.001f);
     }
 
     @Test
     void panelWaitsForItsDelay() {
-        assertEquals(0f, SAOWelcome.panelAlpha(SAOWelcome.PANEL_DELAY_MS), 0.001f,
+        assertEquals(0f, SAOWelcome.panelAlpha(SAOWelcome.LINK_MS + SAOWelcome.PANEL_DELAY_MS), 0.001f,
                 "延迟结束瞬间面板仍不可见");
-        assertEquals(1f, SAOWelcome.panelAlpha(SAOWelcome.PANEL_DELAY_MS + SAOWelcome.PANEL_IN_MS),
+        assertEquals(1f, SAOWelcome.panelAlpha(SAOWelcome.LINK_MS + SAOWelcome.PANEL_DELAY_MS + SAOWelcome.PANEL_IN_MS),
                 0.001f);
     }
 
     @Test
     void textAppearsAfterPanelSettles() {
-        assertEquals(0f, SAOWelcome.textAlpha(SAOWelcome.TEXT_DELAY_MS - 1), 0.001f);
-        assertEquals(1f, SAOWelcome.textAlpha(SAOWelcome.TEXT_DELAY_MS + SAOWelcome.TEXT_IN_MS),
+        assertEquals(0f, SAOWelcome.textAlpha(SAOWelcome.LINK_MS + SAOWelcome.TEXT_DELAY_MS - 1), 0.001f);
+        assertEquals(1f, SAOWelcome.textAlpha(SAOWelcome.LINK_MS + SAOWelcome.TEXT_DELAY_MS + SAOWelcome.TEXT_IN_MS),
                 0.001f);
     }
 
     @Test
     void everythingIsOpaqueDuringHold() {
-        long mid = SAOWelcome.TEXT_DELAY_MS + SAOWelcome.TEXT_IN_MS + SAOWelcome.HOLD_MS / 2;
+        long mid = SAOWelcome.LINK_MS + SAOWelcome.TEXT_DELAY_MS + SAOWelcome.TEXT_IN_MS + SAOWelcome.HOLD_MS / 2;
         assertEquals(1f, SAOWelcome.globalFade(mid), 0.001f);
         assertEquals(1f, SAOWelcome.bannerAlpha(mid), 0.001f);
         assertEquals(1f, SAOWelcome.panelAlpha(mid), 0.001f);
@@ -70,14 +70,14 @@ class SAOWelcomeTest {
     @Test
     void panelScaleSettlesAtOne() {
         assertEquals(0.88f, SAOWelcome.panelScale(0), 0.001f);
-        assertEquals(1f, SAOWelcome.panelScale(SAOWelcome.PANEL_DELAY_MS + SAOWelcome.PANEL_IN_MS),
+        assertEquals(1f, SAOWelcome.panelScale(SAOWelcome.LINK_MS + SAOWelcome.PANEL_DELAY_MS + SAOWelcome.PANEL_IN_MS),
                 0.001f);
     }
 
     @Test
     void bannerRevealsFromCenter() {
         assertEquals(0f, SAOWelcome.bannerReveal(0), 0.001f);
-        assertEquals(1f, SAOWelcome.bannerReveal(SAOWelcome.BANNER_IN_MS), 0.001f);
+        assertEquals(1f, SAOWelcome.bannerReveal(SAOWelcome.LINK_MS + SAOWelcome.BANNER_IN_MS), 0.001f);
     }
 
     @Test
@@ -88,8 +88,12 @@ class SAOWelcomeTest {
         assertEquals(1f, SAOWelcome.linkAlpha(SAOWelcome.LINK_IN_MS), 0.001f);
         assertEquals(1f, SAOWelcome.linkAlpha(SAOWelcome.LINK_MS - SAOWelcome.LINK_OUT_MS), 0.001f);
         assertEquals(0f, SAOWelcome.linkAlpha(SAOWelcome.LINK_MS), 0.001f);
-        assertTrue(SAOWelcome.LINK_MS <= SAOWelcome.TEXT_DELAY_MS + 80,
-                "LINK START 应在欢迎提示文字出现前后淡出,不挡住 Message");
+        for (long elapsed : new long[]{SAOWelcome.LINK_IN_MS, SAOWelcome.LINK_MS - 1}) {
+            assertEquals(0f, SAOWelcome.bannerAlpha(elapsed), "Welcome must not animate under LINK START");
+            assertEquals(0f, SAOWelcome.panelAlpha(elapsed));
+            assertEquals(0f, SAOWelcome.textAlpha(elapsed));
+            assertEquals(0f, SAOWelcome.bannerReveal(elapsed));
+        }
         assertEquals(1f, SAOWelcome.linkScale(SAOWelcome.LINK_IN_MS), 0.001f);
         assertEquals(1f, SAOWelcome.linkLine(SAOWelcome.LINK_IN_MS), 0.001f);
     }

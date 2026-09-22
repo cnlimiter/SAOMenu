@@ -1,6 +1,6 @@
 package com.sao.saomenu.network.s2c;
 
-import com.sao.saomenu.client.party.SAOClientPartyState;
+import com.sao.saomenu.network.ClientboundPartyMessages;
 import com.sao.saomenu.network.SAONetwork;
 import dev.architectury.networking.NetworkManager;
 import dev.architectury.networking.simple.BaseS2CMessage;
@@ -55,6 +55,6 @@ public final class TeamSyncS2C extends BaseS2CMessage {
     public void handle(NetworkManager.PacketContext ctx) {
         String t = this.title;
         List<String> ms = this.members;
-        ctx.queue(() -> SAOClientPartyState.onTeamSync(t, ms));
+        ctx.queue(() -> ClientboundPartyMessages.team(t, ms));
     }
 }

@@ -36,10 +36,14 @@ gradlew :forge:runClient -Psaomenu.preview=D:/saomenu-verify/current --console=p
 
 预览代码位于 `common/src/dev/java`，Forge 启动钩子位于 `forge/src/dev/java`；仅预览运行选择 `dev` source set。这些类不进入发行 JAR，也不由生产按键逻辑反射加载。
 
+追加 `-Psaomenu.preview.keepOpen=true` 可在脚本完成后保留客户端供原生窗口检查。默认仍自动退出。
+
 预览的边界：
 
 - 截图文件名不证明目标页面实际打开；须核对当时的 `Screen`、日志和画面。
 - `dev.preview.SAOInventoryScreen` 是旧的客户端本地物品栏验证夹具，不是服务端权威的原版容器替代品。
+- 属性页会实际挂载后检查屏幕类型；成就页通过菜单导航打开。属性页当前没有生产菜单入口，不能把这项预览记为入口验收。
+- 二刀流回归检查运行在隔离世界的真实服务端玩家上，覆盖无效来源的原子性、物品守恒、冷却及保留主手；它不代替独立客户端的发包验证。
 - 集成世界预览不代替独立服务端、联机同步或第三方模组兼容性验收。
 - 世界、粒子、时钟和动画不是像素确定的；不能用全图零差异作为 HUD 验收条件。
 
@@ -59,6 +63,7 @@ python -m unittest discover -s tools/verification -p test_*.py -v
 | 包 | 职责 |
 | --- | --- |
 | `client/menu` | 菜单布局、面板、条目、会话上下文和菜单屏幕 |
+| `client/runtime` | 客户端初始化、世界切换与断开连接时的会话清理 |
 | `client/screen` | 独立页面；`settings` 保存设置页面及选项描述 |
 | `client/hud` | 屏幕空间 HUD 与浮动组件 |
 | `client/render` | 世界空间渲染；`target` 保存目标血条 |
@@ -68,13 +73,16 @@ python -m unittest discover -s tools/verification -p test_*.py -v
 | `config` | 配置数据与持久化 |
 | `network` | 协议注册及 `c2s`、`s2c` 消息 |
 | `server` | 队伍、物品操作、技能冷却等服务端规则 |
+| `skill` | 客户端与服务端共用的技能标识、冷却和物品判定；不依赖客户端类 |
 | `ui/render`、`ui/text`、`ui/animation`、`ui/theme` | 共用绘制、文字、动画、主题工具 |
 
-`forge` 保存加载器入口、注册、客户端事件适配与按职责分类的 Mixin。`SAOMenuPlatform` 与 `forge.SAOMenuPlatformImpl` 保持 Architectury 平台桥命名约定。测试目录跟随被测类的包。
+`forge` 保存加载器入口、注册、客户端事件适配与按职责分类的 Mixin。公共平台桥只提供声音和粒子；进度读取使用独立的 `client.runtime.SAOClientPlatform` 桥。两组实现都保持 Architectury 平台桥命名约定。测试目录跟随被测类的包。
 
 `common/src/dev/java/com/sao/saomenu/dev/preview` 保存开发预览与历史交互夹具，不作为开发者 API。
 
-包分类本身不代表客户端/服务端依赖已经完全解耦，也不将内部类自动升级为稳定公共 API。
+`SAOMenuScreen` 仅作屏幕适配，菜单状态、输入、列、卡片和对话框分别持有职责；设置页的数据表与动画皮肤分离，HUD 组合与拖动会话分离，目标血条的追踪、几何和绘制分离。配置门面、数据及磁盘存储分开。世界切换清理投影、地图和实体视觉缓存；断线再清理队伍、技能、欢迎动画、自由视角和按键状态。
+
+这些内部类尚未自动成为稳定公共 API。服务端包不再通过客户端技能注册表判定冷却，S2C 消息通过客户端启动时安装的接收器派发；仍须分别验收独立服务端与联机行为。
 
 ## 资源工具
 

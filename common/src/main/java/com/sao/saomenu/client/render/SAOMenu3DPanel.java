@@ -52,9 +52,17 @@ public final class SAOMenu3DPanel {
     private SAOMenu3DPanel() {
     }
 
+    /** Release level-owned GPU resources on the render/client thread. */
+    public static void reset() {
+        if (boardTarget != null) {
+            boardTarget.destroyBuffers();
+            boardTarget = null;
+        }
+        boardW = boardH = -1;
+    }
+
     /**
-     * 菜单屏渲染完成后调用(Forge {@code ScreenEvent.Render.Post} /
-     * Fabric {@code ScreenEvents.AFTER_RENDER}):把主帧缓冲 blit 到备用纹理。
+     * 菜单屏渲染完成后调用(Forge {@code ScreenEvent.Render.Post}):把主帧缓冲 blit 到备用纹理。
      * 先 endBatch 冲出 GuiGraphics 的批,保证菜单像素已全部上屏。
      */
     public static void onMenuScreenRendered(Minecraft mc) {

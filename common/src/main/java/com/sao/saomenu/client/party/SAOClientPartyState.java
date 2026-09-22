@@ -5,7 +5,6 @@ import com.sao.saomenu.client.screen.SAOInviteScreen;
 import com.sao.saomenu.server.party.SAOTeamManager;
 import net.minecraft.client.Minecraft;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -42,7 +41,7 @@ public final class SAOClientPartyState {
     /** 收到队伍同步(网络线程 → 主线程)。 */
     public static void onTeamSync(String title, List<String> members) {
         teamTitle = title == null ? "" : title;
-        teamMembers = new ArrayList<>(members);
+        teamMembers = List.copyOf(members);
         // 自己离队时顺手清掉陈旧邀请
         if (teamTitle.isEmpty()) {
             pendingInviter = null;
@@ -84,6 +83,7 @@ public final class SAOClientPartyState {
     /** 世界/服务器切换时清空全部状态。 */
     public static void reset() {
         pendingInviter = null;
+        inviteAt = 0L;
         teamTitle = "";
         teamMembers = List.of();
     }

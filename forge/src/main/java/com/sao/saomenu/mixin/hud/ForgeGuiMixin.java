@@ -1,6 +1,5 @@
 package com.sao.saomenu.mixin.hud;
 
-import com.sao.saomenu.SAOMenu;
 import com.sao.saomenu.config.SAOConfig;
 import com.sao.saomenu.client.hud.SAOHud;
 import net.minecraft.client.Minecraft;
@@ -25,39 +24,26 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ForgeGui.class)
 public class ForgeGuiMixin {
 
-    private static boolean saomenu$loggedFoodHook;
-
     @Inject(method = "renderHealth(IILnet/minecraft/client/gui/GuiGraphics;)V", at = @At("HEAD"), cancellable = true, remap = false)
     private void saomenu$hideHealth(int width, int height, GuiGraphics guiGraphics, CallbackInfo ci) {
-        if (SAOConfig.hideVanillaHealth()) {
+        if (SAOConfig.showHud() && SAOConfig.hideVanillaHealth()) {
             ci.cancel();
         }
     }
 
     @Inject(method = "renderArmor(Lnet/minecraft/client/gui/GuiGraphics;II)V", at = @At("HEAD"), cancellable = true, remap = false)
     private void saomenu$hideArmor(GuiGraphics guiGraphics, int width, int height, CallbackInfo ci) {
-        if (SAOConfig.hideVanillaHealth()) {
-            ci.cancel();
-        }
-    }
-
-    @Inject(method = "renderHealthMount(IILnet/minecraft/client/gui/GuiGraphics;)V", at = @At("HEAD"), cancellable = true, remap = false)
-    private void saomenu$hideMountHealth(int width, int height, GuiGraphics guiGraphics, CallbackInfo ci) {
-        if (SAOConfig.hideVanillaHealth()) {
+        if (SAOConfig.showHud() && SAOConfig.hideVanillaHealth()) {
             ci.cancel();
         }
     }
 
     @Inject(method = "renderFood(IILnet/minecraft/client/gui/GuiGraphics;)V", at = @At("HEAD"), cancellable = true, remap = false)
     private void saomenu$centerFood(int width, int height, GuiGraphics guiGraphics, CallbackInfo ci) {
-        if (!SAOConfig.hideVanillaHealth()) {
+        if (!SAOConfig.showHud() || !SAOConfig.hideVanillaHealth()) {
             return;
         }
         ci.cancel();
-        if (!saomenu$loggedFoodHook) {
-            saomenu$loggedFoodHook = true;
-            SAOMenu.LOGGER.info("[SAOMenu] ForgeGui.renderFood 已接管,饥饿值居中");
-        }
         var player = Minecraft.getInstance().player;
         if (player != null) {
             SAOHud.renderVanillaFoodCentered(guiGraphics, player);
@@ -67,7 +53,7 @@ public class ForgeGuiMixin {
     @Inject(method = "renderAir(IILnet/minecraft/client/gui/GuiGraphics;)V", at = @At("HEAD"), cancellable = true, remap = false)
     private void saomenu$relocateAir(int width, int height, GuiGraphics guiGraphics, CallbackInfo ci) {
         // 氧气泡由 renderFood 的接管路径一起画(居中),这里只取消原位绘制
-        if (SAOConfig.hideVanillaHealth()) {
+        if (SAOConfig.showHud() && SAOConfig.hideVanillaHealth()) {
             ci.cancel();
         }
     }

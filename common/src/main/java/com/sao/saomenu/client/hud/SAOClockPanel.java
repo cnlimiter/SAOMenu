@@ -57,10 +57,6 @@ public final class SAOClockPanel {
         return Math.round(H * SAOConfig.clockScale());
     }
 
-    private static boolean dragging;
-    private static float grabFx;
-    private static float grabFy;
-    private static boolean draggedSinceDown;
 
     private SAOClockPanel() {
     }
@@ -73,20 +69,20 @@ public final class SAOClockPanel {
         return getScaledH();
     }
 
-    private static int originX(int screenW) {
+    public static int panelX(int screenW) {
         int w = getScaledW();
         float fx = Mth.clamp(SAOConfig.clockPanelX(), 0f, 1f);
         return Math.max(2, Math.min(Math.round(fx * (screenW - w)), screenW - w - 2));
     }
 
-    private static int originY(int screenH) {
+    public static int panelY(int screenH) {
         int h = getScaledH();
         float fy = Mth.clamp(SAOConfig.clockPanelY(), 0f, 1f);
         return Math.max(2, Math.min(Math.round(fy * (screenH - h)), screenH - h - 2));
     }
 
     private static MenuLayout.Rect rect(int screenW, int screenH) {
-        return new MenuLayout.Rect(originX(screenW), originY(screenH), getScaledW(), getScaledH());
+        return new MenuLayout.Rect(panelX(screenW), panelY(screenH), getScaledW(), getScaledH());
     }
 
     // ------------------------------------------------------------ 渲染
@@ -100,8 +96,8 @@ public final class SAOClockPanel {
         if (SAOConfig.clockOnlyInMenu() && !(mc.screen instanceof SAOMenuScreen)) {
             return;
         }
-        int x = originX(screenW);
-        int y = originY(screenH);
+        int x = panelX(screenW);
+        int y = panelY(screenH);
         RenderSystem.enableBlend();
         RenderSystem.setShaderColor(1f, 1f, 1f, Mth.clamp(alpha, 0f, 1f));
         var pose = g.pose();
@@ -148,36 +144,12 @@ public final class SAOClockPanel {
         return SAOConfig.showClock() && rect(screenW, screenH).contains(mx, my);
     }
 
-    public static void beginDrag(int screenW, int screenH, int mx, int my) {
-        MenuLayout.Rect r = rect(screenW, screenH);
-        grabFx = (mx - r.x()) / (float) r.w();
-        grabFy = (my - r.y()) / (float) r.h();
-        dragging = true;
-        draggedSinceDown = false;
-    }
-
-    public static void dragTo(int screenW, int screenH, int mx, int my) {
-        if (!dragging) {
-            return;
-        }
+    static void moveTo(int screenW, int screenH, float grabFx, float grabFy, int mx, int my) {
         int w = getScaledW();
         int h = getScaledH();
         float fx = (mx - grabFx * w) / (float) Math.max(1, screenW - w);
         float fy = (my - grabFy * h) / (float) Math.max(1, screenH - h);
         SAOConfig.setClockPanelX(fx);
         SAOConfig.setClockPanelY(fy);
-        draggedSinceDown = true;
-    }
-
-    public static void endDragAndSave() {
-        if (dragging && draggedSinceDown) {
-            java.nio.file.Path p = SAOConfig.path();
-            if (p == null) {
-                p = Minecraft.getInstance().gameDirectory.toPath()
-                        .resolve("config").resolve("saomenu.json");
-            }
-            SAOConfig.save(p);
-        }
-        dragging = false;
     }
 }

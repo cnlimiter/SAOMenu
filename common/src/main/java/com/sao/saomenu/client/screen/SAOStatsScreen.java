@@ -1,6 +1,6 @@
 package com.sao.saomenu.client.screen;
 
-import com.sao.saomenu.config.SAOConfig;
+import com.sao.saomenu.ui.theme.SaoTheme;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -143,14 +143,14 @@ public class SAOStatsScreen extends Screen {
             String[] row = rows.get(i);
             g.drawString(this.font, row[0], px + 14, y + 3, TEXT_WHITE, false);
             g.drawString(this.font, row[1], px + pw - 14 - this.font.width(row[1]), y + 3,
-                    SAOConfig.accent(), false);
+                    SaoTheme.accent(), false);
         }
 
         // 完成按钮
         int by = py + ph - 24;
         boolean hoverDone = inDone(mouseX, mouseY);
         g.fill(px + pw - 72, by, px + pw - 12, by + 18,
-                hoverDone ? lighten(SAOConfig.accent()) : SAOConfig.accent());
+                hoverDone ? lighten(SaoTheme.accent()) : SaoTheme.accent());
         String done = Component.translatable("saomenu.inventory.done").getString();
         g.drawString(this.font, done, px + pw - 72 + (60 - this.font.width(done)) / 2,
                 by + 5, 0xFF232323, false);

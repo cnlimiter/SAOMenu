@@ -1,10 +1,10 @@
 package com.sao.saomenu.client.hud;
 
 import com.sao.saomenu.config.SAOConfig;
+import com.sao.saomenu.ui.text.SaoText;
 
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.util.Mth;
@@ -35,6 +35,7 @@ public final class SAOCombatHud {
     private static final double TRACK_RANGE = 40; // 血量差检测范围(方块)
 
     private static final Map<Integer, Float> LAST_HP = new HashMap<>();
+    private static final Map<Integer, Float> SEEN = new HashMap<>();
     /** 每个实体最近一次掉血的时刻,驱动目标血条的受击闪白。 */
     private static final Map<Integer, Long> HURT_AT = new HashMap<>();
     private static final List<DamageNumber> NUMBERS = new ArrayList<>();
@@ -46,13 +47,33 @@ public final class SAOCombatHud {
     private SAOCombatHud() {
     }
 
-    /** 每帧入口(SAOHud.render 调用):先检测事件,再绘制伤害数字。 */
+    /** 绘制伤害数字;事件检测走 {@link #tick}。 */
     public static void render(GuiGraphics g, Minecraft mc, int w, int h, float alpha) {
         if (mc.player == null) {
             return;
         }
-        detect(mc);
         renderNumbers(g, mc, w, h, alpha);
+    }
+
+    static void tick(Minecraft mc) {
+        if (mc.level == null || mc.player == null) {
+            reset();
+            return;
+        }
+        if (!SAOConfig.showHud()) {
+            return;
+        }
+        detect(mc);
+    }
+
+    static void reset() {
+        LAST_HP.clear();
+        SEEN.clear();
+        HURT_AT.clear();
+        NUMBERS.clear();
+        lastXp = -1;
+        lastLevel = -1;
+        ringAt = Long.MIN_VALUE;
     }
 
     /** 供 SAOTargetBar3D 读取某实体最近一次掉血的时刻(0 表示从未受击)。 */
@@ -65,15 +86,9 @@ public final class SAOCombatHud {
     /** 血量差/击杀/经验/升级检测 + 过期数字清理 + 升级光环粒子。 */
     private static void detect(Minecraft mc) {
         long now = Util.getMillis();
-        if (mc.level == null) {
-            LAST_HP.clear();
-            HURT_AT.clear();
-            NUMBERS.clear();
-            return;
-        }
         Player p = mc.player;
         Vec3 camPos = mc.gameRenderer.getMainCamera().getPosition();
-        Map<Integer, Float> seen = new HashMap<>();
+        SEEN.clear();
         for (Entity e : mc.level.entitiesForRendering()) {
             if (!(e instanceof LivingEntity le) || !le.isAlive() || le == p) {
                 continue;
@@ -82,12 +97,11 @@ public final class SAOCombatHud {
                 continue;
             }
             int id = le.getId();
-            seen.put(id, le.getHealth());
+            SEEN.put(id, le.getHealth());
             Float prev = LAST_HP.get(id);
             if (prev != null) {
                 float dmg = prev - le.getHealth();
                 if (dmg >= 0.5f) {
-                    // 玩家打出的伤害橙色,其余(环境/他人)红色
                     boolean byPlayer = le.getLastHurtByMob() == p;
                     int color = byPlayer ? 0xFFFF8C0A : 0xFFFF4040;
                     NUMBERS.add(new DamageNumber(id, "-" + trim(dmg), color, now,
@@ -96,28 +110,25 @@ public final class SAOCombatHud {
                 }
             }
         }
-        // 击杀检测:上一帧还有血、这一帧从跟踪集消失且是被玩家打死的
         for (Iterator<Map.Entry<Integer, Float>> it = LAST_HP.entrySet().iterator(); it.hasNext(); ) {
             Map.Entry<Integer, Float> en = it.next();
-            if (seen.containsKey(en.getKey())) {
+            if (SEEN.containsKey(en.getKey())) {
                 continue;
             }
             Entity e = mc.level.getEntity(en.getKey());
             if (e instanceof LivingEntity le && !le.isAlive() && en.getValue() > 0f
                     && le.getLastHurtByMob() == p && SAOConfig.saoToasts()) {
-                SAONotification.push(SAOHud.tr("saomenu.notify.kill", le.getDisplayName().getString()), "");
+                SAONotification.push(SaoText.tr("saomenu.notify.kill", le.getDisplayName().getString()), "");
             }
             it.remove();
         }
         LAST_HP.clear();
-        LAST_HP.putAll(seen);
-        // 闪白记录跟着跟踪集走,实体离开视野即清理
-        HURT_AT.keySet().retainAll(seen.keySet());
+        LAST_HP.putAll(SEEN);
+        HURT_AT.keySet().retainAll(SEEN.keySet());
 
-        // 经验与升级
         int xp = p.totalExperience;
         if (lastXp >= 0 && xp > lastXp && SAOConfig.saoToasts()) {
-            SAONotification.push(SAOHud.tr("saomenu.notify.exp", xp - lastXp), "");
+            SAONotification.push(SaoText.tr("saomenu.notify.exp", xp - lastXp), "");
         }
         lastXp = xp;
         if (lastLevel >= 0 && p.experienceLevel > lastLevel) {
@@ -125,10 +136,8 @@ public final class SAOCombatHud {
         }
         lastLevel = p.experienceLevel;
 
-        // 过期数字
         NUMBERS.removeIf(n -> now - n.at > NUMBER_MS);
 
-        // 升级金色光环:绕玩家一圈上升的光点
         if (ringAt != Long.MIN_VALUE && now - ringAt < RING_MS && mc.level != null) {
             float t = (now - ringAt) / (float) RING_MS;
             double radius = 0.7 + t * 0.9;
@@ -142,6 +151,7 @@ public final class SAOCombatHud {
             }
         }
     }
+
 
     // ---------------------------------------------------------------- 伤害数字
 

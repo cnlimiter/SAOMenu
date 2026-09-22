@@ -1,29 +1,26 @@
 package com.sao.saomenu.config;
 
-import com.sao.saomenu.client.menu.MenuLayout;
-
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
 import com.sao.saomenu.SAOMenu;
+import com.sao.saomenu.ui.theme.SaoTheme;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 /**
- * 客户端配置:纯数据 + Gson 持久化(不依赖 Minecraft 类,可单元测试)。
+ * 客户端配置门面:静态读写入口,状态在 {@link SaoConfigData},落盘在 {@link SaoConfigStore}。
  *
- * <p>由 {@link SAOKeybinds} 在客户端初始化时调用 {@link #load(Path)},
- * {@link SAOSettingsScreen} 修改后调用 {@link #save(Path)} 落盘到
- * {@code config/saomenu.json}。布局数学(MenuLayout)、渲染与 HUD 只读配置。</p>
+ * <p>{@link #load(Path)} 选定文件;{@link #save()} 写回该文件。未先 load 非空路径就
+ * {@link #save()} 是编程错误,不会猜测 Minecraft 目录。{@link #save(Path)} 仍供显式路径
+ * 与测试使用。</p>
  */
 public final class SAOConfig {
 
     // ------------------------------------------------------------ 默认值(参考截图实测)
-    public static final float DEF_ANCHOR_X = MenuLayout.ANCHOR_X_FRAC;
-    public static final float DEF_ANCHOR_Y = MenuLayout.ANCHOR_Y_FRAC;
+    public static final float DEF_ANCHOR_X = 0.44f;
+    public static final float DEF_ANCHOR_Y = 0.363f;
     public static final float DEF_MENU_SCALE = 1f;
     public static final float DEF_BOB_AMP = 1f;
 
@@ -90,60 +87,8 @@ public final class SAOConfig {
     /** Boss「Immortal Object」横幅默认开。 */
     public static final boolean DEF_BOSS_BANNER = true;
 
-    private static float anchorX = DEF_ANCHOR_X;
-    private static float anchorY = DEF_ANCHOR_Y;
-    private static float menuScale = DEF_MENU_SCALE;
-    private static float bobAmp = DEF_BOB_AMP;
-    private static boolean sounds = true;
-    private static boolean hideHotbar = true;
-    private static boolean showHud = true;
-    private static boolean showAvatar = true;
-    private static boolean anchorFollowMouse = false;
-    private static boolean showTargetBar = true;
-    private static boolean showDamageNumbers = true;
-    private static boolean saoToasts = true;
-    private static boolean showClock = true;
-    private static boolean clock24h = true;
-    private static boolean clockDate = false;
-    private static boolean showWelcome = true;
-    private static boolean deathShatter = true;
-    private static float deathShatterDensity = 1f;
-    private static float accentHue = DEF_ACCENT_HUE;
-    private static float mapPanelX = DEF_MAP_PANEL_X;
-    private static float mapPanelY = DEF_MAP_PANEL_Y;
-    private static boolean mapPinned = false;
-    private static float clockPanelX = DEF_CLOCK_PANEL_X;
-    private static float clockPanelY = DEF_CLOCK_PANEL_Y;
-    private static float clockScale = DEF_CLOCK_SCALE;
-    private static float hotbarScale = DEF_HOTBAR_SCALE;
-    private static boolean thirdPersonMenu = DEF_THIRD_PERSON;
-    private static boolean showBossBanner = DEF_BOSS_BANNER;
-    private static float platePanelX = DEF_PLATE_PANEL_X;
-    private static float platePanelY = DEF_PLATE_PANEL_Y;
-    private static boolean clockOnlyInMenu = DEF_CLOCK_MENU_ONLY;
-    private static boolean autoSprint = DEF_AUTO_SPRINT;
-    private static boolean hideVanillaHealth = DEF_HIDE_VANILLA_HEALTH;
-    private static float foodPanelX = DEF_FOOD_PANEL_X;
-    private static float foodPanelY = DEF_FOOD_PANEL_Y;
-    /** 技能浮条锚点(屏幕比例)。 */
-    private static float skillBarX = DEF_SKILL_BAR_X;
-    private static float skillBarY = DEF_SKILL_BAR_Y;
-    /**
-     * 当前选中的主题 id。
-     *
-     * <p>比色相更权威:色相只决定主题色,拖过色相滑条后已经无法反推是哪个主题,
-     * 于是 JSON 主题的自定义调色板会在重启后丢失。这里把它记下来。</p>
-     */
-    private static String themeId = com.sao.saomenu.ui.theme.SaoTheme.SAO;
-    /** 置顶物品(注册名),按加入顺序排在物品列最前。 */
-    private static final java.util.List<String> pinnedItems = new java.util.ArrayList<>();
-    /** 手动拖动排出的顺序(注册名);与置顶无关,不带角标。 */
-    private static final java.util.List<String> itemOrder = new java.util.ArrayList<>();
-    private static boolean hasOpenedSettings = false; // 是否打开过设置界面
-
+    private static SaoConfigData data = new SaoConfigData();
     private static Path loadedFrom;
-
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     private SAOConfig() {
     }
@@ -151,350 +96,343 @@ public final class SAOConfig {
     // ------------------------------------------------------------ 读取(布局/渲染用)
 
     public static float anchorX() {
-        return anchorX;
+        return data.anchorX;
     }
 
     public static float anchorY() {
-        return anchorY;
+        return data.anchorY;
     }
 
     public static float menuScale() {
-        return menuScale;
+        return data.menuScale;
     }
 
     public static float bobAmp() {
-        return bobAmp;
+        return data.bobAmp;
     }
 
     public static boolean sounds() {
-        return sounds;
+        return data.sounds;
     }
 
     public static boolean hideHotbar() {
-        return hideHotbar;
+        return data.hideHotbar;
     }
 
     public static boolean showHud() {
-        return showHud;
+        return data.showHud;
     }
 
     /** 血条板名字下方是否显示皮肤头像。 */
     public static boolean showAvatar() {
-        return showAvatar;
+        return data.showAvatar;
     }
 
     /** 菜单是否在鼠标位置打开(参照 SAO_Utils;关闭时使用锚点 X/Y)。 */
     public static boolean anchorFollowMouse() {
-        return anchorFollowMouse;
+        return data.anchorFollowMouse;
     }
 
     /** 准星对准目标时是否显示目标血条。 */
     public static boolean showTargetBar() {
-        return showTargetBar;
+        return data.showTargetBar;
     }
 
     /** 是否显示伤害数字。 */
     public static boolean showDamageNumbers() {
-        return showDamageNumbers;
-    }
-
-    /** 当前主题色 ARGB(由色相实时换算;公式见 {@link com.sao.saomenu.ui.theme.SaoTheme})。 */
-    public static int accent() {
-        return com.sao.saomenu.ui.theme.SaoTheme.accentFromHue(accentHue);
+        return data.showDamageNumbers;
     }
 
     /** 地图面板锚点 X(屏幕比例 0-1,拖动后持久化)。 */
     public static float mapPanelX() {
-        return mapPanelX;
+        return data.mapPanelX;
     }
 
     /** 地图面板锚点 Y(屏幕比例 0-1)。 */
     public static float mapPanelY() {
-        return mapPanelY;
+        return data.mapPanelY;
     }
 
     /** 地图面板是否图钉固定(关菜单后仍显示)。 */
     public static boolean mapPinned() {
-        return mapPinned;
+        return data.mapPinned;
     }
 
     /** 时钟面板锚点 X(屏幕比例 0-1,拖动后持久化)。 */
     public static float clockPanelX() {
-        return clockPanelX;
+        return data.clockPanelX;
     }
 
     /** 时钟面板锚点 Y(屏幕比例 0-1)。 */
     public static float clockPanelY() {
-        return clockPanelY;
+        return data.clockPanelY;
     }
 
     /** 时钟大小倍率(0.5-2.0)。 */
     public static float clockScale() {
-        return clockScale;
+        return data.clockScale;
     }
 
     /** 底部圆点物品栏大小倍率(0.6-1.6)。 */
     public static float hotbarScale() {
-        return hotbarScale;
+        return data.hotbarScale;
     }
 
     /** 打开菜单时是否在角色面前渲染世界空间菜单板(第三人称可见)。 */
     public static boolean thirdPersonMenu() {
-        return thirdPersonMenu;
+        return data.thirdPersonMenu;
     }
 
     /** 视线对准 Boss 时是否显示「Immortal Object」横幅。 */
     public static boolean showBossBanner() {
-        return showBossBanner;
+        return data.showBossBanner;
     }
 
     /** 血条板锚点(屏幕比例;SAO 原版位置 = 左上角 (0,0))。 */
     public static float platePanelX() {
-        return platePanelX;
+        return data.platePanelX;
     }
 
     public static float platePanelY() {
-        return platePanelY;
+        return data.platePanelY;
     }
 
     public static float accentHue() {
-        return accentHue;
+        return data.accentHue;
     }
 
     public static boolean saoToasts() {
-        return saoToasts;
+        return data.saoToasts;
     }
 
     public static boolean showClock() {
-        return showClock;
+        return data.showClock;
     }
 
     public static boolean clock24h() {
-        return clock24h;
+        return data.clock24h;
     }
 
     public static boolean clockDate() {
-        return clockDate;
+        return data.clockDate;
     }
 
     /** 进入世界时是否播放 SAO 欢迎动画。 */
     public static boolean showWelcome() {
-        return showWelcome;
+        return data.showWelcome;
     }
 
     /** 生物死亡时是否播放 SAO 碎裂特效。 */
     public static boolean deathShatter() {
-        return deathShatter;
+        return data.deathShatter;
     }
 
     /** 碎裂粒子密度倍率(1.0 为默认)。 */
     public static float deathShatterDensity() {
-        return deathShatterDensity;
-    }
-    
-    /** 是否打开过设置界面(用于判断是否播放完整转场动画)。 */
-    public static boolean hasOpenedSettings() {
-        return hasOpenedSettings;
-    }
-    
-    /** 标记已打开过设置界面。 */
-    public static void markSettingsOpened() {
-        hasOpenedSettings = true;
+        return data.deathShatterDensity;
     }
 
-    // 主题色换算见 com.sao.saomenu.ui.theme.SaoTheme(唯一一处 HSV 实现)。
+    /** 是否打开过设置界面(用于判断是否播放完整转场动画)。 */
+    public static boolean hasOpenedSettings() {
+        return data.hasOpenedSettings;
+    }
+
+    /** 标记已打开过设置界面。 */
+    public static void markSettingsOpened() {
+        data.hasOpenedSettings = true;
+    }
 
     // ------------------------------------------------------------ 修改(带钳制;由界面负责 save)
 
     public static void setAnchorX(float v) {
-        anchorX = clamp(v, ANCHOR_MIN, ANCHOR_MAX);
+        data.anchorX = clamp(v, ANCHOR_MIN, ANCHOR_MAX, data.anchorX);
     }
 
     public static void setAnchorY(float v) {
-        anchorY = clamp(v, ANCHOR_MIN, ANCHOR_MAX);
+        data.anchorY = clamp(v, ANCHOR_MIN, ANCHOR_MAX, data.anchorY);
     }
 
     public static void setMenuScale(float v) {
-        menuScale = clamp(v, SCALE_MIN, SCALE_MAX);
+        data.menuScale = clamp(v, SCALE_MIN, SCALE_MAX, data.menuScale);
     }
 
     public static void setBobAmp(float v) {
-        bobAmp = clamp(v, BOB_MIN, BOB_MAX);
+        data.bobAmp = clamp(v, BOB_MIN, BOB_MAX, data.bobAmp);
     }
 
     public static void setSounds(boolean v) {
-        sounds = v;
+        data.sounds = v;
     }
 
     public static void setHideHotbar(boolean v) {
-        hideHotbar = v;
+        data.hideHotbar = v;
     }
 
     public static void setShowHud(boolean v) {
-        showHud = v;
+        data.showHud = v;
     }
 
     public static void setShowAvatar(boolean v) {
-        showAvatar = v;
+        data.showAvatar = v;
     }
 
     public static void setAnchorFollowMouse(boolean v) {
-        anchorFollowMouse = v;
+        data.anchorFollowMouse = v;
     }
 
     public static void setShowTargetBar(boolean v) {
-        showTargetBar = v;
+        data.showTargetBar = v;
     }
 
     public static void setShowDamageNumbers(boolean v) {
-        showDamageNumbers = v;
+        data.showDamageNumbers = v;
     }
 
     public static void setAccentHue(float v) {
-        accentHue = clamp(v, 0f, 360f);
+        data.accentHue = clamp(v, 0f, 360f, data.accentHue);
     }
 
     public static void setMapPanelX(float v) {
-        mapPanelX = clamp(v, 0f, 1f);
+        data.mapPanelX = clamp(v, 0f, 1f, data.mapPanelX);
     }
 
     public static void setMapPanelY(float v) {
-        mapPanelY = clamp(v, 0f, 1f);
+        data.mapPanelY = clamp(v, 0f, 1f, data.mapPanelY);
     }
 
     public static void setMapPinned(boolean v) {
-        mapPinned = v;
+        data.mapPinned = v;
     }
 
     public static void setClockPanelX(float v) {
-        clockPanelX = clamp(v, 0f, 1f);
+        data.clockPanelX = clamp(v, 0f, 1f, data.clockPanelX);
     }
 
     public static void setClockPanelY(float v) {
-        clockPanelY = clamp(v, 0f, 1f);
+        data.clockPanelY = clamp(v, 0f, 1f, data.clockPanelY);
     }
 
     public static void setClockScale(float v) {
-        clockScale = clamp(v, CLOCK_SCALE_MIN, CLOCK_SCALE_MAX);
+        data.clockScale = clamp(v, CLOCK_SCALE_MIN, CLOCK_SCALE_MAX, data.clockScale);
     }
 
     public static void setHotbarScale(float v) {
-        hotbarScale = clamp(v, HOTBAR_MIN, HOTBAR_MAX);
+        data.hotbarScale = clamp(v, HOTBAR_MIN, HOTBAR_MAX, data.hotbarScale);
     }
 
     public static void setThirdPersonMenu(boolean v) {
-        thirdPersonMenu = v;
+        data.thirdPersonMenu = v;
     }
 
     public static void setShowBossBanner(boolean v) {
-        showBossBanner = v;
+        data.showBossBanner = v;
     }
 
     public static void setPlatePanelX(float v) {
-        platePanelX = clamp(v, 0f, 1f);
+        data.platePanelX = clamp(v, 0f, 1f, data.platePanelX);
     }
 
     public static void setPlatePanelY(float v) {
-        platePanelY = clamp(v, 0f, 1f);
+        data.platePanelY = clamp(v, 0f, 1f, data.platePanelY);
     }
 
     /** 时钟是否仅 SAO 菜单打开期间显示(关闭菜单即隐藏)。 */
     public static boolean clockOnlyInMenu() {
-        return clockOnlyInMenu;
+        return data.clockOnlyInMenu;
     }
 
     public static void setClockOnlyInMenu(boolean v) {
-        clockOnlyInMenu = v;
+        data.clockOnlyInMenu = v;
     }
 
     /** 按住 W 自动疾跑。 */
     public static boolean autoSprint() {
-        return autoSprint;
+        return data.autoSprint;
     }
 
     public static void setAutoSprint(boolean v) {
-        autoSprint = v;
+        data.autoSprint = v;
     }
 
     /** 隐藏原版血条(饥饿条居中显示,氧气泡保留)。 */
     public static boolean hideVanillaHealth() {
-        return hideVanillaHealth;
+        return data.hideVanillaHealth;
     }
 
     public static void setHideVanillaHealth(boolean v) {
-        hideVanillaHealth = v;
+        data.hideVanillaHealth = v;
     }
 
     /** 饥饿条锚点(屏幕比例)。 */
     public static float foodPanelX() {
-        return foodPanelX;
+        return data.foodPanelX;
     }
 
     public static float foodPanelY() {
-        return foodPanelY;
+        return data.foodPanelY;
     }
 
     public static void setFoodPanelX(float v) {
-        foodPanelX = clamp(v, 0f, 1f);
+        data.foodPanelX = clamp(v, 0f, 1f, data.foodPanelX);
     }
 
     public static void setFoodPanelY(float v) {
-        foodPanelY = clamp(v, 0f, 1f);
+        data.foodPanelY = clamp(v, 0f, 1f, data.foodPanelY);
     }
 
     /** 技能浮条锚点(屏幕比例;X/Y 都是 0-1 的比例,不是像素)。 */
     public static float skillBarX() {
-        return skillBarX;
+        return data.skillBarX;
     }
 
     public static float skillBarY() {
-        return skillBarY;
+        return data.skillBarY;
     }
 
     public static void setSkillBarX(float v) {
-        skillBarX = clamp(v, 0f, 1f);
+        data.skillBarX = clamp(v, 0f, 1f, data.skillBarX);
     }
 
     public static void setSkillBarY(float v) {
-        skillBarY = clamp(v, 0f, 1f);
+        data.skillBarY = clamp(v, 0f, 1f, data.skillBarY);
     }
 
     /** 当前选中的主题 id(未知 id 由主题层回落,这里只负责存取)。 */
     public static String themeId() {
-        return themeId;
+        return data.themeId;
     }
 
     public static void setThemeId(String v) {
-        themeId = v == null || v.isBlank() ? com.sao.saomenu.ui.theme.SaoTheme.SAO : v;
+        data.themeId = v == null || v.isBlank() ? SaoTheme.SAO : v;
     }
 
     /** 置顶物品注册名列表(只读快照)。 */
-    public static java.util.List<String> pinnedItems() {
-        return java.util.List.copyOf(pinnedItems);
+    public static List<String> pinnedItems() {
+        return List.copyOf(data.pinnedItems);
     }
 
     /** 该物品是否已置顶。 */
     public static boolean isPinned(String id) {
-        return pinnedItems.contains(id);
+        return data.pinnedItems.contains(id);
     }
 
     /**
      * 置顶顺序号;未置顶返回 {@link Integer#MAX_VALUE}(排序时自然沉底)。
      */
     public static int pinOrder(String id) {
-        int i = pinnedItems.indexOf(id);
+        int i = data.pinnedItems.indexOf(id);
         return i < 0 ? Integer.MAX_VALUE : i;
     }
 
     /** 手动顺序号;不在自定义顺序里返回 {@link Integer#MAX_VALUE}。 */
     public static int orderIndex(String id) {
-        int i = itemOrder.indexOf(id);
+        int i = data.itemOrder.indexOf(id);
         return i < 0 ? Integer.MAX_VALUE : i;
     }
 
     /** 自定义顺序快照(只读)。 */
-    public static java.util.List<String> itemOrder() {
-        return java.util.List.copyOf(itemOrder);
+    public static List<String> itemOrder() {
+        return List.copyOf(data.itemOrder);
     }
 
     /**
@@ -504,15 +442,8 @@ public final class SAOConfig {
      * 物品之间无从比较,必须给所有物品一个确定位次。这也是为什么
      * 拖动不再顺带把物品置顶——置顶是独立的标记,不再被排序借用。</p>
      */
-    public static void setItemOrder(java.util.List<String> order) {
-        itemOrder.clear();
-        if (order != null) {
-            for (String id : order) {
-                if (id != null && !id.isEmpty() && !itemOrder.contains(id)) {
-                    itemOrder.add(id);
-                }
-            }
-        }
+    public static void setItemOrder(List<String> order) {
+        data.itemOrder = SaoConfigData.sanitize(order);
     }
 
     /** 切换置顶;返回切换后是否为置顶态。 */
@@ -520,82 +451,48 @@ public final class SAOConfig {
         if (id == null || id.isEmpty()) {
             return false;
         }
-        if (pinnedItems.remove(id)) {
+        if (data.pinnedItems.remove(id)) {
             return false;
         }
-        pinnedItems.add(id);
+        data.pinnedItems.add(id);
         return true;
     }
 
     public static void setSaoToasts(boolean v) {
-        saoToasts = v;
+        data.saoToasts = v;
     }
 
     public static void setShowClock(boolean v) {
-        showClock = v;
+        data.showClock = v;
     }
 
     public static void setClock24h(boolean v) {
-        clock24h = v;
+        data.clock24h = v;
     }
 
     public static void setClockDate(boolean v) {
-        clockDate = v;
+        data.clockDate = v;
     }
 
     public static void setShowWelcome(boolean v) {
-        showWelcome = v;
+        data.showWelcome = v;
     }
 
     public static void setDeathShatter(boolean v) {
-        deathShatter = v;
+        data.deathShatter = v;
     }
 
     public static void setDeathShatterDensity(float v) {
-        deathShatterDensity = clamp(v, SHATTER_MIN, SHATTER_MAX);
+        data.deathShatterDensity = clamp(v, SHATTER_MIN, SHATTER_MAX, data.deathShatterDensity);
     }
 
+    /**
+     * 恢复界面默认值。不改 {@link #hasOpenedSettings()}(是否打开过设置是会话标记,不是外观预设)。
+     */
     public static void reset() {
-        anchorX = DEF_ANCHOR_X;
-        anchorY = DEF_ANCHOR_Y;
-        menuScale = DEF_MENU_SCALE;
-        bobAmp = DEF_BOB_AMP;
-        sounds = true;
-        hideHotbar = true;
-        showHud = true;
-        showAvatar = true;
-        anchorFollowMouse = false;
-        showTargetBar = true;
-        showDamageNumbers = true;
-        saoToasts = true;
-        showClock = true;
-        clock24h = true;
-        clockDate = false;
-        showWelcome = true;
-        deathShatter = true;
-        deathShatterDensity = DEF_SHATTER_DENSITY;
-        accentHue = DEF_ACCENT_HUE;
-        mapPanelX = DEF_MAP_PANEL_X;
-        mapPanelY = DEF_MAP_PANEL_Y;
-        mapPinned = false;
-        clockPanelX = DEF_CLOCK_PANEL_X;
-        clockPanelY = DEF_CLOCK_PANEL_Y;
-        clockScale = DEF_CLOCK_SCALE;
-        hotbarScale = DEF_HOTBAR_SCALE;
-        thirdPersonMenu = DEF_THIRD_PERSON;
-        showBossBanner = DEF_BOSS_BANNER;
-        platePanelX = DEF_PLATE_PANEL_X;
-        platePanelY = DEF_PLATE_PANEL_Y;
-        clockOnlyInMenu = DEF_CLOCK_MENU_ONLY;
-        autoSprint = DEF_AUTO_SPRINT;
-        hideVanillaHealth = DEF_HIDE_VANILLA_HEALTH;
-        foodPanelX = DEF_FOOD_PANEL_X;
-        foodPanelY = DEF_FOOD_PANEL_Y;
-        skillBarX = DEF_SKILL_BAR_X;
-        skillBarY = DEF_SKILL_BAR_Y;
-        themeId = com.sao.saomenu.ui.theme.SaoTheme.SAO;
-        pinnedItems.clear();
-        itemOrder.clear();
+        boolean opened = data.hasOpenedSettings;
+        data = new SaoConfigData();
+        data.hasOpenedSettings = opened;
     }
 
     // ------------------------------------------------------------ 持久化
@@ -611,182 +508,57 @@ public final class SAOConfig {
             return;
         }
         try {
-            String json = Files.readString(file, StandardCharsets.UTF_8);
-            Data d = GSON.fromJson(json, Data.class);
-            if (d == null) {
+            SaoConfigData loaded = SaoConfigStore.read(file);
+            if (loaded == null) {
                 return;
             }
-            // 旧默认锚点 0.32 迁移到新默认:二级展开时整组左移,0.44 才放得下
-            if (Math.abs(d.anchorX - 0.32f) < 0.0001f) {
-                setAnchorX(DEF_ANCHOR_X);
-            } else {
-                setAnchorX(d.anchorX);
+            String keepTheme = loaded.themeId == null || loaded.themeId.isBlank() ? data.themeId : null;
+            loaded.normalize();
+            if (keepTheme != null) {
+                loaded.themeId = keepTheme;
             }
-            setAnchorY(d.anchorY);
-            setMenuScale(d.menuScale);
-            setBobAmp(d.bobAmp);
-            sounds = d.sounds;
-            hideHotbar = d.hideHotbar;
-            showHud = d.showHud;
-            showAvatar = d.showAvatar;
-            anchorFollowMouse = d.anchorFollowMouse;
-            showTargetBar = d.showTargetBar;
-            showDamageNumbers = d.showDamageNumbers;
-            saoToasts = d.saoToasts;
-            showClock = d.showClock;
-            clock24h = d.clock24h;
-            clockDate = d.clockDate;
-            showWelcome = d.showWelcome;
-            deathShatter = d.deathShatter;
-            setDeathShatterDensity(d.deathShatterDensity);
-            setAccentHue(d.accentHue);
-            setMapPanelX(d.mapPanelX);
-            setMapPanelY(d.mapPanelY);
-            mapPinned = d.mapPinned;
-            setClockPanelX(d.clockPanelX);
-            setClockPanelY(d.clockPanelY);
-            setClockScale(d.clockScale);
-            setHotbarScale(d.hotbarScale);
-            thirdPersonMenu = d.thirdPersonMenu;
-            showBossBanner = d.showBossBanner;
-            setPlatePanelX(d.platePanelX);
-            setPlatePanelY(d.platePanelY);
-            clockOnlyInMenu = d.clockOnlyInMenu;
-            autoSprint = d.autoSprint;
-            hideVanillaHealth = d.hideVanillaHealth;
-            setFoodPanelX(d.foodPanelX);
-            setFoodPanelY(d.foodPanelY);
-            setSkillBarX(d.skillBarX);
-            setSkillBarY(d.skillBarY);
-            // 旧配置文件没有 themeId:留空即回落 SAO,由主题层按色相反查兜底
-            if (d.themeId != null && !d.themeId.isBlank()) {
-                themeId = d.themeId;
-            }
-            pinnedItems.clear();
-            if (d.pinnedItems != null) {
-                for (String id : d.pinnedItems) {
-                    if (id != null && !id.isEmpty() && !pinnedItems.contains(id)) {
-                        pinnedItems.add(id);
-                    }
-                }
-            }
-            setItemOrder(d.itemOrder);
-            hasOpenedSettings = d.hasOpenedSettings; // 加载是否打开过设置
+            data = loaded;
         } catch (IOException | JsonSyntaxException e) {
             SAOMenu.LOGGER.warn("[SAOMenu] config load failed, keeping defaults: {}", e.toString());
         }
+    }
+
+    /**
+     * 写回 {@link #load(Path)} 选定的非空路径。
+     *
+     * @throws IllegalStateException 尚未 load 非空路径
+     */
+    public static void save() {
+        if (loadedFrom == null) {
+            throw new IllegalStateException("SAOConfig.save() requires a prior load(Path) with a non-null path");
+        }
+        save(loadedFrom);
     }
 
     public static void save(Path file) {
         if (file == null) {
             return;
         }
-        Data d = new Data(anchorX, anchorY, menuScale, bobAmp, sounds, hideHotbar, showHud, showAvatar, anchorFollowMouse, showTargetBar, showDamageNumbers, saoToasts, showClock, clock24h, clockDate, showWelcome, deathShatter, deathShatterDensity, accentHue, mapPanelX, mapPanelY, mapPinned, clockPanelX, clockPanelY, clockScale, hasOpenedSettings, hotbarScale, thirdPersonMenu, showBossBanner, platePanelX, platePanelY, clockOnlyInMenu, autoSprint, hideVanillaHealth, foodPanelX, foodPanelY, new java.util.ArrayList<>(pinnedItems), new java.util.ArrayList<>(itemOrder), skillBarX, skillBarY, themeId);
         try {
-            Path parent = file.getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-            Files.writeString(file, GSON.toJson(d), StandardCharsets.UTF_8);
+            SaoConfigStore.write(file, data);
         } catch (IOException e) {
             SAOMenu.LOGGER.error("[SAOMenu] config save failed: {}", e.toString());
         }
     }
 
-    private static float clamp(float v, float lo, float hi) {
-        return v < lo ? lo : Math.min(v, hi);
-    }
-
-    /** Gson 序列化载体;无参构造带默认值,旧文件缺字段不会清空设置。 */
-    private static class Data {
-        float anchorX;
-        float anchorY;
-        float menuScale;
-        float bobAmp;
-        boolean sounds;
-        boolean hideHotbar;
-        boolean showHud;
-        boolean showAvatar;
-        boolean anchorFollowMouse;
-        boolean showTargetBar;
-        boolean showDamageNumbers;
-        boolean saoToasts;
-        boolean showClock;
-        boolean clock24h;
-        boolean clockDate;
-        boolean showWelcome;
-        boolean deathShatter;
-        float deathShatterDensity;
-        float accentHue;
-        float mapPanelX;
-        float mapPanelY;
-        boolean mapPinned;
-        float clockPanelX;
-        float clockPanelY;
-        float clockScale;
-        float hotbarScale;
-        boolean thirdPersonMenu;
-        boolean showBossBanner;
-        float platePanelX;
-        float platePanelY;
-        boolean clockOnlyInMenu;
-        boolean autoSprint;
-        boolean hideVanillaHealth;
-        float foodPanelX;
-        float foodPanelY;
-        float skillBarX;
-        float skillBarY;
-        String themeId;
-        java.util.List<String> pinnedItems;
-        java.util.List<String> itemOrder;
-        boolean hasOpenedSettings;
-
-        Data() {
-            this(DEF_ANCHOR_X, DEF_ANCHOR_Y, DEF_MENU_SCALE, DEF_BOB_AMP, true, true, true, true, false, true, true, true, true, true, false, true, true, DEF_SHATTER_DENSITY, DEF_ACCENT_HUE, DEF_MAP_PANEL_X, DEF_MAP_PANEL_Y, false, DEF_CLOCK_PANEL_X, DEF_CLOCK_PANEL_Y, DEF_CLOCK_SCALE, false, DEF_HOTBAR_SCALE, DEF_THIRD_PERSON, DEF_BOSS_BANNER, DEF_PLATE_PANEL_X, DEF_PLATE_PANEL_Y, DEF_CLOCK_MENU_ONLY, DEF_AUTO_SPRINT, DEF_HIDE_VANILLA_HEALTH, DEF_FOOD_PANEL_X, DEF_FOOD_PANEL_Y, new java.util.ArrayList<>(), new java.util.ArrayList<>(), DEF_SKILL_BAR_X, DEF_SKILL_BAR_Y, com.sao.saomenu.ui.theme.SaoTheme.SAO);
+    /**
+     * 有限值钳入 [lo, hi];NaN 保留 fallback,避免布局得到 NaN。±Inf 落入边界。
+     */
+    static float clamp(float v, float lo, float hi, float fallback) {
+        if (Float.isNaN(v)) {
+            return fallback;
         }
-
-        Data(float ax, float ay, float ms, float bob, boolean s, boolean hh, boolean sh, boolean av, boolean fm, boolean tb, boolean dn, boolean st, boolean sc, boolean c24, boolean cd, boolean sw, boolean ds, float dsd, float hue, float mx, float my, boolean mp, float cx, float cy, float cs, boolean hos, float hbs, boolean tpm, boolean bb, float ppx, float ppy, boolean cim, boolean asp, boolean hvh, float fpx, float fpy, java.util.List<String> pin, java.util.List<String> ord, float sbx, float sby, String tid) {
-            anchorX = ax;
-            anchorY = ay;
-            menuScale = ms;
-            bobAmp = bob;
-            sounds = s;
-            hideHotbar = hh;
-            showHud = sh;
-            showAvatar = av;
-            anchorFollowMouse = fm;
-            showTargetBar = tb;
-            showDamageNumbers = dn;
-            saoToasts = st;
-            showClock = sc;
-            clock24h = c24;
-            clockDate = cd;
-            showWelcome = sw;
-            deathShatter = ds;
-            deathShatterDensity = dsd;
-            accentHue = hue;
-            mapPanelX = mx;
-            mapPanelY = my;
-            mapPinned = mp;
-            clockPanelX = cx;
-            clockPanelY = cy;
-            clockScale = cs;
-            hasOpenedSettings = hos;
-            hotbarScale = hbs;
-            thirdPersonMenu = tpm;
-            showBossBanner = bb;
-            platePanelX = ppx;
-            platePanelY = ppy;
-            clockOnlyInMenu = cim;
-            autoSprint = asp;
-            hideVanillaHealth = hvh;
-            foodPanelX = fpx;
-            foodPanelY = fpy;
-            pinnedItems = pin;
-            itemOrder = ord;
-            skillBarX = sbx;
-            skillBarY = sby;
-            themeId = tid;
+        if (v < lo) {
+            return lo;
         }
+        if (v > hi) {
+            return hi;
+        }
+        return v;
     }
 }

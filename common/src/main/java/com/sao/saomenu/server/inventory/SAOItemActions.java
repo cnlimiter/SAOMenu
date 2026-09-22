@@ -1,5 +1,7 @@
 package com.sao.saomenu.server.inventory;
 
+import com.sao.saomenu.server.skill.SaoSkillCooldowns;
+import com.sao.saomenu.skill.DualWieldSkill;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -86,50 +88,41 @@ public final class SAOItemActions {
     /**
      * 二刀流:把两个背包槽位的剑放到主手与副手。
      *
-     * <p>主手用「切换选中槽」而非搬运物品——剑本来就在背包里,
-     * 直接把快捷栏选中位指过去最省事;剑不在快捷栏时才与选中槽互换。
+     * <p>先验证两手的完整来源,再扣服务端冷却,最后一次性完成换装。
+     * 主手统一换入选中槽,不依赖客户端自行维护的 selected 同步;
      * 副手原有物品退回背包(放不下掉地上)。</p>
      */
     public static void handleDualWield(ServerPlayer player, int mainSlot, int offSlot) {
-        final int OFFHAND = -2;
-        boolean mainAlready = mainSlot == OFFHAND;
-        boolean offAlready = offSlot == OFFHAND;
+        boolean mainAlready = mainSlot == DualWieldSkill.KEEP_HAND;
+        boolean offAlready = offSlot == DualWieldSkill.KEEP_HAND;
         if ((!mainAlready && (mainSlot < 0 || mainSlot >= 36))
                 || (!offAlready && (offSlot < 0 || offSlot >= 36))
                 || (!mainAlready && !offAlready && mainSlot == offSlot)) {
             return;
         }
         var inv = player.getInventory();
+        if (mainAlready && !offAlready && offSlot == inv.selected) {
+            return;
+        }
+        ItemStack main = mainAlready ? player.getMainHandItem() : inv.getItem(mainSlot);
+        ItemStack off = offAlready ? player.getOffhandItem() : inv.getItem(offSlot);
+        if (!DualWieldSkill.isSword(main) || !DualWieldSkill.isSword(off)
+                || !SaoSkillCooldowns.tryUse(player, DualWieldSkill.DEFINITION)) {
+            return;
+        }
 
-        // 1) 副手:需要从背包搬一把过去时,原有副手物品退回背包
         if (!offAlready) {
-            ItemStack off = inv.getItem(offSlot);
-            if (off.isEmpty()) {
-                return;
-            }
             ItemStack oldOff = inv.offhand.get(0);
-            inv.offhand.set(0, off.copy());
             inv.setItem(offSlot, ItemStack.EMPTY);
+            inv.offhand.set(0, off);
             if (!oldOff.isEmpty() && !inv.add(oldOff)) {
                 player.drop(oldOff, false);
             }
         }
-
-        // 2) 主手:哨兵表示已握剑;否则把那把剑弄到「当前选中的快捷栏槽」上。
-        //    只改 inv.selected 是不够的——客户端 selected 由客户端自己维护,
-        //    服务端改它不会同步回去,表现为「切了模式但主手还是空手/旧物品」。
-        //    所以统一搬到玩家当前 selected 槽,主手立刻拿到剑,无需依赖同步。
-        if (!mainAlready) {
-            ItemStack main = inv.getItem(mainSlot);
-            if (main.isEmpty()) {
-                return;
-            }
-            int sel = inv.selected;
-            if (mainSlot != sel) {
-                ItemStack displaced = inv.getItem(sel);
-                inv.setItem(sel, main.copy());
-                inv.setItem(mainSlot, displaced);
-            }
+        if (!mainAlready && mainSlot != inv.selected) {
+            ItemStack displaced = inv.getItem(inv.selected);
+            inv.setItem(inv.selected, main);
+            inv.setItem(mainSlot, displaced);
         }
         playEquip(player, 1.2f);
     }

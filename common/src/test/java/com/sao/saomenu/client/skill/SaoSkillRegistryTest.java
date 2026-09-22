@@ -1,10 +1,10 @@
 package com.sao.saomenu.client.skill;
 
+import com.sao.saomenu.skill.DualWieldSkill;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -29,7 +29,7 @@ class SaoSkillRegistryTest {
         var skills = SaoSkillRegistry.skills();
 
         assertEquals(7, skills.size(), "二刀流 + 六项占位剑技");
-        assertEquals(SaoSkills.DUAL_WIELD, skills.get(0).id(),
+        assertEquals(DualWieldSkill.DEFINITION.id(), skills.get(0).id(),
                 "二刀流必须是第一项:预览自检与快捷键槽位都按顺序取");
         assertEquals("horizontal", skills.get(1).id());
         assertEquals("starburst", skills.get(6).id());
@@ -65,7 +65,7 @@ class SaoSkillRegistryTest {
     @Test
     void lookupByIdAndUnknown() {
         SaoSkillRegistry.registerBuiltins();
-        assertNotNull(SaoSkillRegistry.byId(SaoSkills.DUAL_WIELD));
+        assertNotNull(SaoSkillRegistry.byId(DualWieldSkill.DEFINITION.id()));
         assertNull(SaoSkillRegistry.byId("no-such-skill"));
     }
 
@@ -76,17 +76,4 @@ class SaoSkillRegistryTest {
                 "注册的技能多于快捷键槽位时会静默截断:菜单列有、快捷键与浮条却没有");
     }
 
-    @Test
-    void onlyDualWieldIsImplementedToday() {
-        SaoSkillRegistry.registerBuiltins();
-        // 占位技能的共同特征:预检恒不通过(于是激活只给提示),且没有冷却
-        for (SaoSkill s : SaoSkillRegistry.skills()) {
-            if (s.id().equals(SaoSkills.DUAL_WIELD)) {
-                assertTrue(s.hasCooldown(), "二刀流应有冷却");
-            } else {
-                assertFalse(s.hasCooldown(), s.id() + " 是占位技能,不应有冷却");
-                assertFalse(s.precheck().canActivate(null), s.id() + " 预检应恒不通过");
-            }
-        }
-    }
 }

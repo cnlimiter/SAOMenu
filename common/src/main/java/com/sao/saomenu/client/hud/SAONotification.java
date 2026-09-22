@@ -1,8 +1,8 @@
 package com.sao.saomenu.client.hud;
 
 import com.sao.saomenu.config.SAOConfig;
-
 import com.sao.saomenu.SAOMenuPlatform;
+import com.sao.saomenu.ui.theme.SaoTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -78,9 +78,10 @@ public final class SAONotification {
     }
 
     /** 每帧绘制(右上角纵向堆叠,滑入 + 淡出)。 */
-    public static void render(GuiGraphics g, int screenW, int screenH, long now) {
+    public static void render(GuiGraphics g, int screenW, int screenH, long now, float alphaMul) {
         prune(now);
         Font font = Minecraft.getInstance().font;
+        float mul = Mth.clamp(alphaMul, 0f, 1f);
         int i = 0;
         for (Entry e : QUEUE) {
             long age = now - e.at();
@@ -88,20 +89,18 @@ public final class SAONotification {
                 continue;
             }
             float slide = easeOutCubic(clamp01(age / (float) SLIDE_MS));
-            float alpha = 1f - clamp01((age - STAY_MS) / (float) FADE_MS);
+            float alpha = (1f - clamp01((age - STAY_MS) / (float) FADE_MS)) * mul;
             if (alpha <= 0f) {
                 continue;
             }
             int w = Math.max(140, Math.round(screenW * 0.30f));
             int h = e.message().isEmpty() ? 26 : 34;
-            // 从屏幕右缘外滑入到最终位置(screenW-8-w)
             int x = Math.round(screenW + 8 - (w + 16) * slide);
             int y = 8 + i * 40;
 
             g.fill(x + 3, y + 3, x + w + 3, y + h + 3, mulAlpha(SHADOW, alpha));
             g.fill(x, y, x + w, y + h, mulAlpha(PANEL_BG, alpha));
-            g.fill(x, y, x + 3, y + h, mulAlpha(SAOConfig.accent(), alpha));
-
+            g.fill(x, y, x + 3, y + h, mulAlpha(SaoTheme.accent(), alpha));
             // 成就图标(若有)
             int textX = x + 10;
             if (e.icon() != null && !e.icon().isEmpty()) {

@@ -1,8 +1,9 @@
 package com.sao.saomenu.client.screen;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.sao.saomenu.SAOMenuPlatform;
+import com.sao.saomenu.client.runtime.SAOClientPlatform;
 import com.sao.saomenu.ui.render.SaoDraw;
+import com.sao.saomenu.ui.theme.SaoTheme;
 import com.sao.saomenu.client.menu.MenuLayout;
 import com.sao.saomenu.config.SAOConfig;
 import net.minecraft.Util;
@@ -70,7 +71,7 @@ public class SAOAdvancementsScreen extends Screen {
         if (mc.getConnection() != null) {
             var ca = mc.getConnection().getAdvancements();
             Map<Advancement, AdvancementProgress> progress =
-                    SAOMenuPlatform.advancementProgress(ca);
+                    SAOClientPlatform.advancementProgress(ca);
             for (Advancement a : ca.getAdvancements().getAllAdvancements()) {
                 AdvancementProgress p = progress.get(a);
                 DisplayInfo d = a.getDisplay();
@@ -195,9 +196,9 @@ public class SAOAdvancementsScreen extends Screen {
             RenderSystem.enableBlend();
             if (hover) {
                 RenderSystem.setShaderColor(
-                        ((SAOConfig.accent() >> 16) & 0xFF) / 255f,
-                        ((SAOConfig.accent() >> 8) & 0xFF) / 255f,
-                        (SAOConfig.accent() & 0xFF) / 255f, 1f);
+                        ((SaoTheme.accent() >> 16) & 0xFF) / 255f,
+                        ((SaoTheme.accent() >> 8) & 0xFF) / 255f,
+                        (SaoTheme.accent() & 0xFF) / 255f, 1f);
                 g.blit(TEX_LIST_HOVER, x, y, 0, 0, base.w(), base.h(), base.w(), base.h());
                 RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
             } else {
@@ -235,7 +236,7 @@ public class SAOAdvancementsScreen extends Screen {
             float frac = rowsVisible() / (float) unlocked.size();
             int thumbH = Math.max(10, Math.round(trackH * frac));
             int thumbY = trackTop + Math.round((trackH - thumbH) * (scroll / (float) maxScroll));
-            g.fill(trackX, thumbY, trackX + 2, thumbY + thumbH, SAOConfig.accent());
+            g.fill(trackX, thumbY, trackX + 2, thumbY + thumbH, SaoTheme.accent());
         }
 
         // 悬停行的描述 tooltip(延迟合批的图标会被它盖住?tooltip 在其后绘制,顺序正确)

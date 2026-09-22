@@ -71,6 +71,7 @@ allprojects {
 		// 开发期菜单截图校验：-Psaomenu.preview=<目录> 时自动开菜单、截图、退出
 		if (rootProject.hasProperty('saomenu.preview')) {
 			systemProperty 'saomenu.preview', rootProject.property('saomenu.preview')
+			systemProperty 'saomenu.preview.keepOpen', rootProject.properties.getOrDefault('saomenu.preview.keepOpen', 'false')
 		}
 	}
 }

@@ -1,13 +1,8 @@
 package com.sao.saomenu;
 
 import dev.architectury.injectables.annotations.ExpectPlatform;
-import net.minecraft.advancements.Advancement;
-import net.minecraft.advancements.AdvancementProgress;
-import net.minecraft.client.multiplayer.ClientAdvancements;
 import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.sounds.SoundEvent;
-
-import java.util.Map;
 
 /**
  * Architectury 平台桥接；当前发行目标为 Forge，具体注册与 accessor 实现在 forge 模块。
@@ -31,12 +26,6 @@ public class SAOMenuPlatform {
 
     @ExpectPlatform
     public static SoundEvent alertSound() {
-        throw new AssertionError();
-    }
-
-    /** 已解锁成就进度表(平台侧通过 accessor mixin 读取私有字段)。 */
-    @ExpectPlatform
-    public static Map<Advancement, AdvancementProgress> advancementProgress(ClientAdvancements ca) {
         throw new AssertionError();
     }
 

@@ -1,6 +1,7 @@
 package com.sao.saomenu.dev.preview;
 
 import com.sao.saomenu.config.SAOConfig;
+import com.sao.saomenu.ui.theme.SaoTheme;
 
 import com.sao.saomenu.SAOMenuPlatform;
 import net.minecraft.client.Minecraft;
@@ -184,7 +185,7 @@ public class SAOInventoryScreen extends Screen {
         hovered = hoveredSlot(mouseX, mouseY);
         for (Slot s : slots) {
             boolean hover = s == hovered;
-            int accent = SAOConfig.accent();
+            int accent = SaoTheme.accent();
             g.fill(s.x(), s.y(), s.x() + SLOT, s.y() + SLOT, SLOT_BG);
             g.fill(s.x(), s.y(), s.x() + SLOT, s.y() + 1, hover ? accent : SLOT_BORDER);
             g.fill(s.x(), s.y(), s.x() + 1, s.y() + SLOT, hover ? accent : SLOT_BORDER);
@@ -211,7 +212,7 @@ public class SAOInventoryScreen extends Screen {
 
         // 完成按钮
         boolean hoverDone = mouseX >= doneX && mouseX < doneX + 60 && mouseY >= doneY && mouseY < doneY + 20;
-        g.fill(doneX, doneY, doneX + 60, doneY + 20, hoverDone ? lighten(SAOConfig.accent()) : SAOConfig.accent());
+        g.fill(doneX, doneY, doneX + 60, doneY + 20, hoverDone ? lighten(SaoTheme.accent()) : SaoTheme.accent());
         String done = Component.translatable("saomenu.inventory.done").getString();
         g.drawString(this.font, done, doneX + (60 - this.font.width(done)) / 2,
                 doneY + 6, TEXT_ON_ACCENT, false);
@@ -237,9 +238,9 @@ public class SAOInventoryScreen extends Screen {
             int ty = panelY + 20;
             String label = Component.translatable(keys[i]).getString();
             g.drawString(this.font, label, tx + (TAB_W - this.font.width(label)) / 2,
-                    ty + 2, i == filter ? SAOConfig.accent() : 0xFF9A9B9D, false);
+                    ty + 2, i == filter ? SaoTheme.accent() : 0xFF9A9B9D, false);
             if (i == filter) {
-                g.fill(tx + 8, ty + TAB_H - 1, tx + TAB_W - 8, ty + TAB_H, SAOConfig.accent());
+                g.fill(tx + 8, ty + TAB_H - 1, tx + TAB_W - 8, ty + TAB_H, SaoTheme.accent());
             }
         }
     }

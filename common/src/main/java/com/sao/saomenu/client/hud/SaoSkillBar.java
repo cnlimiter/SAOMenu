@@ -77,12 +77,7 @@ public final class SaoSkillBar {
         return Math.round(SAOConfig.skillBarY() * Math.max(0, screenH - barH));
     }
 
-    // ------------------------------------------------------------ 拖动(仅菜单打开时生效)
-
-    private static boolean dragging;
-    private static float grabFx;
-    private static float grabFy;
-    private static boolean draggedSinceDown;
+    // ------------------------------------------------------------ 拖动(仅菜单打开时由 HudLayoutEditor 驱动)
 
     /** 命中检测:点在浮条范围内。 */
     public static boolean hitSkillBar(int screenW, int screenH, int mx, int my) {
@@ -97,42 +92,17 @@ public final class SaoSkillBar {
         return mx >= x && mx < x + w && my >= y && my < y + h;
     }
 
-    public static void beginDrag(int screenW, int screenH, int mx, int my) {
-        int w = barWidth(screenH, slotCount());
-        int h = slotSize(screenH);
-        // 记下抓取点在浮条内的相对位置,拖动时不跳变
-        grabFx = (mx - barX(screenW, w)) / (float) Math.max(1, w);
-        grabFy = (my - barY(screenH, h)) / (float) Math.max(1, h);
-        dragging = true;
-        draggedSinceDown = false;
-    }
-
-    public static void dragTo(int screenW, int screenH, int mx, int my) {
-        if (!dragging) {
-            return;
-        }
+    static void moveTo(int screenW, int screenH, float grabFx, float grabFy, int mx, int my) {
         int w = barWidth(screenH, slotCount());
         int h = slotSize(screenH);
         SAOConfig.setSkillBarX((mx - grabFx * w) / (float) Math.max(1, screenW - w));
         SAOConfig.setSkillBarY((my - grabFy * h) / (float) Math.max(1, screenH - h));
-        draggedSinceDown = true;
     }
 
-    public static void endDragAndSave() {
-        if (dragging && draggedSinceDown) {
-            java.nio.file.Path p = SAOConfig.path();
-            if (p == null) {
-                p = Minecraft.getInstance().gameDirectory.toPath()
-                        .resolve("config").resolve("saomenu.json");
-            }
-            SAOConfig.save(p);
-        }
-        dragging = false;
-    }
 
     // ------------------------------------------------------------ 渲染
 
-    /** 由 {@link SAOHud#renderHud} 调用。 */
+    /** 由 {@link HudComposer} 调用。 */
     public static void render(GuiGraphics g, Minecraft mc, int screenW, int screenH, float alpha) {
         int count = slotCount();
         if (count <= 0) {

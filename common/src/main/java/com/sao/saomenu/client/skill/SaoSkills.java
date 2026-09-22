@@ -1,7 +1,7 @@
 package com.sao.saomenu.client.skill;
 
 import com.sao.saomenu.client.hud.SAONotification;
-import com.sao.saomenu.client.skill.SAODualWield;
+import com.sao.saomenu.skill.DualWieldSkill;
 import com.sao.saomenu.network.c2s.DualWieldC2S;
 import com.sao.saomenu.ui.text.SaoText;
 import net.minecraft.client.player.LocalPlayer;
@@ -16,10 +16,6 @@ import java.util.List;
  * 而菜单外观与旧版一致。</p>
  */
 public final class SaoSkills {
-
-    /** 二刀流:冷却 3 秒。 */
-    public static final String DUAL_WIELD = "dual_wield";
-    private static final int DUAL_WIELD_COOLDOWN_TICKS = 60;
 
     /** 占位技能的统一提示。 */
     private static final String NOT_YET = "saomenu.coming_soon";
@@ -39,8 +35,8 @@ public final class SaoSkills {
     /** 内置技能,顺序 = 菜单技能列顺序。 */
     public static List<SaoSkill> all() {
         return List.of(
-                new SaoSkill(DUAL_WIELD, "saomenu.skill.dual_wield", "item_weapon",
-                        DUAL_WIELD_COOLDOWN_TICKS,
+                new SaoSkill(DualWieldSkill.DEFINITION.id(), "saomenu.skill.dual_wield", "item_weapon",
+                        DualWieldSkill.DEFINITION.cooldownTicks(),
                         p -> SAODualWield.findTwoSwords(p) != null,
                         "saomenu.skill.dual_wield.need_two",
                         SaoSkills::requestDualWield),

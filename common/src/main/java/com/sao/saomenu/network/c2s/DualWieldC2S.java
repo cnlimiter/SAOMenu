@@ -1,11 +1,7 @@
 package com.sao.saomenu.network.c2s;
 
-import com.sao.saomenu.client.skill.SaoSkill;
-import com.sao.saomenu.client.skill.SaoSkillRegistry;
-import com.sao.saomenu.client.skill.SaoSkills;
 import com.sao.saomenu.network.SAONetwork;
 import com.sao.saomenu.server.inventory.SAOItemActions;
-import com.sao.saomenu.server.skill.SaoSkillCooldowns;
 import dev.architectury.networking.NetworkManager;
 import dev.architectury.networking.simple.BaseC2SMessage;
 import dev.architectury.networking.simple.MessageType;
@@ -54,13 +50,6 @@ public final class DualWieldC2S extends BaseC2SMessage {
         int o = this.offSlot;
         ctx.queue(() -> {
             if (ctx.getPlayer() instanceof ServerPlayer sp) {
-                // 冷却记账在服务端:客户端预检只是提示,不作为扣冷却的依据
-                SaoSkill skill =
-                        SaoSkillRegistry.byId(
-                                SaoSkills.DUAL_WIELD);
-                if (!SaoSkillCooldowns.tryUse(sp, skill)) {
-                    return;
-                }
                 SAOItemActions.handleDualWield(sp, m, o);
             }
         });

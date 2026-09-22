@@ -121,6 +121,18 @@ public final class SAOFreeLook {
         // 玩家朝向从未被修改,无需回滚;相机自动回到玩家视角(镜头弹回)
     }
 
+    /** Restore only the camera state this controller owns, then discard old input edges. */
+    public static void reset(Minecraft mc) {
+        if (active) {
+            restore(mc);
+        }
+        locked = false;
+        capturing = false;
+        middleWasDown = false;
+        camYaw = camPitch = capYaw = capPitch = 0f;
+        dist = DIST_DEF;
+    }
+
     /** turnPlayer 头部:记录玩家进入本帧转向前的朝向。 */
     public static void beginTurnCapture(net.minecraft.world.entity.player.Player p) {
         if (!active || p == null) {

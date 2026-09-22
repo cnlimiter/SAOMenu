@@ -1,7 +1,5 @@
 package com.sao.saomenu.config;
 
-import com.sao.saomenu.client.menu.MenuLayout;
-
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -10,10 +8,11 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 配置持久化回归:默认值、范围钳制、JSON 往返、布局联动。
+ * 配置持久化回归:默认值、范围钳制、JSON 往返、旧文件迁移。
  */
 class SAOConfigTest {
 
@@ -23,12 +22,13 @@ class SAOConfigTest {
     @AfterEach
     void restoreDefaults() {
         SAOConfig.reset();
+        SAOConfig.load(null);
     }
 
     @Test
     void defaultsMatchReferenceScreenshot() {
-        assertEquals(MenuLayout.ANCHOR_X_FRAC, SAOConfig.anchorX());
-        assertEquals(MenuLayout.ANCHOR_Y_FRAC, SAOConfig.anchorY());
+        assertEquals(0.44f, SAOConfig.anchorX());
+        assertEquals(0.363f, SAOConfig.anchorY());
         assertEquals(1f, SAOConfig.menuScale());
         assertEquals(1f, SAOConfig.bobAmp());
         assertTrue(SAOConfig.sounds());
@@ -54,11 +54,14 @@ class SAOConfigTest {
     }
 
     @Test
-    void menuLayoutReadsConfigAnchor() {
-        SAOConfig.setAnchorX(0.5f);
-        assertEquals(100, MenuLayout.firstButtonCenterX(200));
-        SAOConfig.setAnchorY(0.5f);
-        assertEquals(120, MenuLayout.firstButtonCenterY(240));
+    void nonFiniteFloatsDoNotPoisonLayout() {
+        float before = SAOConfig.anchorX();
+        SAOConfig.setAnchorX(Float.NaN);
+        assertEquals(before, SAOConfig.anchorX(), "NaN 不得写入锚点");
+        SAOConfig.setAnchorX(Float.POSITIVE_INFINITY);
+        assertEquals(SAOConfig.ANCHOR_MAX, SAOConfig.anchorX());
+        SAOConfig.setAnchorY(Float.NEGATIVE_INFINITY);
+        assertEquals(SAOConfig.ANCHOR_MIN, SAOConfig.anchorY());
     }
 
     @Test
@@ -90,24 +93,36 @@ class SAOConfigTest {
     @Test
     void loadMissingFileKeepsDefaults() {
         SAOConfig.load(tmp.resolve("nope.json"));
-        assertEquals(MenuLayout.ANCHOR_X_FRAC, SAOConfig.anchorX());
+        assertEquals(SAOConfig.DEF_ANCHOR_X, SAOConfig.anchorX());
         assertTrue(SAOConfig.sounds());
     }
 
     @Test
-    void accentDefaultsToSaoOrange() {
-        assertEquals(0xFFEFA603, SAOConfig.accent(), "默认主题色应为 SAO 橙");
-        assertEquals(41.44f, SAOConfig.accentHue(), 0.01f);
+    void saveWritesPreviouslyLoadedPath() {
+        Path file = tmp.resolve("chosen.json");
+        SAOConfig.load(file);
+        SAOConfig.setSounds(false);
+        SAOConfig.save();
+        assertTrue(java.nio.file.Files.exists(file));
+        SAOConfig.reset();
+        SAOConfig.load(file);
+        assertFalse(SAOConfig.sounds());
     }
 
     @Test
-    void accentHueRotatesColor() {
-        SAOConfig.setAccentHue(0f);
-        assertEquals(0xFFEF0303, SAOConfig.accent(), "色相 0 应为红");
+    void saveWithoutLoadIsProgrammingError() {
+        assertThrows(IllegalStateException.class, SAOConfig::save);
+    }
+
+    @Test
+    void accentHueDefaultsAndClamps() {
+        assertEquals(41.44f, SAOConfig.accentHue(), 0.01f);
         SAOConfig.setAccentHue(999f);
         assertEquals(360f, SAOConfig.accentHue(), "色相应钳制到 360");
         SAOConfig.setAccentHue(-5f);
         assertEquals(0f, SAOConfig.accentHue(), "色相应钳制到 0");
+        SAOConfig.setAccentHue(Float.NaN);
+        assertEquals(0f, SAOConfig.accentHue(), "NaN 色相不得污染当前值");
     }
 
     @Test
@@ -183,10 +198,17 @@ class SAOConfigTest {
         assertTrue(SAOConfig.pinnedItems().isEmpty(), "reset 清空置顶");
         SAOConfig.load(file);
         assertTrue(SAOConfig.isPinned("minecraft:diamond_sword"), "置顶应写入并读回");
-        assertTrue(SAOConfig.isPinned("minecraft:diamond_sword"), "置顶应写入并读回");
         assertTrue(!SAOConfig.togglePinned("minecraft:diamond_sword"), "再切换应取消置顶(返回 false)");
         assertTrue(!SAOConfig.isPinned("minecraft:diamond_sword"));
         assertEquals(1, SAOConfig.pinnedItems().size());
+    }
+
+    @Test
+    void pinnedSnapshotIsUnmodifiable() {
+        SAOConfig.togglePinned("minecraft:stick");
+        assertThrows(UnsupportedOperationException.class, () -> SAOConfig.pinnedItems().add("x"));
+        assertThrows(UnsupportedOperationException.class, () -> SAOConfig.itemOrder().add("x"));
+        assertTrue(SAOConfig.isPinned("minecraft:stick"));
     }
 
     @Test
@@ -258,5 +280,43 @@ class SAOConfigTest {
         assertTrue(SAOConfig.sounds(), "缺失布尔字段应回退默认 true");
         assertEquals(SAOConfig.DEF_ACCENT_HUE, SAOConfig.accentHue(), 0.01f, "缺失 accentHue 应回退默认");
         assertTrue(SAOConfig.showBossBanner(), "旧配置文件缺 showBossBanner 应回退默认开");
+    }
+
+    @Test
+    void oldJsonKeepsPinsOrderAndTheme() throws Exception {
+        Path file = tmp.resolve("old.json");
+        java.nio.file.Files.writeString(file,
+                "{\"anchorX\":0.5,\"pinnedItems\":[\"minecraft:stick\"],"
+                        + "\"itemOrder\":[\"minecraft:stick\",\"minecraft:dirt\"],"
+                        + "\"themeId\":\"qinglan\"}");
+        SAOConfig.load(file);
+        assertEquals(0.5f, SAOConfig.anchorX());
+        assertTrue(SAOConfig.isPinned("minecraft:stick"));
+        assertEquals(0, SAOConfig.orderIndex("minecraft:stick"));
+        assertEquals(1, SAOConfig.orderIndex("minecraft:dirt"));
+        assertEquals("qinglan", SAOConfig.themeId());
+        SAOConfig.save(file);
+        SAOConfig.reset();
+        SAOConfig.load(file);
+        assertTrue(SAOConfig.isPinned("minecraft:stick"), "回写不得丢掉置顶");
+        assertEquals(0, SAOConfig.orderIndex("minecraft:stick"), "回写不得丢掉手动顺序");
+        assertEquals("qinglan", SAOConfig.themeId(), "回写不得丢掉主题 id");
+    }
+
+    @Test
+    void oldDefaultAnchorMigrates() throws Exception {
+        Path file = tmp.resolve("old-anchor.json");
+        java.nio.file.Files.writeString(file, "{\"anchorX\":0.32}");
+        SAOConfig.load(file);
+        assertEquals(SAOConfig.DEF_ANCHOR_X, SAOConfig.anchorX());
+    }
+
+    @Test
+    void resetPreservesHasOpenedSettings() {
+        assertFalse(SAOConfig.hasOpenedSettings());
+        SAOConfig.markSettingsOpened();
+        SAOConfig.reset();
+        assertTrue(SAOConfig.hasOpenedSettings(), "reset 不得清掉已打开过设置");
+        assertEquals(SAOConfig.DEF_ANCHOR_X, SAOConfig.anchorX());
     }
 }

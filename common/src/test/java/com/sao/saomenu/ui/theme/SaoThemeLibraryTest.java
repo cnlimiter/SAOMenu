@@ -219,8 +219,19 @@ class SaoThemeLibraryTest {
     }
 
     @Test
+    void resettingConfigurationAlsoResetsRenderedPaletteIdentity() throws IOException {
+        write("p.json", "{\"id\":\"p\",\"defaultHue\":150,\"colors\":{\"divider\":\"#112233\"}}");
+        SaoThemeLibrary.load(configDir);
+        SaoTheme.select("p");
+        assertEquals(0xFF112233, SaoTheme.palette().divider());
+
+        SAOConfig.reset();
+        assertEquals(SaoTheme.SAO, SaoTheme.active().id());
+        assertEquals(SaoTheme.byId(SaoTheme.SAO).colors().divider(), SaoTheme.palette().divider());
+    }
+
+    @Test
     void presetsReturnedListIsImmutableCopy() {
-        assertTrue(SaoTheme.presets().isEmpty() || true);
         try {
             SaoTheme.presets().add(new SaoTheme("sneaky", 1f, ThemeColors.sao()));
             assertFalse(SaoTheme.presets().stream().anyMatch(t -> t.id().equals("sneaky")),
@@ -248,6 +259,25 @@ class SaoThemeLibraryTest {
         assertEquals("p", SaoTheme.selectedId(), "身份不因色相变化而改变");
         assertEquals(SaoTheme.ALO, SaoTheme.matchingPreset(202f),
                 "高亮确实会跳到 alo —— 但那只是显示,不影响调色板身份");
+    }
+
+    @Test
+    void replacingSelectedPaletteAndSwitchingAtSameHueRefreshesRendering() throws IOException {
+        write("p.json", "{\"id\":\"p\",\"defaultHue\":150,\"colors\":{\"divider\":\"#112233\"}}");
+        SaoThemeLibrary.load(configDir);
+        SaoTheme.select("p");
+        assertEquals(0xFF112233, SaoTheme.palette().divider());
+        SAOConfig.setAccentHue(202f);
+        assertEquals(SaoTheme.accentFromHue(202f), SaoTheme.accent());
+
+        write("p.json", "{\"id\":\"p\",\"defaultHue\":80,\"colors\":{\"divider\":\"#445566\"}}");
+        SaoThemeLibrary.load(configDir);
+        assertEquals(0xFF445566, SaoTheme.palette().divider(), "Replacing the selected id must refresh its colors");
+        assertEquals(SaoTheme.accentFromHue(202f), SaoTheme.accent(), "Reload must preserve the user's hue");
+
+        SaoTheme.select(SaoTheme.ALO);
+        assertEquals(SaoTheme.byId(SaoTheme.ALO).colors().divider(), SaoTheme.palette().divider(),
+                "Equal hue does not imply equal palette identity");
     }
 
     @Test

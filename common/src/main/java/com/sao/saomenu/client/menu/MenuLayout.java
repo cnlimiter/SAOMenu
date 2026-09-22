@@ -17,10 +17,6 @@ import com.sao.saomenu.config.SAOConfig;
  */
 public final class MenuLayout {
 
-    /** 锚点比例(按钮列 X;放中线附近,给二级展开后的整组左移留位)。 */
-    public static final float ANCHOR_X_FRAC = 0.44f;
-    public static final float ANCHOR_Y_FRAC = 0.363f;
-
     /** 主按钮数量。 */
     public static final int BTN_COUNT = 4;
     /** 底部圆点数量。 */

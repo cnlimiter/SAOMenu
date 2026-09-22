@@ -11,8 +11,8 @@ import java.util.function.Supplier;
  *
  * @param id       稳定标识(持久化与自检用;改动等于换一个面板)
  * @param icon     主按钮符号贴图名(对应 {@code symbol_<icon>_normal/hover.png})
- * @param items    一级项列数据源。菜单屏每帧取用,动态列请用
- *                 {@link MenuContext#cached} 包一层,否则每帧都会重建列表
+ * @param items    一级项列数据源。菜单屏每帧取用;动态列由面板自己做有界缓存
+ *                 (内置背包/邀请见 {@link SaoPanels#resetSession()}),不要每帧新建列表
  * @param sideCard 左侧卡;{@code null} 表示这个面板没有侧卡
  */
 public record SaoPanel(

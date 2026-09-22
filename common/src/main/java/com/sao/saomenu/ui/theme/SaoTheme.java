@@ -32,6 +32,9 @@ public record SaoTheme(String id, float defaultHue, ThemeColors colors) {
 
     /** 当前可用预设 = 内置 + {@code config/saomenu/themes/*.json} 载入的。 */
     private static final List<SaoTheme> PRESETS = new ArrayList<>(BUILTIN);
+    private static List<SaoTheme> presetSnapshot = List.copyOf(PRESETS);
+    private static SaoTheme cachedActive;
+    private static float cachedHue;
 
     private static String selectedId = SAO;
 
@@ -56,51 +59,51 @@ public record SaoTheme(String id, float defaultHue, ThemeColors colors) {
 
     /** 全部可用预设(内置 + 外部主题文件)。返回不可变副本,避免调用点改到注册表。 */
     public static List<SaoTheme> presets() {
-        return List.copyOf(PRESETS);
+        return presetSnapshot;
     }
 
     /**
      * 注册一个外部主题(来自 {@code config/saomenu/themes/*.json})。
      *
      * <p>id 与已有预设相同则<b>替换</b>它(主题包改写内置预设),否则追加到末尾。
-     * 不需要处理"当前选中项被替换":{@link #active()} 每次都按 id 重新查。</p>
+     * 替换或新增后统一失效当前调色板缓存;用户主题覆盖与插件注册策略是不同边界。</p>
      */
     public static void register(SaoTheme theme) {
-        for (int i = 0; i < PRESETS.size(); i++) {
-            if (PRESETS.get(i).id.equals(theme.id)) {
-                PRESETS.set(i, theme);
-                return;
-            }
+        int index = 0;
+        while (index < PRESETS.size() && !PRESETS.get(index).id.equals(theme.id)) {
+            index++;
         }
-        PRESETS.add(theme);
+        if (index < PRESETS.size()) {
+            PRESETS.set(index, theme);
+        } else {
+            PRESETS.add(theme);
+        }
+        presetSnapshot = List.copyOf(PRESETS);
+        cachedActive = null;
     }
 
-    /** 是否已按持久化色相恢复过选择(冷启动只做一次)。 */
+    /** 配置身份变化时重新解析;只拖动色相不改变调色板身份。 */
     private static boolean resolvedFromConfig = false;
+    private static String resolvedConfigId;
 
-    /**
-     * 冷启动恢复:配置里没有 themeId 字段,只能按色相反查一次。
-     *
-     * <p>只恢复<b>一次</b>:之后以内存选择为准,否则用户拖色相滑条时身份会被反查改掉,
-     * JSON 主题的自定义调色板会当场丢失。</p>
-     */
-    private static void resolveFromConfigOnce() {
-        if (resolvedFromConfig) {
+    /** Restore selection after loading/resetting config, never by following every hue-slider tick. */
+    private static void resolveConfiguredSelection() {
+        String stored = SAOConfig.themeId();
+        if (resolvedFromConfig && java.util.Objects.equals(stored, resolvedConfigId)) {
             return;
         }
         resolvedFromConfig = true;
-        // 首选配置里的 themeId:它不受色相滑条影响,所以"选中 JSON 主题 → 拖色相 → 重启"
-        // 也能保住自定义调色板(按色相反查做不到这一点)。
-        String stored = SAOConfig.themeId();
+        resolvedConfigId = stored;
+        selectedId = SAO;
         if (findById(stored) != null) {
             selectedId = stored;
             return;
         }
-        // 兜底:旧配置没有 themeId,或该主题文件已被删除 —— 按色相反查
+        // Legacy/missing themes resolve by hue once for this configured identity.
         int hue = Math.round(SAOConfig.accentHue());
-        for (SaoTheme t : PRESETS) {
-            if (Math.round(t.defaultHue) == hue) {
-                selectedId = t.id;
+        for (SaoTheme theme : PRESETS) {
+            if (Math.round(theme.defaultHue) == hue) {
+                selectedId = theme.id;
                 return;
             }
         }
@@ -129,7 +132,7 @@ public record SaoTheme(String id, float defaultHue, ThemeColors colors) {
      * 但配色已经不再是那个预设了,按钮不该继续高亮。高亮判定见 {@link #matchingPreset(float)}。</p>
      */
     public static String selectedId() {
-        resolveFromConfigOnce();
+        resolveConfiguredSelection();
         return selectedId;
     }
 
@@ -139,19 +142,26 @@ public record SaoTheme(String id, float defaultHue, ThemeColors colors) {
         selectedId = t.id;
         resolvedFromConfig = true; // 显式选择优先于冷启动反查
         SAOConfig.setThemeId(t.id);
+        resolvedConfigId = t.id;
         SAOConfig.setAccentHue(t.defaultHue);
     }
 
     /**
      * 当前生效主题:预设调色板 + 用户色相实时派生的主题色。
      *
-     * <p>每次取用都会重算 accent,所以色相滑条拖动时全部界面立即跟随,
-     * 不需要缓存失效逻辑。</p>
+     * <p>仅在选择、色相或预设内容变化时重建不可变调色板;
+     * 每帧多次读取不会复制预设列表或重复派生颜色。</p>
      */
     public static SaoTheme active() {
-        SaoTheme preset = byId(selectedId());
-        return new SaoTheme(preset.id, preset.defaultHue,
-                preset.colors.withAccent(accentFromHue(SAOConfig.accentHue())));
+        String id = selectedId();
+        float hue = SAOConfig.accentHue();
+        if (cachedActive == null || !cachedActive.id.equals(id) || Float.compare(cachedHue, hue) != 0) {
+            SaoTheme preset = byId(id);
+            cachedActive = new SaoTheme(preset.id, preset.defaultHue,
+                    preset.colors.withAccent(accentFromHue(hue)));
+            cachedHue = hue;
+        }
+        return cachedActive;
     }
 
     /** 当前生效调色板(最常用的一层快捷方式)。 */
@@ -161,7 +171,7 @@ public record SaoTheme(String id, float defaultHue, ThemeColors colors) {
 
     /** 当前主题色。 */
     public static int accent() {
-        return accentFromHue(SAOConfig.accentHue());
+        return palette().accent();
     }
 
     /** 由色相派生的主题色(饱和 0.987、明度 0.937,即 SAO 橙 #EFA603 的取值)。 */
@@ -216,5 +226,7 @@ public record SaoTheme(String id, float defaultHue, ThemeColors colors) {
         resolvedFromConfig = false;
         PRESETS.clear();
         PRESETS.addAll(BUILTIN);
+        presetSnapshot = List.copyOf(PRESETS);
+        cachedActive = null;
     }
 }
