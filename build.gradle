@@ -66,6 +66,7 @@ allprojects {
 		javaLauncher = javaToolchains.launcherFor {
 			languageVersion = JavaLanguageVersion.of(17)
 		}
+		if (name == 'runServer') standardInput = System.in
 		// 设置运行游戏时的玩家名称
 		systemProperty 'minecraft.username', rootProject.properties.getOrDefault('minecraft_username', 'Player')
 		systemProperty 'saomenu.safeMode', rootProject.properties.getOrDefault('saomenu.safeMode', 'false')
@@ -77,6 +78,8 @@ allprojects {
 			systemProperty 'saomenu.preview.recovery', rootProject.properties.getOrDefault('saomenu.preview.recovery', 'false')
 			systemProperty 'saomenu.preview.containers', rootProject.properties.getOrDefault('saomenu.preview.containers', 'false')
 			systemProperty 'saomenu.preview.frontend', rootProject.properties.getOrDefault('saomenu.preview.frontend', 'false')
+			systemProperty 'saomenu.preview.multiplayer', rootProject.properties.getOrDefault('saomenu.preview.multiplayer', '')
+			systemProperty 'saomenu.preview.multiplayerAddress', rootProject.properties.getOrDefault('saomenu.preview.multiplayerAddress', '')
 		}
 	}
 }

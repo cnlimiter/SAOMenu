@@ -72,6 +72,40 @@ gradlew :forge:runClient -Psaomenu.preview=D:/saomenu-verify/frontend-next -Psao
 
 截图和断言覆盖服务端书籍编辑、讲台翻页、告示牌两面及悬挂告示牌保存、完整暂停菜单和 F8 恢复、真实资源重载、睡眠退出保留聊天草稿、死亡重生以及保存后重开。进度页的 `frontend_progress_contract_*` 使用真实 `ProgressScreen` 回调验证百分比与关闭语义，**不是磁盘保存进度证据**。Forge 启动期覆层、真实账户/Realms、书籍署名和操作系统输入法组合不在本轮证据范围。
 
+## 独立服务端与双客户端
+
+本场景使用真实专服、两个独立 JVM 和实际 C2S/S2C；不得使用个人运行目录。服务端夹具会修改专用世界、测试角色的库存及队伍，仅允许本机隔离验收。
+
+1. 为服务端、Alpha、Beta 分别准备独立目录，以及三者共享的**本轮全新**证据目录。先启动服务端，再依次启动两个客户端，避免共享的 Loom 开发启动配置同时生成。
+2. 操作者先阅读并明确接受 [Minecraft EULA](https://aka.ms/MinecraftEULA)，才在专用服务端目录设置 `eula=true`。构建和探针都不会自动接受条款。
+3. 在该服务端目录的 `server.properties` 明确设置以下值。离线认证仅用于本机测试，不能照搬到公网服务：
+
+```properties
+server-ip=127.0.0.1
+server-port=10082
+online-mode=false
+enforce-secure-profile=false
+enable-rcon=false
+enable-query=false
+max-players=2
+level-name=saomenu-framework-verification
+level-type=minecraft:flat
+generator-settings={"layers":[{"height":1,"block":"minecraft:bedrock"},{"height":2,"block":"minecraft:dirt"},{"height":1,"block":"minecraft:grass_block"}],"biome":"minecraft:plains","features":false,"lakes":false}
+```
+
+4. 在专用世界的 `serverconfig/forge-server.toml` 中关闭 `[server]` 下的 `advertiseDedicatedServerToLan`。首次创建世界前可通过运行目录的 `defaultconfigs/forge-server.toml` 提供此配置。**仅绑定 loopback 不会自动关闭 Forge 默认 LAN 广播**；夹具会拒绝仍启用广播的配置。
+5. 依次运行下面三条命令；三个进程使用同一个本轮证据目录，角色名必须分别为 `SaoVerifyAlpha`、`SaoVerifyBeta`。端口被占用时不得杀掉未知进程，应另选本机端口并同步修改配置和三个地址参数。
+
+```text
+gradlew :forge:runServer -Psaomenu.runDir=D:/saomenu-verify/framework-server -Psaomenu.preview=D:/saomenu-verify/multiplayer-next -Psaomenu.preview.multiplayer=server -Psaomenu.preview.multiplayerAddress=127.0.0.1:10082 --console=plain
+gradlew :forge:runClient -Pminecraft_username=SaoVerifyAlpha -Psaomenu.runDir=D:/saomenu-verify/multiplayer-next-alpha-client -Psaomenu.preview=D:/saomenu-verify/multiplayer-next -Psaomenu.preview.multiplayer=alpha -Psaomenu.preview.multiplayerAddress=127.0.0.1:10082 -Psaomenu.preview.keepOpen=true --console=plain
+gradlew :forge:runClient -Pminecraft_username=SaoVerifyBeta -Psaomenu.runDir=D:/saomenu-verify/multiplayer-next-beta-client -Psaomenu.preview=D:/saomenu-verify/multiplayer-next -Psaomenu.preview.multiplayer=beta -Psaomenu.preview.multiplayerAddress=127.0.0.1:10082 -Psaomenu.preview.keepOpen=true --console=plain
+```
+
+每次进入联机（含重连）都会遇到真正的原版安全提示；即使已有跳过偏好，也显式展示此页而不改写偏好。必须取得操作者对**当前提示、角色和地址**的明确交互批准，才能在日志本次 `approvalFile` 指向的路径创建普通文件并点击 Proceed。不要预生成、批量生成或跨轮复用授权文件；探针既不自动点击警告，也不会在缺少当次标记时连接。人工等待期间暂停场景超时。
+
+三端日志分别出现 `multiplayer server checks passed`、`multiplayer alpha checks passed`、`multiplayer beta checks passed`，才算整轮通过。状态 JSON 只协调步骤，不能替代真实服务端、网络和原生界面证据。保留日志与截图后正常关闭客户端，向服务端输入 `stop`；确认所有维度保存后再关闭仍驻留的开发启动器。
+
 ## 接入约定
 
 1. 把客户端事件订阅器放在独立客户端类中，用 `Dist.CLIENT` 限制发现。

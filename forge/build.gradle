@@ -48,6 +48,18 @@ loom {
             runDir(configuredRunDir == null
                     ? "run/server" : project.relativePath(project.rootProject.file(configuredRunDir)))
             vmArgs "-Dneoforge.enabledGameTestNamespace=saomenu"
+            if (project.rootProject.findProperty('saomenu.preview.multiplayer') == 'server') {
+                if (!project.rootProject.hasProperty('saomenu.preview') || configuredRunDir == null) {
+                    throw new GradleException('Multiplayer verification requires explicit evidence and isolated run directories')
+                }
+                source sourceSets.dev
+                mods {
+                    saomenu {
+                        sourceSet sourceSets.main
+                        sourceSet sourceSets.dev
+                    }
+                }
+            }
         }
     }
 }

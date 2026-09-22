@@ -7,6 +7,7 @@ import com.sao.saomenu.dev.preview.FrameworkApiFixtures;
 import com.sao.saomenu.dev.preview.FrameworkRecoveryPreview;
 import com.sao.saomenu.dev.preview.ContainerNativePreview;
 import com.sao.saomenu.dev.preview.FrontendNativePreview;
+import com.sao.saomenu.dev.preview.network.MultiplayerNativePreview;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -24,6 +25,7 @@ public final class SAOMenuPreviewBootstrap {
             if (FrameworkRecoveryPreview.requested()) FrameworkRecoveryPreview.register();
             else if (ContainerNativePreview.requested()) ContainerNativePreview.register();
             else if (FrontendNativePreview.requested()) FrontendNativePreview.register();
+            else if (MultiplayerNativePreview.requested()) MultiplayerNativePreview.register();
             else SAOMenuPreview.registerIfRequested();
         });
     }
@@ -34,6 +36,7 @@ public final class SAOMenuPreviewBootstrap {
         public static void register(SaoUiRegisterEvent event) {
             FrameworkApiFixtures.register(event.registry());
             FrameworkRecoveryPreview.registerUi(event.registry());
+            MultiplayerNativePreview.registerUi(event.registry());
         }
     }
 }
