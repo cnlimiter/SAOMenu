@@ -6,6 +6,9 @@ import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.sao.saomenu.api.SaoUi;
+import net.minecraft.client.Camera;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleRenderType;
@@ -94,6 +97,13 @@ public class SAOShardParticle extends TextureSheetParticle {
     }
 
     @Override
+    public void render(VertexConsumer buffer, Camera camera, float partialTick) {
+        if (SaoUi.enabled()) {
+            super.render(buffer, camera, partialTick);
+        }
+    }
+
+    @Override
     public ParticleRenderType getRenderType() {
         return glow ? ADDITIVE_SHEET : ParticleRenderType.PARTICLE_SHEET_TRANSLUCENT;
     }
@@ -134,6 +144,10 @@ public class SAOShardParticle extends TextureSheetParticle {
 
     @Override
     public void tick() {
+        if (!SaoUi.enabled()) {
+            remove();
+            return;
+        }
         this.oRoll = this.roll;
         super.tick();
         if (this.removed) {

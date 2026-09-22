@@ -55,9 +55,15 @@ public final class ClientUi {
 
 `SaoUi.panels()`、`hudElements()`、`settingsGroups()`、`worldOverlays()` 返回冻结快照。`themes()` 返回代码主题与用户文件覆盖合并后的不可变快照，`theme()` 返回当前缓存的颜色、字体和运动令牌。
 
-`SaoUi.openMenu()` 要求当前玩家和世界有效。`openSettings(parent)` 保留返回目标。`notify(title, message)` 与带 `ItemStack` 图标的重载进入同一通知队列，保留 `Component` 样式。以上变更操作必须在客户端线程执行。
+`SaoUi.openMenu()` 要求框架启用且当前玩家和世界有效。`openSettings(parent)` 保留返回目标。`notify(title, message)` 与带 `ItemStack` 图标的重载进入同一通知队列，保留 `Component` 样式；框架关闭时不排队、不播放新通知音。以上变更操作必须在客户端线程执行。
 
 `selectTheme(id)` 修改当前主题和默认色相，不自行保存整个配置；保存由拥有这次设置会话的界面负责。未知主题是错误，不悄悄换成另一个主题。
+
+`enabled()` 是配置和启动安全模式共同决定的有效开关。`setEnabled(false)` 保存用户开关，关闭自有屏幕、取消未保存 HUD 拖动、清除自有临时视觉状态；不替换原生屏幕、容器控制器或光标物品，也不清空服务器队伍/技能状态。HUD 和世界绘制贡献一并暂停，但会话清理回调继续运行。重新启用不会补播关闭期间的通知。
+
+`safeMode()` 对应 JVM 参数 `-Dsaomenu.safeMode=true`。此模式不改写用户偏好，`setEnabled(true)` 会抛出异常；必须去掉启动参数并重启才能启用。F8 是可重绑定的全局恢复键，标题页和暂停页也有显式入口；按键设置正在捕获新绑定时不会触发恢复动作。
+
+`bodyFont()`、`displayFont()` 用于自有界面，不修改 Minecraft 的全局默认字体。字体资源与 `Component` 字族边界见 [主题文档](themes.md)。
 
 ## 坐标和生命周期
 

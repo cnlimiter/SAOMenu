@@ -1,5 +1,6 @@
 package com.sao.saomenu.mixin.render;
 
+import com.sao.saomenu.api.SaoUi;
 import com.sao.saomenu.config.SAOConfig;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
@@ -26,7 +27,7 @@ public class LivingDeathRenderMixin {
     private void saomenu$hideDyingBody(LivingEntity entity, float entityYaw, float partialTick,
                                        PoseStack poseStack, MultiBufferSource buffer,
                                        int packedLight, CallbackInfo ci) {
-        if (SAOConfig.deathShatter() && entity.deathTime > 0 && !(entity instanceof Player)) {
+        if (SaoUi.enabled() && SAOConfig.deathShatter() && entity.deathTime > 0 && !(entity instanceof Player)) {
             ci.cancel();
         }
     }

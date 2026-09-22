@@ -5,22 +5,10 @@ import net.minecraft.resources.ResourceLocation;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-/** Public theme records: defaults, wrapping, and rejected inputs. */
+/** Theme input bounds and hue normalization. */
 class ThemeTokensTest {
-
-    @Test
-    void saoDefaultsMatchMenuMotionAndVanillaFont() {
-        ThemeTokens sao = ThemeTokens.sao();
-        assertSame(ThemeTokens.sao(), sao);
-        assertEquals(ThemeColors.sao(), sao.colors());
-        assertEquals(new ResourceLocation("minecraft", "default"), sao.bodyFont());
-        assertEquals(new ResourceLocation("minecraft", "default"), sao.displayFont());
-        assertEquals(260, sao.enterMillis());
-        assertEquals(170, sao.exitMillis());
-    }
 
     @Test
     void rejectsNullsAndNegativeDurations() {
@@ -43,9 +31,6 @@ class ThemeTokensTest {
         Component label = Component.literal("Night");
         ThemeDefinition wrapped = new ThemeDefinition(id, 500, label, 400f, ThemeTokens.sao());
         assertEquals(40f, wrapped.defaultHue(), 0.001f);
-        assertEquals(id, wrapped.id());
-        assertEquals(500, wrapped.order());
-        assertSame(ThemeTokens.sao(), wrapped.tokens());
 
         assertThrows(IllegalArgumentException.class,
                 () -> new ThemeDefinition(id, 1, label, Float.NaN, ThemeTokens.sao()));

@@ -1,6 +1,13 @@
 {
   "key.categories.saomenu": "SAO Menu",
   "key.saomenu.open": "SAOメニューを開く",
+  "key.saomenu.toggle_ui": "SAO / バニラUI切替",
+  "saomenu.recovery.enable": "SAO UIを有効にする",
+  "saomenu.recovery.disable": "バニラUIに戻す",
+  "saomenu.recovery.safe": "SAOセーフモード",
+  "saomenu.recovery.hint": "%s でUIを切り替えます。ゲームやワールドのデータは変更しません。",
+  "saomenu.recovery.safe_hint": "-Dsaomenu.safeMode=true を外して再起動するとUIを有効にできます。",
+  "saomenu.menu.attributes": "キャラクター属性",
   "saomenu.title": "SAO Menu",
   "saomenu.menu.equip": "装備",
   "saomenu.menu.items": "アイテム",

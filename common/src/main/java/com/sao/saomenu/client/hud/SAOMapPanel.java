@@ -228,7 +228,7 @@ public final class SAOMapPanel {
         // 顶部亮边(半透明卡片的立体感)
         g.fill(card.x() + 3, card.y(), card.x() + card.w() - 3, card.y() + 1, mulAlpha(CARD_EDGE, a));
 
-        Font f = mc.font;
+        Font f = com.sao.saomenu.api.SaoUi.bodyFont();
         float headH = Math.max(8f, card.h() * 0.07f);
         SaoDraw.drawInRow(g, f, tr("saomenu.map.title"),
                 card.x() + Math.round(card.w() * 0.07f), card.y() + Math.round(card.h() * 0.02f),

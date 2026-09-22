@@ -25,6 +25,7 @@ public final class SAOMenuForgeClient {
     @SubscribeEvent
     public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
         event.register(SAOKeybinds.OPEN_MENU);
+        event.register(SAOKeybinds.TOGGLE_UI);
         for (net.minecraft.client.KeyMapping km : SAOKeybinds.SKILL_KEYS) {
             event.register(km);
         }

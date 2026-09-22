@@ -6,6 +6,7 @@ import com.sao.saomenu.ui.text.SaoText;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.particle.Particle;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
@@ -40,6 +41,7 @@ public final class SAOCombatHud {
     /** 每个实体最近一次掉血的时刻,驱动目标血条的受击闪白。 */
     private static final Map<Integer, Long> HURT_AT = new HashMap<>();
     private static final List<DamageNumber> NUMBERS = new ArrayList<>();
+    private static final List<Particle> LEVEL_PARTICLES = new ArrayList<>();
 
     private static int lastXp = -1;
     private static int lastLevel = -1;
@@ -61,6 +63,7 @@ public final class SAOCombatHud {
             reset();
             return;
         }
+        LEVEL_PARTICLES.removeIf(particle -> !particle.isAlive());
         if (!SAOConfig.showHud()) {
             return;
         }
@@ -72,6 +75,12 @@ public final class SAOCombatHud {
         SEEN.clear();
         HURT_AT.clear();
         NUMBERS.clear();
+        for (Particle particle : LEVEL_PARTICLES) {
+            // A paused ParticleEngine may render once more before it processes removal.
+            particle.scale(0f);
+            particle.remove();
+        }
+        LEVEL_PARTICLES.clear();
         lastXp = -1;
         lastLevel = -1;
         ringAt = Long.MIN_VALUE;
@@ -145,11 +154,12 @@ public final class SAOCombatHud {
             double radius = 0.7 + t * 0.9;
             for (int i = 0; i < 12; i++) {
                 double ang = i * Math.PI * 2 / 12 + t * 1.6;
-                mc.particleEngine.createParticle(ParticleTypes.GLOW,
+                Particle particle = mc.particleEngine.createParticle(ParticleTypes.GLOW,
                         p.getX() + Math.cos(ang) * radius,
                         p.getY() + 0.35 + t * 1.7,
                         p.getZ() + Math.sin(ang) * radius,
                         0, 0.12, 0);
+                if (particle != null) LEVEL_PARTICLES.add(particle);
             }
         }
     }
@@ -175,8 +185,8 @@ public final class SAOCombatHud {
             if (sp == null) {
                 continue;
             }
-            g.drawString(mc.font, n.text,
-                    Math.round(sp[0] - mc.font.width(n.text) / 2f),
+            g.drawString(com.sao.saomenu.api.SaoUi.bodyFont(), n.text,
+                    Math.round(sp[0] - com.sao.saomenu.api.SaoUi.bodyFont().width(n.text) / 2f),
                     Math.round(sp[1]),
                     mulAlpha(n.color, alpha * (1f - p * p)), false);
         }

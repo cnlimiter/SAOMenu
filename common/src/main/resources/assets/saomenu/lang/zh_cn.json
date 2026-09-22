@@ -1,6 +1,13 @@
 {
   "key.categories.saomenu": "SAO Menu",
   "key.saomenu.open": "打开 SAO 菜单",
+  "key.saomenu.toggle_ui": "切换 SAO / 原版界面",
+  "saomenu.recovery.enable": "启用 SAO 界面",
+  "saomenu.recovery.disable": "恢复原版界面",
+  "saomenu.recovery.safe": "SAO 安全模式",
+  "saomenu.recovery.hint": "按 %s 切换界面；不改变游戏机制和世界数据。",
+  "saomenu.recovery.safe_hint": "移除 -Dsaomenu.safeMode=true 启动参数并重启后才能启用界面。",
+  "saomenu.menu.attributes": "角色属性",
   "saomenu.title": "SAO Menu",
   "saomenu.menu.equip": "装备",
   "saomenu.menu.items": "物品",

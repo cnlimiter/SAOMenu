@@ -39,6 +39,9 @@ public final class SaoWorldOverlays {
      * callback; does not flush buffers or hide-GUI (the Forge hook owns those).
      */
     public static void render(PoseStack pose, Camera camera, Matrix4f projection, float partialTick) {
+        if (!SaoUi.enabled()) {
+            return;
+        }
         for (WorldOverlay overlay : SaoUi.worldOverlays()) {
             pose.pushPose();
             try {

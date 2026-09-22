@@ -95,6 +95,11 @@ public final class SAOConfig {
 
     // ------------------------------------------------------------ 读取(布局/渲染用)
 
+    /** Persisted visual-framework switch; startup safe mode is enforced by the client facade. */
+    public static boolean frameworkEnabled() {
+        return data.frameworkEnabled;
+    }
+
     public static float anchorX() {
         return data.anchorX;
     }
@@ -243,6 +248,10 @@ public final class SAOConfig {
     }
 
     // ------------------------------------------------------------ 修改(带钳制;由界面负责 save)
+
+    public static void setFrameworkEnabled(boolean enabled) {
+        data.frameworkEnabled = enabled;
+    }
 
     public static void setAnchorX(float v) {
         data.anchorX = clamp(v, ANCHOR_MIN, ANCHOR_MAX, data.anchorX);
@@ -491,8 +500,10 @@ public final class SAOConfig {
      */
     public static void reset() {
         boolean opened = data.hasOpenedSettings;
+        boolean enabled = data.frameworkEnabled;
         data = new SaoConfigData();
         data.hasOpenedSettings = opened;
+        data.frameworkEnabled = enabled;
     }
 
     // ------------------------------------------------------------ 持久化

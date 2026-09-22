@@ -181,7 +181,7 @@ public final class SAOBossBanner {
         RenderSystem.setShaderColor(1f, 1f, 1f, a);
         g.blit(tex, x, y, w, h, 0f, 0f, 300, 126, 300, 126);
 
-        Font f = Minecraft.getInstance().font;
+        Font f = com.sao.saomenu.api.SaoUi.bodyFont();
         float bandH = Math.max(8f, h * 0.22f);
         float s = SaoDraw.fitScale(f, bandH);
         String label = SaoDraw.clipTo(f, name, Math.max(1, Math.round((w - 30) / s)));

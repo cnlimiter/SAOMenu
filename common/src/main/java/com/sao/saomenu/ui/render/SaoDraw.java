@@ -61,14 +61,23 @@ public final class SaoDraw {
     }
 
     /**
-     * 圆角矩形填充:两条直条相交,四角各留 r×r 缺口(背景透出即圆角)。
+     * 圆角矩形填充:三条不重叠直条,四角各留 r×r 缺口,半透明中心不会重复叠色。
      *
      * <p>不用着色器画圆角——SAO 界面在多处叠加半透明,自建图元在 Iris/Oculus
-     * 下会被当成不透明几何,反而不如两次 {@code fill} 稳。</p>
+     * 下会被当成不透明几何,因此使用普通 {@code fill}。</p>
      */
     public static void roundedRect(GuiGraphics g, int x, int y, int w, int h, int r, int color) {
-        g.fill(x + r, y, x + w - r, y + h, color);
+        if (w <= 0 || h <= 0) {
+            return;
+        }
+        r = Math.min(Math.max(0, r), Math.min(w, h) / 2);
+        if (r == 0) {
+            g.fill(x, y, x + w, y + h, color);
+            return;
+        }
+        g.fill(x + r, y, x + w - r, y + r, color);
         g.fill(x, y + r, x + w, y + h - r, color);
+        g.fill(x + r, y + h - r, x + w - r, y + h, color);
     }
 
     // ---------------------------------------------------------------- 文字

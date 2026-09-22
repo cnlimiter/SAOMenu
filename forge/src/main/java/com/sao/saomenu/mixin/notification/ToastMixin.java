@@ -23,7 +23,8 @@ public class ToastMixin {
 
     @Inject(method = "addToast", at = @At("HEAD"), cancellable = true)
     private void saomenu$replaceAdvancementToast(Toast toast, CallbackInfo ci) {
-        if (!(toast instanceof AdvancementToast at) || !SAOConfig.saoToasts() || !SAOConfig.showHud()) {
+        if (!SaoUi.enabled() || !(toast instanceof AdvancementToast at)
+                || !SAOConfig.saoToasts() || !SAOConfig.showHud()) {
             return;
         }
         Advancement advancement = ((AdvancementToastAccessor) at).saomenu$advancement();

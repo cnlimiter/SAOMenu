@@ -176,7 +176,7 @@ public final class SAOPlayerPlate {
         SaoDraw.shaderAlpha(alpha);
         g.blit(TEX_HP_ICON, iconX, iconY, iconW, iconW, 0f, 0f, 22, 22, 22, 22);
 
-        Font font = Minecraft.getInstance().font;
+        Font font = com.sao.saomenu.api.SaoUi.bodyFont();
         int avS = Math.max(8, Math.round(26f * s));
         int avX = x + Math.round(61f * s) - avS / 2;
         int avY = y + Math.round(45.5f * s) - avS / 2;
@@ -301,7 +301,7 @@ public final class SAOPlayerPlate {
                                          float s, String name, float frac) {
         RenderSystem.enableBlend();
         g.blit(TEX_HP_BAR, x, y, w, h, PLATE_PAD_L, 30.0F, 315, 22, 360, 83);
-        Font font = Minecraft.getInstance().font;
+        Font font = com.sao.saomenu.api.SaoUi.bodyFont();
         String label = font.width(name) > 200
                 ? font.plainSubstrByWidth(name, 190 - font.width("…")) + "…" : name;
         SaoDraw.drawScaled(g, font, label, x + 4f * s, y + 1f * s, s, mulAlpha(TEXT_WHITE, 1f), false);

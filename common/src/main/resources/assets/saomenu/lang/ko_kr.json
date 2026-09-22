@@ -1,6 +1,13 @@
 {
   "key.categories.saomenu": "SAO Menu",
   "key.saomenu.open": "SAO 메뉴 열기",
+  "key.saomenu.toggle_ui": "SAO / 기본 UI 전환",
+  "saomenu.recovery.enable": "SAO UI 사용",
+  "saomenu.recovery.disable": "기본 UI로 복원",
+  "saomenu.recovery.safe": "SAO 안전 모드",
+  "saomenu.recovery.hint": "%s 키로 UI를 전환합니다. 게임 및 월드 데이터는 변경하지 않습니다.",
+  "saomenu.recovery.safe_hint": "-Dsaomenu.safeMode=true 옵션을 제거하고 다시 시작하여 UI를 사용하세요.",
+  "saomenu.menu.attributes": "캐릭터 속성",
   "saomenu.title": "SAO Menu",
   "saomenu.menu.equip": "장비",
   "saomenu.menu.items": "아이템",

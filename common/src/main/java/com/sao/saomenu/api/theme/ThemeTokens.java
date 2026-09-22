@@ -11,7 +11,7 @@ import java.util.Objects;
  *
  * @param colors       role-based palette; {@code accent} is a placeholder on registered
  *                     definitions and the live hue color on the active snapshot
- * @param bodyFont     namespaced font for body copy ({@code minecraft:default} unless overridden)
+ * @param bodyFont     namespaced font for body copy ({@code saomenu:body} in the builtin themes)
  * @param displayFont  namespaced font for titles and display copy
  * @param enterMillis  enter / open duration in milliseconds, {@code >= 0}
  * @param exitMillis   exit / close duration in milliseconds, {@code >= 0}
@@ -27,6 +27,9 @@ public record ThemeTokens(
     /** Vanilla default bitmap font. */
     public static final ResourceLocation DEFAULT_FONT = new ResourceLocation("minecraft", "default");
 
+    /** SAOMenu-owned face; never replaces the global Minecraft font. */
+    public static final ResourceLocation SAO_FONT = new ResourceLocation("saomenu", "body");
+
     /** Menu group open duration used by the SAO builtin. */
     public static final int SAO_ENTER_MILLIS = 260;
 
@@ -34,7 +37,7 @@ public record ThemeTokens(
     public static final int SAO_EXIT_MILLIS = 170;
 
     private static final ThemeTokens SAO = new ThemeTokens(
-            ThemeColors.sao(), DEFAULT_FONT, DEFAULT_FONT, SAO_ENTER_MILLIS, SAO_EXIT_MILLIS);
+            ThemeColors.sao(), SAO_FONT, SAO_FONT, SAO_ENTER_MILLIS, SAO_EXIT_MILLIS);
 
     public ThemeTokens {
         Objects.requireNonNull(colors, "colors");
@@ -49,7 +52,7 @@ public record ThemeTokens(
     }
 
     /**
-     * Builtin SAO tokens: measured palette, {@code minecraft:default} for both fonts,
+     * Builtin SAO tokens: measured palette, {@code saomenu:body} for both fonts,
      * 260 ms enter and 170 ms exit.
      */
     public static ThemeTokens sao() {

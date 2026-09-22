@@ -47,6 +47,9 @@ final class HudComposer {
 
     private static void compose(GuiGraphics g, Minecraft mc, int w, int h,
                                 float fade, float plateAlpha, HudPass pass, int mouseX, int mouseY) {
+        if (!SaoUi.enabled()) {
+            return;
+        }
         List<HudElement> elements = SaoUi.hudElements();
         FRAME.begin(g, mc, w, h, fade, plateAlpha, pass, mouseX, mouseY);
         try {

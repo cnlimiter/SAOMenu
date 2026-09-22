@@ -10,6 +10,8 @@ import java.util.List;
  */
 final class SaoConfigData {
 
+    boolean frameworkEnabled = true;
+
     float anchorX = SAOConfig.DEF_ANCHOR_X;
     float anchorY = SAOConfig.DEF_ANCHOR_Y;
     float menuScale = SAOConfig.DEF_MENU_SCALE;

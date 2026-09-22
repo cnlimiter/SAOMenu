@@ -1,5 +1,6 @@
 package com.sao.saomenu.client.runtime;
 
+import com.sao.saomenu.api.SaoUi;
 import com.sao.saomenu.api.lifecycle.SessionListener;
 import com.sao.saomenu.client.effect.SAODeathEffect;
 import com.sao.saomenu.client.effect.SAOWelcome;
@@ -81,7 +82,9 @@ public final class SaoClientRuntime {
             leaveWorld(client);
         } else if (available && !inWorld) {
             resetWorldVisuals();
-            SAOWelcome.scheduleStart();
+            if (SaoUi.enabled()) {
+                SAOWelcome.scheduleStart();
+            }
         } else if (available && client.level != activeLevel) {
             // Entity IDs and render resources belong to one level, not an entire connection.
             resetWorldVisuals();
@@ -89,9 +92,11 @@ public final class SaoClientRuntime {
         inWorld = available;
         activeLevel = client.level;
 
-        SAOWelcome.clientTick(client);
-        SAOFreeLook.tick(client);
-        SAODeathEffect.clientTick(client);
+        if (SaoUi.enabled()) {
+            SAOWelcome.clientTick(client);
+            SAOFreeLook.tick(client);
+            SAODeathEffect.clientTick(client);
+        }
         SAODualWield.tick();
         SAOHud.clientTick(client);
         SAOKeybinds.tick(client);
@@ -102,6 +107,15 @@ public final class SaoClientRuntime {
         SAOBossBanner.reset();
         SAOMapPanel.reset();
         SaoPanels.resetSession();
+    }
+
+    /** Cancels only transient UI state; party, skill and server-owned gameplay state survive. */
+    public static void resetUi(Minecraft client) {
+        resetWorldVisuals();
+        SAOHud.resetSession();
+        SAOWelcome.reset();
+        SAOFreeLook.reset(client);
+        SAOMenuMovement.reset(client);
     }
 
     private static void leaveWorld(Minecraft client) {

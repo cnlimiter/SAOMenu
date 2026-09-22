@@ -1,5 +1,6 @@
 package com.sao.saomenu.mixin.hud;
 
+import com.sao.saomenu.api.SaoUi;
 import com.sao.saomenu.config.SAOConfig;
 import com.sao.saomenu.client.hud.SAOHud;
 import net.minecraft.client.Minecraft;
@@ -26,21 +27,21 @@ public class ForgeGuiMixin {
 
     @Inject(method = "renderHealth(IILnet/minecraft/client/gui/GuiGraphics;)V", at = @At("HEAD"), cancellable = true, remap = false)
     private void saomenu$hideHealth(int width, int height, GuiGraphics guiGraphics, CallbackInfo ci) {
-        if (SAOConfig.showHud() && SAOConfig.hideVanillaHealth()) {
+        if (SaoUi.enabled() && SAOConfig.showHud() && SAOConfig.hideVanillaHealth()) {
             ci.cancel();
         }
     }
 
     @Inject(method = "renderArmor(Lnet/minecraft/client/gui/GuiGraphics;II)V", at = @At("HEAD"), cancellable = true, remap = false)
     private void saomenu$hideArmor(GuiGraphics guiGraphics, int width, int height, CallbackInfo ci) {
-        if (SAOConfig.showHud() && SAOConfig.hideVanillaHealth()) {
+        if (SaoUi.enabled() && SAOConfig.showHud() && SAOConfig.hideVanillaHealth()) {
             ci.cancel();
         }
     }
 
     @Inject(method = "renderFood(IILnet/minecraft/client/gui/GuiGraphics;)V", at = @At("HEAD"), cancellable = true, remap = false)
     private void saomenu$centerFood(int width, int height, GuiGraphics guiGraphics, CallbackInfo ci) {
-        if (!SAOConfig.showHud() || !SAOConfig.hideVanillaHealth()) {
+        if (!SaoUi.enabled() || !SAOConfig.showHud() || !SAOConfig.hideVanillaHealth()) {
             return;
         }
         ci.cancel();
@@ -53,7 +54,7 @@ public class ForgeGuiMixin {
     @Inject(method = "renderAir(IILnet/minecraft/client/gui/GuiGraphics;)V", at = @At("HEAD"), cancellable = true, remap = false)
     private void saomenu$relocateAir(int width, int height, GuiGraphics guiGraphics, CallbackInfo ci) {
         // 氧气泡由 renderFood 的接管路径一起画(居中),这里只取消原位绘制
-        if (SAOConfig.showHud() && SAOConfig.hideVanillaHealth()) {
+        if (SaoUi.enabled() && SAOConfig.showHud() && SAOConfig.hideVanillaHealth()) {
             ci.cancel();
         }
     }

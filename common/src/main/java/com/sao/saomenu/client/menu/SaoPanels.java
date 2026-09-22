@@ -7,7 +7,7 @@ import com.sao.saomenu.api.menu.MenuEntry;
 import com.sao.saomenu.api.menu.MenuIcon;
 import com.sao.saomenu.api.menu.SaoPanel;
 import com.sao.saomenu.api.menu.MenuContext;
-import com.sao.saomenu.client.screen.SAOAdvancementsScreen;
+import com.sao.saomenu.client.screen.SAOStatsScreen;
 import com.sao.saomenu.client.screen.settings.SAOSettingsScreen;
 import com.sao.saomenu.config.SAOConfig;
 import com.sao.saomenu.client.skill.SaoSkill;
@@ -19,6 +19,9 @@ import com.sao.saomenu.ui.text.SaoText;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.OptionsScreen;
+import net.minecraft.client.gui.screens.achievement.StatsScreen;
+import net.minecraft.client.gui.screens.advancements.AdvancementsScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -59,7 +62,11 @@ public final class SaoPanels {
             MenuEntry.action(id("profile/map"), tr("saomenu.menu.map"), itemIcon("item_map"), ctx -> {
                 ctx.host().playPanel();
                 ctx.host().toggleMap();
-            }));
+            }),
+            MenuEntry.action(id("profile/inventory"), Component.translatable("container.inventory"),
+                    itemIcon("item_bag"), ctx -> ctx.openScreen(new InventoryScreen(ctx.player()))),
+            MenuEntry.action(id("profile/attributes"), tr("saomenu.menu.attributes"),
+                    itemIcon("item_status"), ctx -> ctx.openScreen(new SAOStatsScreen(ctx.screen(), ctx.player()))));
 
     private static final List<MenuEntry> EQUIP_ITEMS = List.of(
             MenuEntry.equipColumn(id("equip/weapon"), tr("saomenu.menu.weapon"), itemIcon("item_weapon"), MenuEntry.EquipKind.WEAPON),
@@ -76,8 +83,10 @@ public final class SaoPanels {
     private static final List<MenuEntry> FRIENDS_ITEMS = List.of(
             MenuEntry.action(id("friends/advancements"), tr("saomenu.menu.advancements"), itemIcon("item_status"), ctx -> {
                 ctx.host().playClick();
-                ctx.openScreen(new SAOAdvancementsScreen(ctx.screen()));
+                ctx.openScreen(new AdvancementsScreen(ctx.player().connection.getAdvancements()));
             }),
+            MenuEntry.action(id("friends/statistics"), Component.translatable("gui.stats"),
+                    itemIcon("item_status"), ctx -> ctx.openScreen(new StatsScreen(ctx.screen(), ctx.player().getStats()))),
             MenuEntry.action(id("friends/refresh"), tr("saomenu.menu.refresh"), itemIcon("item_bag"), SaoPanels::switchToParty));
 
     private static final List<MenuEntry> SETTINGS_ITEMS = List.of(

@@ -96,9 +96,7 @@ class SaoThemeLibraryTest {
                 "未指定的颜色继承 SAO 调色板");
         assertEquals(4, SaoTheme.presets().size(), "内置 3 个 + 新增 1 个");
         ThemeTokens tokens = def("mine").tokens();
-        assertEquals(ThemeTokens.DEFAULT_FONT, tokens.bodyFont());
-        assertEquals(260, tokens.enterMillis());
-        assertEquals(170, tokens.exitMillis());
+        assertEquals(ThemeTokens.sao(), tokens, "未指定的字体与动效继承基础主题,而不是另设一套缺省值");
     }
 
     @Test

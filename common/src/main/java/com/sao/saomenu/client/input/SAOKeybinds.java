@@ -2,6 +2,7 @@ package com.sao.saomenu.client.input;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.sao.saomenu.SAOMenu;
+import com.sao.saomenu.api.SaoUi;
 import com.sao.saomenu.client.menu.SAOMenuScreen;
 import com.sao.saomenu.client.screen.settings.SAOSettingsScreen;
 import com.sao.saomenu.client.skill.SaoSkill;
@@ -21,6 +22,13 @@ public final class SAOKeybinds {
             "key." + SAOMenu.MOD_ID + ".open", InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_O, CATEGORY);
 
+    /** Available both in-game and inside screens; repeat presses are latched until release. */
+    public static final KeyMapping TOGGLE_UI = new KeyMapping(
+            "key." + SAOMenu.MOD_ID + ".toggle_ui", InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_F8, CATEGORY);
+
+    private static boolean recoveryHeld;
+
     /** Slot order matches the client skill registry; unmapped slots never fire. */
     public static final KeyMapping[] SKILL_KEYS = new KeyMapping[SaoSkills.HOTKEY_SLOTS];
 
@@ -35,6 +43,12 @@ public final class SAOKeybinds {
     }
 
     public static void tick(Minecraft client) {
+        if (!client.isWindowActive()) {
+            recoveryHeld = false;
+        }
+        while (TOGGLE_UI.consumeClick()) {
+            // The platform handles this global action immediately, including while a GUI is open.
+        }
         List<SaoSkill> skills = SaoSkillRegistry.skills();
         for (int i = 0; i < SKILL_KEYS.length; i++) {
             if (SKILL_KEYS[i].consumeClick() && client.player != null && i < skills.size()) {
@@ -42,7 +56,7 @@ public final class SAOKeybinds {
             }
         }
         while (OPEN_MENU.consumeClick()) {
-            if (client.player == null) {
+            if (client.player == null || !SaoUi.enabled()) {
                 continue;
             }
             if (client.screen == null) {
@@ -52,6 +66,20 @@ public final class SAOKeybinds {
                 client.screen.onClose();
             }
         }
+    }
+
+    public static void toggleUiPressed() {
+        if (recoveryHeld) {
+            return;
+        }
+        recoveryHeld = true;
+        if (!SaoUi.safeMode()) {
+            SaoUi.setEnabled(!SaoUi.enabled());
+        }
+    }
+
+    public static void releaseUiToggle() {
+        recoveryHeld = false;
     }
 
     /** Discard held and queued mod actions before another world can receive them. */

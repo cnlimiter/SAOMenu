@@ -41,6 +41,15 @@ gradlew :forge:runClient -Psaomenu.addonJar=examples/framework-addon/build/libs/
 
 根项目加载发行附属 JAR 时，会把已经构建的核心发行 JAR 加到 `modCompileOnly`，仅供 Loom 重映射分析继承层次；运行时仍只有开发中的核心模组。缺少该层次时，附属屏幕继承的 `Screen.font` 等成员可能残留 SRG 名而在开发客户端报 `NoSuchFieldError`。因此必须先构建核心，再构建附属模组，最后运行预览。
 
+恢复与原生导航场景：
+
+```text
+gradlew :forge:runClient -Psaomenu.preview=D:/saomenu-verify/recovery -Psaomenu.preview.recovery=true -Psaomenu.runDir=D:/saomenu-verify/recovery-client --console=plain
+gradlew :forge:runClient -Psaomenu.preview=D:/saomenu-verify/recovery-safe -Psaomenu.preview.recovery=true -Psaomenu.safeMode=true -Psaomenu.runDir=D:/saomenu-verify/recovery-safe-client --console=plain
+```
+
+此场景创建带时间戳的新世界，不删除既有存档。日志须出现 `native recovery checks passed`；安全模式应报告 HUD/世界贡献调用数均为零。它验证恢复开关、原生屏幕/持物连续性、真实服务器物品转移、原生统计与进度入口，不把这些结果冒充容器和前端换肤已经生效。
+
 ## 接入约定
 
 1. 把客户端事件订阅器放在独立客户端类中，用 `Dist.CLIENT` 限制发现。

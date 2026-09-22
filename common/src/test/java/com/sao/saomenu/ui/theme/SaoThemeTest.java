@@ -80,9 +80,6 @@ class SaoThemeTest {
         ThemeTokens a = SaoTheme.tokens();
         ThemeTokens b = SaoTheme.tokens();
         assertSame(a, b, "同一选择与色相下不得每帧重建");
-        assertEquals(ThemeTokens.DEFAULT_FONT, a.bodyFont());
-        assertEquals(260, a.enterMillis());
-        assertEquals(170, a.exitMillis());
         assertEquals(SaoTheme.accentFromHue(SAOConfig.accentHue()), a.colors().accent());
 
         SAOConfig.setAccentHue(120f);

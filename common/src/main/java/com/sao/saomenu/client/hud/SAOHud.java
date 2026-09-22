@@ -1,5 +1,6 @@
 package com.sao.saomenu.client.hud;
 
+import com.sao.saomenu.api.SaoUi;
 import com.sao.saomenu.api.SaoUiRegistry;
 import com.sao.saomenu.client.menu.SAOMenuScreen;
 import com.sao.saomenu.client.render.target.SAOTargetBar3D;
@@ -25,7 +26,7 @@ public final class SAOHud {
 
     /** 常驻渲染入口(平台 HUD 钩子调用)。 */
     public static void render(GuiGraphics g, Minecraft mc) {
-        if (mc.options.hideGui) {
+        if (!SaoUi.enabled() || mc.options.hideGui) {
             return;
         }
         SAOTargetBar3D.renderLabels(g, mc);
@@ -55,7 +56,7 @@ public final class SAOHud {
 
     /** 通知/血量事件检测;从 render 挪到 tick,避免每帧做状态跳变。 */
     public static void clientTick(Minecraft mc) {
-        if (mc == null) {
+        if (mc == null || !SaoUi.enabled()) {
             return;
         }
         SAOCombatHud.tick(mc);

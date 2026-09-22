@@ -1,5 +1,6 @@
 package com.sao.saomenu.mixin.hud;
 
+import com.sao.saomenu.api.SaoUi;
 import com.sao.saomenu.config.SAOConfig;
 import com.sao.saomenu.client.hud.SAOHud;
 import net.minecraft.client.gui.Gui;
@@ -20,21 +21,21 @@ public class GuiMixin {
 
     @Inject(method = "renderHotbar(FLnet/minecraft/client/gui/GuiGraphics;)V", at = @At("HEAD"), cancellable = true)
     private void saomenu$hideHotbar(float partialTick, GuiGraphics guiGraphics, CallbackInfo ci) {
-        if (SAOConfig.showHud() && SAOConfig.hideHotbar()) {
+        if (SaoUi.enabled() && SAOConfig.showHud() && SAOConfig.hideHotbar()) {
             ci.cancel();
         }
     }
 
     @Inject(method = "renderExperienceBar(Lnet/minecraft/client/gui/GuiGraphics;I)V", at = @At("HEAD"), cancellable = true)
     private void saomenu$hideExperience(GuiGraphics guiGraphics, int x, CallbackInfo ci) {
-        if (SAOConfig.showHud()) {
+        if (SaoUi.enabled() && SAOConfig.showHud()) {
             ci.cancel();
         }
     }
 
     @Inject(method = "renderPlayerHealth(Lnet/minecraft/client/gui/GuiGraphics;)V", at = @At("HEAD"), cancellable = true)
     private void saomenu$hideVanillaHealth(GuiGraphics guiGraphics, CallbackInfo ci) {
-        if (!SAOConfig.showHud() || !SAOConfig.hideVanillaHealth()) {
+        if (!SaoUi.enabled() || !SAOConfig.showHud() || !SAOConfig.hideVanillaHealth()) {
             return;
         }
         ci.cancel();

@@ -1,5 +1,6 @@
 package com.sao.saomenu.mixin.notification;
 
+import com.sao.saomenu.api.SaoUi;
 import com.sao.saomenu.SAOMenu;
 import com.sao.saomenu.config.SAOConfig;
 import net.minecraft.network.chat.Component;
@@ -23,7 +24,7 @@ public class AdvancementChatMixin {
     @Inject(method = "handleSystemChat(Lnet/minecraft/network/protocol/game/ClientboundSystemChatPacket;)V",
             at = @At("HEAD"), cancellable = true)
     private void saomenu$filterAdvancementChat(ClientboundSystemChatPacket packet, CallbackInfo ci) {
-        if (!SAOConfig.saoToasts()) {
+        if (!SaoUi.enabled() || !SAOConfig.saoToasts() || !SAOConfig.showHud()) {
             return;
         }
         Component content = packet.content();

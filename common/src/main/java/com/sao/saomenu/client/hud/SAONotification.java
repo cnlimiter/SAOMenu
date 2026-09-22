@@ -1,5 +1,6 @@
 package com.sao.saomenu.client.hud;
 
+import com.sao.saomenu.api.SaoUi;
 import com.sao.saomenu.config.SAOConfig;
 import com.sao.saomenu.SAOMenuPlatform;
 import com.sao.saomenu.ui.theme.SaoTheme;
@@ -56,6 +57,9 @@ public final class SAONotification {
     public static void push(Component title, Component message, ItemStack icon) {
         Objects.requireNonNull(title, "title");
         Objects.requireNonNull(message, "message");
+        if (!SaoUi.enabled()) {
+            return;
+        }
         ItemStack copied = icon == null ? null : icon.copy();
         long now = now();
         QUEUE.add(new Entry(title, message, copied, now));
@@ -90,7 +94,7 @@ public final class SAONotification {
     /** 每帧绘制(右上角纵向堆叠,滑入 + 淡出)。 */
     public static void render(GuiGraphics g, int screenW, int screenH, long now, float alphaMul) {
         prune(now);
-        Font font = Minecraft.getInstance().font;
+        Font font = com.sao.saomenu.api.SaoUi.bodyFont();
         float mul = Mth.clamp(alphaMul, 0f, 1f);
         int i = 0;
         for (Entry e : QUEUE) {

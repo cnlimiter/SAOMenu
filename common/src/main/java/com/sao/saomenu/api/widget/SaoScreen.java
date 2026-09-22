@@ -5,6 +5,8 @@ import com.sao.saomenu.api.layout.UiLayouts;
 import com.sao.saomenu.api.layout.UiRect;
 import com.sao.saomenu.api.theme.ThemeColors;
 import com.sao.saomenu.api.theme.ThemeTokens;
+import com.sao.saomenu.ui.animation.SaoMotion;
+import com.sao.saomenu.ui.render.SaoDraw;
 import net.minecraft.Util;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
@@ -12,7 +14,6 @@ import net.minecraft.client.gui.components.MultiLineEditBox;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 
 /**
  * World-visible SAO card. Subclasses place native widgets in {@link #buildContent(UiRect)}
@@ -28,8 +29,6 @@ public abstract class SaoScreen extends Screen {
     private boolean mounted;
     private boolean dimBackdrop;
     private long mountedAt;
-    private ResourceLocation titleFont;
-    private Component styledTitle;
 
     public SaoScreen(Component title, Screen parent, int preferredWidth, int preferredHeight) {
         super(title);
@@ -100,6 +99,7 @@ public abstract class SaoScreen extends Screen {
 
     @Override
     protected void init() {
+        this.font = SaoUi.bodyFont();
         if (mounted) {
             disposeMount();
         }
@@ -113,6 +113,7 @@ public abstract class SaoScreen extends Screen {
 
     @Override
     protected void repositionElements() {
+        this.font = SaoUi.bodyFont();
         if (!mounted) {
             // Vanilla calls repositionElements, not init(), when the same Screen is opened again.
             init();
@@ -161,7 +162,7 @@ public abstract class SaoScreen extends Screen {
         ThemeTokens tokens = SaoUi.theme();
         float enter = enterAlpha(tokens);
         if (dimBackdrop()) {
-            graphics.fill(0, 0, this.width, this.height, UiPaint.mulAlpha(0xA0000000, enter));
+            graphics.fill(0, 0, this.width, this.height, SaoDraw.mulAlpha(0xA0000000, enter));
         }
         drawCard(graphics, tokens, enter);
         drawTitle(graphics, tokens, enter);
@@ -187,7 +188,7 @@ public abstract class SaoScreen extends Screen {
         if (millis <= 0) {
             return 1f;
         }
-        return UiPaint.easeOutCubic((Util.getMillis() - mountedAt) / (float) millis);
+        return SaoMotion.easeOutCubic((Util.getMillis() - mountedAt) / (float) millis);
     }
 
     private void drawCard(GuiGraphics graphics, ThemeTokens tokens, float alpha) {
@@ -197,21 +198,18 @@ public abstract class SaoScreen extends Screen {
             return;
         }
         graphics.fill(card.x() + 3, card.y() + 3, card.right() + 3, card.bottom() + 3,
-                UiPaint.mulAlpha(colors.dialogShadow(), alpha));
-        UiPaint.fillRounded(graphics, card.x(), card.y(), card.width(), card.height(), 4,
-                UiPaint.mulAlpha(colors.dialogSurface(), alpha));
+                SaoDraw.mulAlpha(colors.dialogShadow(), alpha));
+        SaoDraw.roundedRect(graphics, card.x(), card.y(), card.width(), card.height(), 4,
+                SaoDraw.mulAlpha(colors.dialogSurface(), alpha));
     }
 
     private void drawTitle(GuiGraphics graphics, ThemeTokens tokens, float alpha) {
         if (cardBounds.height() < titleBand()) {
             return;
         }
-        if (!tokens.displayFont().equals(titleFont)) {
-            titleFont = tokens.displayFont();
-            styledTitle = this.title.copy().withStyle(style -> style.withFont(titleFont));
-        }
-        int color = UiPaint.mulAlpha(tokens.colors().textOnSurface(), alpha);
-        graphics.drawString(this.font, styledTitle, cardBounds.centerX() - this.font.width(styledTitle) / 2,
+        var titleFont = SaoUi.displayFont();
+        int color = SaoDraw.mulAlpha(tokens.colors().textOnSurface(), alpha);
+        graphics.drawString(titleFont, this.title, cardBounds.centerX() - titleFont.width(this.title) / 2,
                 cardBounds.y() + 8, color, false);
     }
 }

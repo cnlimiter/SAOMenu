@@ -142,7 +142,7 @@ public final class SaoSkillBar {
 
             // 快捷键位号:随格子缩放,钉在左上角内侧,不再用固定 2/1 px
             float ns = size / 16f;
-            SaoDraw.drawScaled(g, mc.font, String.valueOf(i + 1),
+            SaoDraw.drawScaled(g, com.sao.saomenu.api.SaoUi.bodyFont(), String.valueOf(i + 1),
                     x + size * 0.10f, y + size * 0.06f, ns,
                     SaoDraw.mulAlpha(SaoTheme.palette().textOnSurface(), alpha), false);
         }

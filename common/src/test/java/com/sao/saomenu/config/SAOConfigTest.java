@@ -22,7 +22,20 @@ class SAOConfigTest {
     @AfterEach
     void restoreDefaults() {
         SAOConfig.reset();
+        SAOConfig.setFrameworkEnabled(true);
         SAOConfig.load(null);
+    }
+
+    @Test
+    void recoverySwitchSurvivesAppearanceResetAndReload() {
+        SAOConfig.setFrameworkEnabled(false);
+        SAOConfig.reset();
+        assertFalse(SAOConfig.frameworkEnabled());
+        Path file = tmp.resolve("recovery.json");
+        SAOConfig.save(file);
+        SAOConfig.setFrameworkEnabled(true);
+        SAOConfig.load(file);
+        assertFalse(SAOConfig.frameworkEnabled());
     }
 
     @Test

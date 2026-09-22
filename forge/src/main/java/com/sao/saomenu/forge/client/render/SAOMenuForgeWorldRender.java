@@ -1,6 +1,7 @@
 package com.sao.saomenu.forge.client.render;
 
 import com.sao.saomenu.SAOMenu;
+import com.sao.saomenu.api.SaoUi;
 import com.sao.saomenu.client.render.SaoWorldOverlays;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.api.distmarker.Dist;
@@ -26,7 +27,7 @@ public final class SAOMenuForgeWorldRender {
             return;
         }
         Minecraft mc = Minecraft.getInstance();
-        if (mc.options.hideGui) {
+        if (!SaoUi.enabled() || mc.options.hideGui) {
             return;
         }
         // AFTER_ENTITIES 触发时实体几何只是写进了缓冲、尚未上屏:

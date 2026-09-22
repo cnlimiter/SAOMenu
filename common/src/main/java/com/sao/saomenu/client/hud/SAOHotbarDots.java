@@ -64,14 +64,14 @@ public final class SAOHotbarDots {
             if (ownCount) {
                 ItemStack noCount = stack.copy();
                 noCount.setCount(1);
-                g.renderItemDecorations(mc.font, noCount, -8, -8);
+                g.renderItemDecorations(com.sao.saomenu.api.SaoUi.bodyFont(), noCount, -8, -8);
             } else {
-                g.renderItemDecorations(mc.font, stack, -8, -8);
+                g.renderItemDecorations(com.sao.saomenu.api.SaoUi.bodyFont(), stack, -8, -8);
             }
             g.pose().popPose();
             if (ownCount) {
                 String cnt = String.valueOf(stack.getCount());
-                var font = mc.font;
+                var font = com.sao.saomenu.api.SaoUi.bodyFont();
                 float ns = Math.max(0.45f, d / 16f);
                 float tx = x + d - 3;
                 float ty = y + d + 2 - font.lineHeight * ns;
@@ -93,7 +93,7 @@ public final class SAOHotbarDots {
             if (MenuLayout.inDot(screenW, screenH, i, mx, my)) {
                 ItemStack stack = i == 0 ? player.getOffhandItem() : player.getInventory().getItem(i - 1);
                 if (!stack.isEmpty()) {
-                    g.renderTooltip(mc.font, stack, mx, my);
+                    g.renderTooltip(com.sao.saomenu.api.SaoUi.bodyFont(), stack, mx, my);
                 }
                 break;
             }

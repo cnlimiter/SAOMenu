@@ -65,6 +65,7 @@ public class SAOSettingsScreen extends Screen {
 
     @Override
     protected void init() {
+        this.font = SaoUi.bodyFont();
         timeline.initOnce(Util.getMillis());
         skin.bind(this.font, this.width, this.height, SettingsCatalog.groups(), navigator);
         remountNativeFields();

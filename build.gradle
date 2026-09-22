@@ -68,11 +68,13 @@ allprojects {
 		}
 		// 设置运行游戏时的玩家名称
 		systemProperty 'minecraft.username', rootProject.properties.getOrDefault('minecraft_username', 'Player')
+		systemProperty 'saomenu.safeMode', rootProject.properties.getOrDefault('saomenu.safeMode', 'false')
 		// 开发期菜单截图校验：-Psaomenu.preview=<目录> 时自动开菜单、截图、退出
 		if (rootProject.hasProperty('saomenu.preview')) {
 			systemProperty 'saomenu.preview', rootProject.property('saomenu.preview')
 			systemProperty 'saomenu.preview.keepOpen', rootProject.properties.getOrDefault('saomenu.preview.keepOpen', 'false')
 			systemProperty 'saomenu.preview.api', rootProject.properties.getOrDefault('saomenu.preview.api', 'false')
+			systemProperty 'saomenu.preview.recovery', rootProject.properties.getOrDefault('saomenu.preview.recovery', 'false')
 		}
 	}
 }

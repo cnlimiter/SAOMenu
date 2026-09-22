@@ -39,6 +39,7 @@ public class SAOMenuScreen extends Screen implements MenuHost {
 
     @Override
     protected void init() {
+        this.font = com.sao.saomenu.api.SaoUi.bodyFont();
         session.onInit(this.width, this.height);
         playLauncher();
         SAOMenu.LOGGER.info("[SAOMenu] gui size {}x{} anchor {}x{} (fixed)",
@@ -231,7 +232,7 @@ public class SAOMenuScreen extends Screen implements MenuHost {
     }
 
     private void playLauncher() {
-        if (!SAOConfig.sounds()) {
+        if (!com.sao.saomenu.api.SaoUi.enabled() || !SAOConfig.sounds()) {
             return;
         }
         Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SAOMenuPlatform.launcherSound(), 1.0F));
@@ -239,7 +240,7 @@ public class SAOMenuScreen extends Screen implements MenuHost {
 
     @Override
     public void playClick() {
-        if (!SAOConfig.sounds()) {
+        if (!com.sao.saomenu.api.SaoUi.enabled() || !SAOConfig.sounds()) {
             return;
         }
         Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SAOMenuPlatform.clickSound(), 1.0F));
@@ -247,7 +248,7 @@ public class SAOMenuScreen extends Screen implements MenuHost {
 
     @Override
     public void playPanel() {
-        if (!SAOConfig.sounds()) {
+        if (!com.sao.saomenu.api.SaoUi.enabled() || !SAOConfig.sounds()) {
             return;
         }
         Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SAOMenuPlatform.panelSound(), 1.0F));
@@ -255,7 +256,7 @@ public class SAOMenuScreen extends Screen implements MenuHost {
 
     @Override
     public void playAlert() {
-        if (!SAOConfig.sounds()) {
+        if (!com.sao.saomenu.api.SaoUi.enabled() || !SAOConfig.sounds()) {
             return;
         }
         Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SAOMenuPlatform.alertSound(), 1.0F));

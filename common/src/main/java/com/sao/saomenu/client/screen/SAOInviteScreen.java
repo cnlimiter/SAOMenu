@@ -47,6 +47,11 @@ public final class SAOInviteScreen extends Screen {
         this.openedAt = Util.getMillis();
     }
 
+
+    @Override
+    protected void init() {
+        this.font = com.sao.saomenu.api.SaoUi.bodyFont();
+    }
     @Override
     public boolean isPauseScreen() {
         return false;

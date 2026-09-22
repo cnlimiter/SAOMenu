@@ -1,6 +1,13 @@
 {
   "key.categories.saomenu": "SAO Menu",
   "key.saomenu.open": "Open SAO Menu",
+  "key.saomenu.toggle_ui": "Toggle SAO / Vanilla UI",
+  "saomenu.recovery.enable": "Enable SAO UI",
+  "saomenu.recovery.disable": "Restore Vanilla UI",
+  "saomenu.recovery.safe": "SAO Safe Mode",
+  "saomenu.recovery.hint": "Toggle the interface with %s. Gameplay and world data are unchanged.",
+  "saomenu.recovery.safe_hint": "Restart without -Dsaomenu.safeMode=true to enable the interface.",
+  "saomenu.menu.attributes": "Character Attributes",
   "saomenu.title": "SAO Menu",
   "saomenu.menu.equip": "Equip",
   "saomenu.menu.items": "Items",

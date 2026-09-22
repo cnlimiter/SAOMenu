@@ -42,7 +42,7 @@ gradlew :forge:runClient -Psaomenu.preview=D:/saomenu-verify/current --console=p
 
 - 截图文件名不证明目标页面实际打开；须核对当时的 `Screen`、日志和画面。
 - `dev.preview.SAOInventoryScreen` 是旧的客户端本地物品栏验证夹具，不是服务端权威的原版容器替代品。
-- 属性页会实际挂载后检查屏幕类型；成就页通过菜单导航打开。属性页当前没有生产菜单入口，不能把这项预览记为入口验收。
+- 生产菜单分别提供角色属性、原生背包、原生统计和完整原生进度图入口。旧预览直接挂载页面的结果不等同于入口验证；恢复场景另走实际菜单指针路由与原生容器协议。
 - 二刀流回归检查运行在隔离世界的真实服务端玩家上，覆盖无效来源的原子性、物品守恒、冷却及保留主手；它不代替独立客户端的发包验证。
 - 集成世界预览不代替独立服务端、联机同步或第三方模组兼容性验收。
 - 世界、粒子、时钟和动画不是像素确定的；不能用全图零差异作为 HUD 验收条件。
@@ -77,7 +77,7 @@ python -m unittest discover -s tools/verification -p test_*.py -v
 | `skill` | 客户端与服务端共用的技能标识、冷却和物品判定；不依赖客户端类 |
 | `ui/render`、`ui/text`、`ui/animation`、`ui/theme` | 共用绘制、文字、动画、主题工具 |
 
-`forge` 保存加载器入口、注册、客户端事件适配与按职责分类的 Mixin。公共平台桥只提供声音和粒子；进度读取、UI 注册事件与原生弹层使用独立的 `client.runtime.SAOClientPlatform` 桥。两组实现都保持 Architectury 平台桥命名约定。测试目录跟随被测类的包。
+`forge` 保存加载器入口、注册、客户端事件适配与按职责分类的 Mixin。公共平台桥只提供声音和粒子；UI 注册事件、主题字体句柄与原生弹层使用独立的 `client.runtime.SAOClientPlatform` 桥。原生进度图直接使用客户端连接中的进度控制器，不再复制进度列表。两组桥实现保持 Architectury 命名约定。测试目录跟随被测类的包。
 
 `common/src/dev/java/com/sao/saomenu/dev/preview` 保存开发预览与历史交互夹具，不作为开发者 API。
 
@@ -98,6 +98,16 @@ python -m unittest discover -s tools/verification -p test_*.py -v
 `examples/framework-addon` 是独立 Gradle 项目，只依赖产出的 Forge JAR，不加入主工程 source set；示例代码不进入 SAOMenu 发行包。原版界面全面适配和独立联机验收仍按支持矩阵分域推进。
 
 公开 API 阶段已通过 218 项普通测试，以及独立附属 JAR 的隔离客户端交互验收：13 面板/40 行重排保持选择、13 设置分类、原生输入/滚动/焦点、弹层、缩放重开与 HUD 保存。具体证据、未覆盖的输入法/跨世界/联机边界见支持矩阵。API Javadoc 可用 `gradlew :forge:apiJavadocJar` 生成。
+
+## 原版恢复
+
+- **F8** 全局切换（可在原版按键设置中改绑）；标题页、暂停页有显式恢复按钮。
+- 关闭时暂停所有框架 HUD/世界绘制贡献，清除自有临时视觉状态，并关闭自有菜单；原生屏幕、容器、光标物品、服务器队伍和技能状态保留。
+- `config/saomenu.json` 的 `frameworkEnabled` 保存用户开关；外观复位不重新开启框架。
+- 紧急启动参数 **`-Dsaomenu.safeMode=true`** 强制保留原版 UI，不覆盖用户配置，也不能从界面/API 重新开启。Gradle 开发运行使用 `-Psaomenu.safeMode=true`。
+- 字体位于自有 `saomenu:body`，不覆盖 Minecraft 的全局默认字体。未知原版子类/模组屏幕默认不接管。
+
+恢复验证独立于各域换肤验收；运行方式和当前证据见 [快速开始](docs/quickstart.md) 与 [支持矩阵](docs/support-matrix.md)。
 
 ## 资源工具
 

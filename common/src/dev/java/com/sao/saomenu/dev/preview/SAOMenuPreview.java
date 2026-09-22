@@ -11,7 +11,7 @@ import com.sao.saomenu.client.input.SAOFreeLook;
 import com.sao.saomenu.client.menu.MenuLayout;
 import com.sao.saomenu.client.menu.SAOMenuScreen;
 import com.sao.saomenu.client.render.target.SAOTargetBar3D;
-import com.sao.saomenu.client.screen.SAOAdvancementsScreen;
+import net.minecraft.client.gui.screens.advancements.AdvancementsScreen;
 import com.sao.saomenu.client.screen.SAOStatsScreen;
 import com.sao.saomenu.client.screen.settings.SAOSettingsScreen;
 import com.sao.saomenu.config.SAOConfig;
@@ -641,7 +641,7 @@ public final class SAOMenuPreview {
         } else if (menuTicks == 153 && childClicked) {
             client.setScreen(new SAOMenuScreen());
         } else if (menuTicks == 155 && childClicked) {
-            // 属性页目前没有菜单入口;实际挂载屏幕验证渲染,不把未显示的探针当作页面通过。
+            // 属性视图与原版统计页分开;此处挂载属性页,原版统计另走服务端同步验收。
             client.setScreen(new SAOStatsScreen(client.screen, client.player));
         } else if (menuTicks == 158 && childClicked) {
             if (!(client.screen instanceof SAOStatsScreen stats)) {
@@ -663,10 +663,10 @@ public final class SAOMenuPreview {
             // 点击"成就图鉴"(好友面板第 1 项)
             int w = client.getWindow().getGuiScaledWidth();
             int h = client.getWindow().getGuiScaledHeight();
-            var rect = MenuLayout.menuItemRect(w, h, 2, MenuLayout.buttonCenterY(h, 2), 0);
+            var rect = MenuLayout.menuItemRect(w, h, 3, MenuLayout.buttonCenterY(h, 2), 0);
             clickScreen(client, rect.centerX(), rect.centerY(), 0);
         } else if (menuTicks == 172 && childClicked) {
-            if (!(client.screen instanceof SAOAdvancementsScreen)) {
+            if (!(client.screen instanceof AdvancementsScreen)) {
                 throw new IllegalStateException("Preview did not navigate to advancements");
             }
             SAOMenu.LOGGER.info("[SAOMenu] preview adv screen={}", client.screen.getClass().getSimpleName());

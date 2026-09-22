@@ -4,6 +4,7 @@ import com.sao.saomenu.SAOMenu;
 import com.sao.saomenu.dev.preview.SAOMenuPreview;
 import com.sao.saomenu.api.forge.SaoUiRegisterEvent;
 import com.sao.saomenu.dev.preview.FrameworkApiFixtures;
+import com.sao.saomenu.dev.preview.FrameworkRecoveryPreview;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -17,7 +18,10 @@ public final class SAOMenuPreviewBootstrap {
 
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
-        event.enqueueWork(SAOMenuPreview::registerIfRequested);
+        event.enqueueWork(() -> {
+            if (FrameworkRecoveryPreview.requested()) FrameworkRecoveryPreview.register();
+            else SAOMenuPreview.registerIfRequested();
+        });
     }
 
     @Mod.EventBusSubscriber(modid = SAOMenu.MOD_ID, value = Dist.CLIENT)
@@ -25,6 +29,7 @@ public final class SAOMenuPreviewBootstrap {
         @SubscribeEvent
         public static void register(SaoUiRegisterEvent event) {
             FrameworkApiFixtures.register(event.registry());
+            FrameworkRecoveryPreview.registerUi(event.registry());
         }
     }
 }

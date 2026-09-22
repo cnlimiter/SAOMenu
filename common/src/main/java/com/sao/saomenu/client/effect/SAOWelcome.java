@@ -268,7 +268,7 @@ public final class SAOWelcome {
 
             float ta = textAlpha(elapsed);
             if (ta > 0.004f) {
-                Font font = Minecraft.getInstance().font;
+                Font font = com.sao.saomenu.api.SaoUi.bodyFont();
                 String msg = Component.translatable("saomenu.welcome.msg").getString();
                 // 参考图里提示文字约占面板 body 宽的 44%,8px 字体直接画偏小,放大后再绘制
                 float ts = 1.5f;
@@ -297,7 +297,7 @@ public final class SAOWelcome {
         int lineY = cy + Math.round(screenH * 0.055f);
         g.fill(screenW / 2 - lineW / 2, lineY, screenW / 2 + lineW / 2, lineY + lineH,
                 mulAlpha(SaoTheme.accent(), la));
-        Font font = Minecraft.getInstance().font;
+        Font font = com.sao.saomenu.api.SaoUi.bodyFont();
         float ts = Math.max(2.6f, screenH / 85f) * linkScale(elapsed);
         SaoDraw.drawCentered(g, font, "LINK START",
                 screenW / 2f, cy - 2f, ts, mulAlpha(0xFFF4F7FA, la), false);

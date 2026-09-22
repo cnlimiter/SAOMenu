@@ -17,6 +17,7 @@
 | 在世界事件中绕过组合层绘制 | 注册 `WorldOverlay`；对应当前 `AFTER_ENTITIES` 阶段 |
 | 将实体或世界引用一直存在静态字段中 | 使用 `SessionListener` 处理世界身份变化；绘制时读取当前上下文 |
 | 手写输入缓冲或反射寻找弹层方法 | 使用原生字段及 `SaoScreen`、`SaoScrollPane`、`SaoConfirmDialog` |
+| 依赖全局 `minecraft:default` 覆盖获得 SAO 字体 | 自有界面使用 `SaoUi.bodyFont()` / `displayFont()`；资源留在自己的命名空间 |
 
 ## 时机与失败行为
 
@@ -34,6 +35,7 @@
 - 公开字段控件保持原生 `EditBox` 语义；不要同时让全局快捷键消费正在编辑的普通字母。
 - HUD 绘制上下文是借用对象，不能保存到下一帧。编辑器检查可见性时 `graphics()` 为 `null`，可见性判断不得调用绘制。
 - 世界姿态栈的外层隔离不免除回调平衡内部 push/pop、缓冲和渲染状态的责任。
+- HUD 和世界贡献服从 `SaoUi.enabled()`；恢复时不会补播关闭期间的通知。会话释放回调不会因此停用，勿把清理逻辑放在绘制回调中。
 
 ## 验证自己的附属模组
 

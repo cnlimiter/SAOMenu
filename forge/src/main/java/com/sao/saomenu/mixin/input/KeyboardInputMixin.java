@@ -1,5 +1,6 @@
 package com.sao.saomenu.mixin.input;
 
+import com.sao.saomenu.api.SaoUi;
 import com.sao.saomenu.client.input.SAOMenuMovement;
 import net.minecraft.client.player.Input;
 import net.minecraft.client.player.KeyboardInput;
@@ -17,6 +18,9 @@ public abstract class KeyboardInputMixin {
 
     @Inject(method = "tick(ZF)V", at = @At("TAIL"))
     private void saomenu$applyMovement(boolean sneaking, float slowFallingMultiplier, CallbackInfo ci) {
+        if (!SaoUi.enabled()) {
+            return;
+        }
         SAOMenuMovement.apply((Input) (Object) this);
         SAOMenuMovement.autoSprint();
     }

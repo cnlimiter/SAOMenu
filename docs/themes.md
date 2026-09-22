@@ -9,11 +9,11 @@
 | 令牌 | 作用 |
 | --- | --- |
 | `colors` | 按语义区分正文、强调、分隔、底面与投影的 ARGB 调色板 |
-| `bodyFont` | 公共按钮、对话框正文使用的字体资源 |
-| `displayFont` | 公共卡片屏幕标题使用的字体资源 |
+| `bodyFont` | 自有菜单、HUD、按钮、字段、对话框正文使用的默认字体资源 |
+| `displayFont` | 自有卡片屏幕标题使用的默认字体资源 |
 | `enterMillis`、`exitMillis` | 菜单开合时长；公共卡片的入场也读取 `enterMillis` |
 
-原生文本字段继续使用传入的 Minecraft `Font`，不替换其输入、选择或光标实现。P5 设置页是独立艺术风格，不把其视频节拍、蓝粉配色和运动时序强行换成 SAO 卡片参数。
+`SaoUi.bodyFont()`、`displayFont()` 提供稳定的 `Font` 句柄，按当前主题及资源重载后的字体集合解析字形。原生文本字段使用这个句柄时仍保留 Minecraft 的输入、选择和光标实现；自行传入其他 `Font` 的字段保持调用方选择。P5 设置页是独立艺术风格，不把其视频节拍、蓝粉配色和运动时序强行换成 SAO 卡片参数。
 
 `SaoUi.theme()` 返回当前缓存令牌。切换主题会改变调色板身份、字体和时长；之后单独调整色相只改变强调色，不丢失当前调色板身份。`SaoUi.selectTheme(id)` 是客户端线程上的内存选择，不负责保存整个核心配置。
 
@@ -59,6 +59,8 @@ assets/example/lang/zh_cn.json
 ```
 
 字体资源 `example:body` 对应 `font/body.json`，不是文件系统路径。独立示例的字体是一个明确引用 `minecraft:default` 的自有资源入口，不声称它提供了另一套字形。
+
+内置主题默认字体为 `saomenu:body`，不再覆盖 `assets/minecraft/font/default.json`。关闭框架后，这些句柄回退到原版默认字体；其他模组的默认字体不被修改。显式的非默认 `Component` 字体仍保留。Minecraft 的解析器不能区分“未指定字体”和显式指定 `minecraft:default`，二者在主题句柄内都会使用当前默认角色；需要保持独立字族时使用自己的非默认字体 ID。
 
 `MenuIcon` 与 `MenuEntry.icon` 使用完整纹理资源，如 `example:textures/gui/notebook.png`。菜单宿主缩放图标；附属模组不应覆盖核心同名资源来实现自己的入口。
 

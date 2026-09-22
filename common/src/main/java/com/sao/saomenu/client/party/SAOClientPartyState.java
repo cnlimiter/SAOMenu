@@ -1,5 +1,6 @@
 package com.sao.saomenu.client.party;
 
+import com.sao.saomenu.api.SaoUi;
 import com.sao.saomenu.client.menu.SAOMenuScreen;
 import com.sao.saomenu.client.screen.SAOInviteScreen;
 import com.sao.saomenu.server.party.SAOTeamManager;
@@ -33,7 +34,7 @@ public final class SAOClientPartyState {
         pendingInviter = inviterName;
         inviteAt = System.currentTimeMillis();
         Minecraft mc = Minecraft.getInstance();
-        if (mc.screen == null || mc.screen instanceof SAOMenuScreen) {
+        if (SaoUi.enabled() && (mc.screen == null || mc.screen instanceof SAOMenuScreen)) {
             mc.setScreen(new SAOInviteScreen(inviterName));
         }
     }

@@ -78,7 +78,7 @@ final class TargetLabels {
         if (LABELS.isEmpty() || mc.level == null) {
             return;
         }
-        var font = mc.font;
+        var font = com.sao.saomenu.api.SaoUi.bodyFont();
         for (Label lb : LABELS) {
             Entity e = mc.level.getEntity(lb.entityId());
             if (!(e instanceof LivingEntity le)) {

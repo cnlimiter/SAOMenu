@@ -79,7 +79,7 @@ final class MenuCards {
     private static void renderPlayerCard(GuiGraphics g, MenuContext ctx, UiRect bounds, float eased, float alpha,
                                          int mouseX, int mouseY) {
         Minecraft mc = ctx.minecraft();
-        Font f = mc.font;
+        Font f = com.sao.saomenu.api.SaoUi.bodyFont();
         MenuLayout.Rect at = MenuRects.local(bounds);
 
         ItemStack held = mc.player != null ? mc.player.getInventory().getSelected() : ItemStack.EMPTY;
@@ -202,7 +202,7 @@ final class MenuCards {
             online = names.size();
             rows.addAll(names);
         }
-        renderListCard(g, mc.font, MenuRects.local(bounds), tr("saomenu.friends"), null, rows,
+        renderListCard(g, com.sao.saomenu.api.SaoUi.bodyFont(), MenuRects.local(bounds), tr("saomenu.friends"), null, rows,
                 tr("saomenu.panel.online", online), alpha);
     }
 
