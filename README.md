@@ -1,6 +1,6 @@
 # SAO Menu
 
-Minecraft **1.20.1 / Forge 47.3.0 / Java 17** 的 SAO 风格菜单与 HUD。
+Minecraft **1.20.1 / Forge 47.3.0 / Java 17** 的 SAO 风格客户端界面框架，内置菜单与 HUD。
 
 当前构建包含 `common` 与 `forge` 两个模块；没有可发布的 Fabric 模块。Architectury API 随 Forge 产物内嵌。
 
@@ -24,7 +24,7 @@ gradlew :common:test :forge:build --console=plain
 gradlew :forge:runClient --console=plain
 ```
 
-默认开发客户端目录为 `forge/run/client`。可用 `-Psaomenu.runDir=<目录>` 指定独立目录；相对路径以仓库根目录为基准。
+默认开发客户端目录为 `forge/run/client`，专用服务端目录为 `forge/run/server`。可用 `-Psaomenu.runDir=<目录>` 指定独立目录；相对路径以仓库根目录为基准。联机验收必须使用独立目录，配置与运行步骤见 [快速开始](docs/quickstart.md#独立服务端与双客户端)。
 
 自动预览使用真实客户端创建专用世界、执行交互并截图：
 
@@ -83,7 +83,7 @@ python -m unittest discover -s tools/verification -p test_*.py -v
 
 `SAOMenuScreen` 仅作屏幕适配，菜单状态、输入、列、卡片和对话框分别持有职责；设置页的数据表与动画皮肤分离，HUD 组合与拖动会话分离，目标血条的追踪、几何和绘制分离。配置门面、数据及磁盘存储分开。世界切换清理投影、地图和实体视觉缓存；断线再清理队伍、技能、欢迎动画、自由视角和按键状态。
 
-这些内部类尚未自动成为稳定公共 API。服务端包不再通过客户端技能注册表判定冷却，S2C 消息通过客户端启动时安装的接收器派发；仍须分别验收独立服务端与联机行为。
+这些内部类尚未自动成为稳定公共 API。服务端包不再通过客户端技能注册表判定冷却，S2C 消息通过客户端启动时安装的接收器派发；本机独立专服与两个原生客户端已完成真实发包、队伍同步、跨维度和同进程重连验收。
 
 ## 附属模组开发
 
@@ -95,9 +95,13 @@ python -m unittest discover -s tools/verification -p test_*.py -v
 - [旧接入方式迁移](docs/migration.md)
 - [支持与验收边界](docs/support-matrix.md)
 
-`examples/framework-addon` 是独立 Gradle 项目，只依赖产出的 Forge JAR，不加入主工程 source set；示例代码不进入 SAOMenu 发行包。已验收的原版域及仍未覆盖的账户、第三方组合和独立联机边界见支持矩阵。
+`examples/framework-addon` 是独立 Gradle 项目，只依赖产出的 Forge JAR，不加入主工程 source set；示例代码不进入 SAOMenu 发行包。已验收的原版域、独立联机路径，以及未覆盖的账户、输入法和第三方组合见支持矩阵。
 
-公开 API 阶段已通过 218 项普通测试，以及独立附属 JAR 的隔离客户端交互验收：13 面板/40 行重排保持选择、13 设置分类、原生输入/滚动/焦点、弹层、缩放重开与 HUD 保存。具体证据、未覆盖的输入法/跨世界/联机边界见支持矩阵。API Javadoc 可用 `gradlew :forge:apiJavadocJar` 生成。
+当前 231 项普通测试通过。独立附属 JAR 已完成隔离客户端交互验收：13 面板/40 行重排保持选择、13 设置分类、原生输入/滚动/焦点、弹层、缩放重开与 HUD 保存；另有真实资源重载、极小视口像素检查和双客户端专服验收。具体证据及未覆盖边界见支持矩阵。API Javadoc 可用 `gradlew :forge:apiJavadocJar` 生成。
+
+## 本轮框架路线
+
+已分阶段完成：源码与开发夹具分类 → 菜单/HUD/设置及会话职责解耦 → 公共 API 与独立附属示例 → 可恢复的原版分域换肤 → 主题/布局边界与独立联机验收。各阶段分别保留本地提交；没有将所有原版、账户或第三方组合笼统标为兼容。
 
 ## 原版恢复
 
