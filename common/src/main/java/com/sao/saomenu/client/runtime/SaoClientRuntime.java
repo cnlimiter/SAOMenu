@@ -4,6 +4,7 @@ import com.sao.saomenu.api.SaoUi;
 import com.sao.saomenu.api.lifecycle.SessionListener;
 import com.sao.saomenu.client.effect.SAODeathEffect;
 import com.sao.saomenu.client.effect.SAOWelcome;
+import com.sao.saomenu.client.hud.HudLayoutEditor;
 import com.sao.saomenu.client.hud.SAOBossBanner;
 import com.sao.saomenu.client.hud.SAOHud;
 import com.sao.saomenu.client.hud.SAOMapPanel;
@@ -74,6 +75,7 @@ public final class SaoClientRuntime {
     private static void tick(Minecraft client) {
         boolean available = client.player != null && client.level != null;
         if (client.level != activeLevel) {
+            HudLayoutEditor.dropUnsaved();
             for (SessionListener listener : UiRegistries.instance().sessionListeners()) {
                 listener.levelChanged(activeLevel, client.level);
             }

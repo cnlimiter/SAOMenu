@@ -338,14 +338,15 @@ public class SaoScrollPane extends AbstractWidget implements ContainerEventHandl
 
     private void renderScrollbar(GuiGraphics graphics) {
         int max = maxScroll();
-        if (max <= 0) {
+        if (max <= 0 || getWidth() < 3 || getHeight() < 3) {
             return;
         }
         ThemeColors colors = SaoUi.theme().colors();
         int trackX = getX() + getWidth() - 3;
         int trackY = getY() + 1;
-        int trackH = Math.max(1, getHeight() - 2);
-        int thumbH = Math.max(8, (int) (trackH * (getHeight() / (float) Math.max(1, contentHeight()))));
+        int trackH = getHeight() - 2;
+        int thumbH = Math.min(trackH,
+                Math.max(8, (int) (trackH * (getHeight() / (float) Math.max(1, contentHeight())))));
         int thumbY = trackY + (int) ((trackH - thumbH) * (scroll / (float) max));
         graphics.fill(trackX, trackY, trackX + 2, trackY + trackH, colors.divider());
         graphics.fill(trackX, thumbY, trackX + 2, thumbY + thumbH, colors.accent());

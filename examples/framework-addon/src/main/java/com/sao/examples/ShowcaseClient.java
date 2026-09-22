@@ -69,9 +69,9 @@ public final class ShowcaseClient {
                 (graphics, context, bounds, eased, alpha, mouseX, mouseY) -> {
                     var colors = SaoUi.theme().colors();
                     graphics.fill(bounds.x(), bounds.y(), bounds.right(), bounds.bottom(), colors.dialogSurface());
-                    graphics.drawString(context.minecraft().font, CARD_TITLE, bounds.x() + 8, bounds.y() + 10,
+                    graphics.drawString(SaoUi.bodyFont(), CARD_TITLE, bounds.x() + 8, bounds.y() + 10,
                             colors.textOnSurface(), false);
-                    graphics.drawString(context.minecraft().font, CARD_DETAIL, bounds.x() + 8, bounds.y() + 25,
+                    graphics.drawString(SaoUi.bodyFont(), CARD_DETAIL, bounds.x() + 8, bounds.y() + 25,
                             colors.textMuted(), false);
                 }));
         registry.hud(HudElement.builder(id("badge"), 1000, NAME, ShowcaseClient::renderBadge)
@@ -137,9 +137,9 @@ public final class ShowcaseClient {
         graphics.enableScissor(bounds.x() + 7, bounds.y(), bounds.x() + bounds.width() - 3,
                 bounds.y() + bounds.height());
         try {
-            graphics.drawString(context.minecraft().font, BADGE_CAPTION, bounds.x() + 7, bounds.y() + 4,
+            graphics.drawString(SaoUi.bodyFont(), BADGE_CAPTION, bounds.x() + 7, bounds.y() + 4,
                     (alpha << 24) | (colors.textMuted() & 0xFFFFFF), false);
-            graphics.drawString(context.minecraft().font, ShowcaseConfig.LABEL.get(), bounds.x() + 7,
+            graphics.drawString(SaoUi.bodyFont(), ShowcaseConfig.LABEL.get(), bounds.x() + 7,
                     bounds.y() + 16, (alpha << 24) | (colors.textOnSurface() & 0xFFFFFF), false);
         } finally {
             graphics.disableScissor();

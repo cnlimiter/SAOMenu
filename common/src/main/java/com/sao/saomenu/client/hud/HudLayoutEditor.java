@@ -122,7 +122,8 @@ public final class HudLayoutEditor {
         clear();
     }
 
-    static void dropUnsaved() {
+    /** Roll back the pending transaction before level-change listeners observe the new session. */
+    public static void dropUnsaved() {
         if (live != null) {
             live.cancel();
         }

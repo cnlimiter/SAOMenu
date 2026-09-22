@@ -37,7 +37,7 @@ gradlew :forge:runClient -Psaomenu.addonJar=examples/framework-addon/build/libs/
 
 预览会创建/重建自己的 `saves/saomenupreview`，更改隔离目录中的语言、GUI 缩放和演示配置。**不可把预览指向个人游戏目录**。示例运行目录默认位于其自己的 `run/client`，与核心日常开发目录分离。
 
-`saomenu.preview.api=true` 要求加载示例 JAR。它额外注册仅开发环境存在的长列表夹具，验证 13 个菜单面板、40 行动态条目、13 个设置分类及溢出主题选择，并验证原生字段、滚动焦点、弹层和 HUD 拖动。日志须出现 `API native checks passed`；截图位于指定输出目录。它不验证操作系统输入法组合过程，也不替代独立服务端/联机验收。
+`saomenu.preview.api=true` 要求加载示例 JAR。它额外注册仅开发环境存在的长列表夹具，验证 13 个菜单面板、40 行动态条目、13 个设置分类及溢出主题选择，并验证原生字段、滚动焦点、弹层和 HUD 拖动。最后保留极小滚动视口与字体对照屏，执行真实资源重载；`keepOpen=true` 保留该原生界面供检查。日志须出现 `API native checks passed`；截图位于指定输出目录。它不验证操作系统输入法组合过程，也不替代独立服务端/联机验收。
 
 根项目加载发行附属 JAR 时，会把已经构建的核心发行 JAR 加到 `modCompileOnly`，仅供 Loom 重映射分析继承层次；运行时仍只有开发中的核心模组。缺少该层次时，附属屏幕继承的 `Screen.font` 等成员可能残留 SRG 名而在开发客户端报 `NoSuchFieldError`。因此必须先构建核心，再构建附属模组，最后运行预览。
 

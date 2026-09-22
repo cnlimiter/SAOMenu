@@ -9,9 +9,11 @@ public final class UiLayouts {
     }
 
     public static UiRect centered(int screenWidth, int screenHeight, int preferredWidth, int preferredHeight, int margin) {
-        int pad = Math.max(0, margin);
-        int width = Math.min(Math.max(0, preferredWidth), Math.max(0, screenWidth - 2 * pad));
-        int height = Math.min(Math.max(0, preferredHeight), Math.max(0, screenHeight - 2 * pad));
+        screenWidth = Math.max(0, screenWidth);
+        screenHeight = Math.max(0, screenHeight);
+        long doubleMargin = 2L * Math.max(0, margin);
+        int width = Math.min(Math.max(0, preferredWidth), (int) Math.max(0L, screenWidth - doubleMargin));
+        int height = Math.min(Math.max(0, preferredHeight), (int) Math.max(0L, screenHeight - doubleMargin));
         return new UiRect((screenWidth - width) / 2, (screenHeight - height) / 2, width, height);
     }
 
@@ -20,19 +22,15 @@ public final class UiLayouts {
      * shrink; position is clamped after shrinking.
      */
     public static UiRect clamped(UiRect rect, int screenWidth, int screenHeight, int margin) {
+        screenWidth = Math.max(0, screenWidth);
+        screenHeight = Math.max(0, screenHeight);
         int pad = Math.max(0, margin);
-        int maxW = Math.max(0, screenWidth - 2 * pad);
-        int maxH = Math.max(0, screenHeight - 2 * pad);
+        int maxW = (int) Math.max(0L, screenWidth - 2L * pad);
+        int maxH = (int) Math.max(0L, screenHeight - 2L * pad);
         int width = Math.min(rect.width(), maxW);
         int height = Math.min(rect.height(), maxH);
-        int x = Math.min(Math.max(rect.x(), pad), pad + maxW - width);
-        int y = Math.min(Math.max(rect.y(), pad), pad + maxH - height);
-        if (maxW == 0) {
-            x = pad;
-        }
-        if (maxH == 0) {
-            y = pad;
-        }
+        int x = maxW == 0 ? screenWidth / 2 : Math.min(Math.max(rect.x(), pad), pad + maxW - width);
+        int y = maxH == 0 ? screenHeight / 2 : Math.min(Math.max(rect.y(), pad), pad + maxH - height);
         return new UiRect(x, y, width, height);
     }
 
@@ -41,8 +39,8 @@ public final class UiLayouts {
         if (count <= 0) {
             return new UiRect[0];
         }
-        int space = Math.max(0, gap);
-        int inner = Math.max(0, bounds.width() - space * Math.max(0, count - 1));
+        int space = count == 1 ? 0 : Math.min(Math.max(0, gap), bounds.width() / (count - 1));
+        int inner = bounds.width() - space * (count - 1);
         int cell = inner / count;
         int rem = inner % count;
         UiRect[] out = new UiRect[count];
@@ -60,8 +58,8 @@ public final class UiLayouts {
         if (count <= 0) {
             return new UiRect[0];
         }
-        int space = Math.max(0, gap);
-        int inner = Math.max(0, bounds.height() - space * Math.max(0, count - 1));
+        int space = count == 1 ? 0 : Math.min(Math.max(0, gap), bounds.height() / (count - 1));
+        int inner = bounds.height() - space * (count - 1);
         int cell = inner / count;
         int rem = inner % count;
         UiRect[] out = new UiRect[count];
@@ -82,7 +80,7 @@ public final class UiLayouts {
         if (columns <= 0 || count <= 0) {
             return new UiRect[0];
         }
-        int rows = (count + columns - 1) / columns;
+        int rows = (count - 1) / columns + 1;
         UiRect[] rowBounds = column(bounds, rows, gap);
         UiRect[] out = new UiRect[count];
         int i = 0;

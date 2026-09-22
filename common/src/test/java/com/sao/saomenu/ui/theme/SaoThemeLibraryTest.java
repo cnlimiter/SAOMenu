@@ -10,6 +10,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -21,9 +24,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -116,13 +117,48 @@ class SaoThemeLibraryTest {
     @Test
     void colorLiteralsAcceptRgbAndArgbAndIntegers() throws IOException {
         write("c.json", "{\"id\":\"c\",\"colors\":{"
-                + "\"divider\":\"#112233\",\"textMuted\":\"#80112233\",\"shadow\":-1}}");
+                + "\"divider\":\"#112233\",\"textMuted\":\"#80112233\",\"shadow\":-1,\"surfaceSlot\":4294967295}}");
         SaoThemeLibrary.load(configDir);
 
         ThemeColors c = find("c").colors();
         assertEquals(0xFF112233, c.divider(), "6 位写法补不透明 alpha");
         assertEquals(0x80112233, c.textMuted(), "8 位写法保留 alpha");
         assertEquals(-1, c.shadow(), "整数按原样");
+        assertEquals(0xFFFFFFFF, c.surfaceSlot(), "无符号 32 位整数保留 ARGB 位");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"\"#123\"", "\"#1234567\"", "\"112233\"", "1.5", "4294967296", "-2147483649"})
+    void malformedColorCannotReplaceAnExistingPalette(String value) throws IOException {
+        int original = SaoTheme.byId(SaoTheme.SAO).colors().divider();
+        write("invalid.json", "{\"id\":\"saomenu:sao\",\"colors\":{\"divider\":" + value + "}}");
+        assertEquals(0, SaoThemeLibrary.load(configDir));
+        assertEquals(original, SaoTheme.byId(SaoTheme.SAO).colors().divider());
+    }
+
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', value = {
+            "order|1.5", "order|2147483648", "enterMillis|0.5", "exitMillis|4294967296"
+    })
+    void fractionalOrOverflowingIntegersRejectTheWholeOverlay(String field, String value) throws IOException {
+        int original = SaoTheme.byId(SaoTheme.SAO).colors().divider();
+        write("invalid.json", "{\"id\":\"saomenu:sao\",\"" + field + "\":" + value
+                + ",\"colors\":{\"divider\":\"#112233\"}}");
+        assertEquals(0, SaoThemeLibrary.load(configDir));
+        assertEquals(original, SaoTheme.byId(SaoTheme.SAO).colors().divider());
+    }
+
+    @Test
+    void mergedThemeOrderUsesOrderThenIdWithoutMutatingPreviousSnapshots() throws IOException {
+        List<ThemeDefinition> previous = SaoTheme.definitions();
+        List<String> previousIds = previous.stream().map(theme -> theme.id().toString()).toList();
+        write("a.json", "{\"id\":\"zzz:late\",\"order\":20}");
+        write("b.json", "{\"id\":\"aaa:early\",\"order\":20}");
+        write("c.json", "{\"id\":\"saomenu:sao\",\"order\":30}");
+        assertEquals(3, SaoThemeLibrary.load(configDir));
+        assertEquals(List.of("aaa:early", "zzz:late", SaoTheme.SAO, SaoTheme.ALO, SaoTheme.GGO),
+                SaoTheme.definitions().stream().map(theme -> theme.id().toString()).toList());
+        assertEquals(previousIds, previous.stream().map(theme -> theme.id().toString()).toList());
     }
 
     @Test
@@ -301,15 +337,12 @@ class SaoThemeLibraryTest {
         write("p.json", "{\"id\":\"p\",\"defaultHue\":150,\"colors\":{\"divider\":\"#112233\"}}");
         SaoThemeLibrary.load(configDir);
         SaoTheme.select(id("p"));
-        ThemeTokens before = SaoTheme.tokens();
         assertEquals(0xFF112233, SaoTheme.palette().divider());
         SAOConfig.setAccentHue(202f);
         assertEquals(SaoTheme.accentFromHue(202f), SaoTheme.accent());
 
         write("p.json", "{\"id\":\"p\",\"defaultHue\":80,\"colors\":{\"divider\":\"#445566\"}}");
         SaoThemeLibrary.load(configDir);
-        ThemeTokens after = SaoTheme.tokens();
-        assertNotSame(before, after, "同 id 再载入必须失效缓存");
         assertEquals(0xFF445566, SaoTheme.palette().divider(), "Replacing the selected id must refresh its colors");
         assertEquals(SaoTheme.accentFromHue(202f), SaoTheme.accent(), "Reload must preserve the user's hue");
 
@@ -387,15 +420,4 @@ class SaoThemeLibraryTest {
         assertEquals("Night", SaoThemeLibrary.label("addon:night"));
     }
 
-    @Test
-    void definitionsSnapshotIsCachedUntilOverlay() throws IOException {
-        List<ThemeDefinition> a = SaoTheme.definitions();
-        assertSame(a, SaoTheme.definitions());
-        write("z.json", "{\"id\":\"z\",\"defaultHue\":1}");
-        SaoThemeLibrary.load(configDir);
-        List<ThemeDefinition> b = SaoTheme.definitions();
-        assertNotSame(a, b);
-        assertSame(b, SaoTheme.definitions());
-        assertEquals(4, b.size());
-    }
 }

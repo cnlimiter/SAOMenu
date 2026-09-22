@@ -756,7 +756,7 @@ public final class SAOMenuPreview {
             restoreGuiScale(client);
             if (Boolean.getBoolean("saomenu.preview.keepOpen")) {
                 client.resizeDisplay();
-                client.setScreen(new SAOMenuScreen());
+                if (!Boolean.getBoolean("saomenu.preview.api")) client.setScreen(new SAOMenuScreen());
                 SAOMenu.LOGGER.info("[SAOMenu] preview complete; native inspection ready");
             } else {
                 client.stop();

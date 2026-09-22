@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -219,7 +220,7 @@ public final class SaoThemeLibrary {
         int order = previous != null ? previous.order() : SaoTheme.nextOrder();
         if (obj.has("order")) {
             try {
-                order = obj.get("order").getAsInt();
+                order = Math.toIntExact(integer(obj.get("order")));
             } catch (RuntimeException e) {
                 warn(file.getFileName() + ": order 不是整数");
                 return false;
@@ -322,7 +323,7 @@ public final class SaoThemeLibrary {
             return null;
         }
         try {
-            int value = o.get(key).getAsInt();
+            int value = Math.toIntExact(integer(o.get(key)));
             if (value < 0) {
                 warn(file.getFileName() + ": " + key + " 不能为负");
                 return null;
@@ -334,27 +335,29 @@ public final class SaoThemeLibrary {
         }
     }
 
-    /** 颜色字面量:{@code "#RGB"}、{@code "#RRGGBB"}、{@code "#AARRGGBB"} 或 32 位整数。 */
+    private static long integer(JsonElement value) {
+        if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber()) {
+            throw new IllegalArgumentException("Not a JSON integer");
+        }
+        return value.getAsBigDecimal().longValueExact();
+    }
+
+    /** 颜色字面量:{@code "#RRGGBB"}、{@code "#AARRGGBB"} 或有符号/无符号 32 位整数。 */
     private static Integer color(JsonElement e) {
         if (!e.isJsonPrimitive()) {
             return null;
         }
         try {
             if (e.getAsJsonPrimitive().isNumber()) {
-                return e.getAsInt();
+                long value = integer(e);
+                return value >= Integer.MIN_VALUE && value <= 0xFFFFFFFFL ? (int) value : null;
             }
             String s = e.getAsString().trim();
-            if (s.startsWith("#")) {
-                s = s.substring(1);
-            }
-            long v = Long.parseLong(s, 16);
-            if (s.length() <= 6) {
-                v |= 0xFF000000L; // 不带 alpha 的写法默认为不透明
-            }
-            if (s.length() > 8) {
+            if ((s.length() != 7 && s.length() != 9) || s.charAt(0) != '#') {
                 return null;
             }
-            return (int) v;
+            int value = HexFormat.fromHexDigits(s, 1, s.length());
+            return s.length() == 7 ? value | 0xFF000000 : value;
         } catch (RuntimeException ex) {
             return null;
         }

@@ -10,6 +10,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
@@ -43,6 +44,8 @@ public record SaoTheme(String id, float defaultHue, ThemeColors colors) {
             builtin("sao", 100, 41.44f),
             builtin("alo", 200, 202f),
             builtin("ggo", 300, 355f));
+    private static final Comparator<ThemeDefinition> ORDER = Comparator.comparingInt(ThemeDefinition::order)
+            .thenComparing(theme -> theme.id().toString());
 
     /** 当前可用预设 = 冻结的代码定义 + {@code config/saomenu/themes/*.json} 覆盖。 */
     private static final List<ThemeDefinition> PRESETS = new ArrayList<>(BUILTIN);
@@ -144,7 +147,7 @@ public record SaoTheme(String id, float defaultHue, ThemeColors colors) {
 
     /**
      * Overlay or append a definition after freeze (user JSON / same-id reload).
-     * Same id replaces in place and invalidates the active token cache.
+     * Same id replaces its definition; the merged view remains ordered by order then full id.
      */
     static void overlay(ThemeDefinition theme) {
         Objects.requireNonNull(theme, "theme");
@@ -166,10 +169,11 @@ public record SaoTheme(String id, float defaultHue, ThemeColors colors) {
         for (ThemeDefinition def : PRESETS) {
             max = Math.max(max, def.order());
         }
-        return max + 100;
+        return (int) Math.min(Integer.MAX_VALUE, (long) max + 100);
     }
 
     private static void refreshSnapshots() {
+        PRESETS.sort(ORDER);
         definitionSnapshot = List.copyOf(PRESETS);
         presetSnapshot = views(PRESETS);
         cachedTokens = null;

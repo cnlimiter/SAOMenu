@@ -2,6 +2,7 @@ package com.sao.saomenu.api.layout;
 
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -68,6 +69,36 @@ class UiLayoutsTest {
         assertEquals(30, UiLayouts.clampedScroll(999, 50, 20));
         assertEquals(0, UiLayouts.clampedScroll(10, 10, 20));
         assertEquals(8, UiLayouts.clampedScroll(8, 50, 20));
+    }
+
+    @Test
+    void oversizedGapsDoNotPushCellsOutsideTheirParent() {
+        UiRect bounds = new UiRect(11, 17, 7, 3);
+        assertInside(bounds, UiLayouts.row(bounds, 2, 8));
+        assertInside(bounds, UiLayouts.column(bounds, 3, 8));
+        assertInside(bounds, UiLayouts.grid(bounds, 3, 7, 8));
+    }
+
+    @Test
+    void excessiveMarginsCollapseAtTheScreenCenter() {
+        UiRect empty = new UiRect(3, 2, 0, 0);
+        assertEquals(empty, UiLayouts.centered(7, 5, 80, 80, Integer.MAX_VALUE));
+        assertEquals(empty, UiLayouts.clamped(new UiRect(-20, -4, 80, 80), 7, 5, Integer.MAX_VALUE));
+    }
+
+    @Test
+    void gridKeepsItsCellsWhenRequestedColumnsExceedTheCellCount() {
+        UiRect bounds = new UiRect(10, 20, 40, 30);
+        assertArrayEquals(UiLayouts.row(bounds, 2, 1),
+                UiLayouts.grid(bounds, Integer.MAX_VALUE, 2, 1));
+    }
+
+    private static void assertInside(UiRect parent, UiRect[] cells) {
+        for (UiRect cell : cells) {
+            assertTrue(cell.x() >= parent.x() && cell.y() >= parent.y()
+                            && cell.right() <= parent.right() && cell.bottom() <= parent.bottom(),
+                    () -> cell + " escaped " + parent);
+        }
     }
 
     @Test

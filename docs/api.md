@@ -73,11 +73,19 @@ public final class ClientUi {
 - `SaoScreen.buildContent(content)` 每次挂载重建控件；`layoutWidgets(content)` 在尺寸变化时移动现有控件。两者都由子类实现。卸载时调用 `disposeMount()`；再次打开同一对象仍会正确挂载。
 - `SessionListener.levelChanged(previous, current)` 在实际客户端世界对象身份变化时调用；任一端可以为 `null`。清理实体引用、世界缓存和 GPU 资源，不在回调里推断玩家一定已建立。
 - 世界绘制的姿态栈已有相机旋转、没有世界位置平移。绘制位置用 `worldPosition - camera.getPosition()`；不要保留帧对象，必须平衡额外 push/pop 并恢复自己更改的渲染状态。
-- HUD 编辑只在菜单编辑路由中开始。拖动松手时保存，取消或世界结束回滚未保存锚点；不要在逐帧绘制中写配置。
+- HUD 编辑只在菜单编辑路由中开始。拖动松手时保存，取消、断开或关卡对象替换时回滚未保存锚点；回滚先于 `SessionListener` 通知。不要在逐帧绘制中写配置。
 
 `HudPass.WORLD` 在 SAO 菜单关闭时运行，`MENU_UNDERLAY`、`MENU_OVERLAY` 分别位于菜单内容下方和上方。`GAME_OVERLAY` 位于平台 HUD 尾部、原生 Screen 绘制之前，菜单打开时仍运行；欢迎和 Boss 横幅使用这一阶段。不要同时注册到多个阶段却假定每帧只调用一次。
 
 `SaoScrollPane(bounds, narration)` 接收原生控件，并使用内容局部坐标保存其位置。滚动不篡改控件自身的 `visible`，Tab 可进入子控件并使焦点行可见。`SaoConfirmDialog.open(parent, title, message, action)` 使用 Forge 原生 GUI 层，取消不执行动作，父屏幕草稿不因弹层打开而卸载。
+
+`UiLayouts` 会在空间不足时缩小间距；过大的屏幕边距将矩形折叠到屏幕中心，不把空矩形移到屏幕之外。滚动条的滑块不超出轨道，过小而无法容纳轨道的视口不绘制滚动条。
+
+## 第三方界面边界
+
+原版适配按精确屏幕类选择 `REPLACE`、`RESKIN` 或 `KEEP`，不根据继承关系把未知模组屏幕纳入换肤。支持列表与未验收项见 [支持矩阵](support-matrix.md)。
+
+附属模组通过 `SaoScreen`、公共控件及注册的绘制回调接入框架。普通第三方 `Screen` 不会自动获得 SAO 主题，第三方容器、JEI/REI 等也没有未经验证的通用兼容承诺。核心不接管它们的槽位、输入、配置或资源命名空间。
 
 ## API 文档构建
 

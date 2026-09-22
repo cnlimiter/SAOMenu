@@ -11,12 +11,17 @@ import com.sao.saomenu.api.widget.SaoScrollPane;
 import com.sao.saomenu.api.widget.SaoTextField;
 import com.sao.saomenu.client.screen.settings.SAOSettingsScreen;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import org.lwjgl.glfw.GLFW;
+
+import java.util.concurrent.CompletableFuture;
 
 /** Native-screen regression scenarios against the independently compiled addon binary. Dev only. */
 final class FrameworkApiPreview {
@@ -29,13 +34,26 @@ final class FrameworkApiPreview {
     private static int dragX;
     private static int dragY;
     private static String renderedFieldText = "";
+    private static Font retainedBodyFont;
+    private static CompletableFuture<Void> reload;
+    private static int reloadedTicks;
 
     private FrameworkApiPreview() {
     }
 
     static boolean tick(Minecraft client, String out, int tick) {
+        if (tick >= 148) {
+            if (!reload.isDone() || client.getOverlay() != null) return false;
+            reload.join();
+            if (++reloadedTicks < 8) return false;
+            require(client.screen instanceof BoundaryScreen, "Resource reload replaced the owned API screen");
+            SAOMenuPreview.grab(client, out, "api_boundaries_reloaded.png");
+            SAOMenu.LOGGER.info("[SAOMenu] API native checks passed: binary registration, rendered Unicode input, nested Tab/scroll, modal cancel/confirm, resize/remount, HUD cancel/save, 13 panels/40 rows with stable identity, 13 settings groups with isolated save/focus, tiny scroll viewports and retained-font rendering after reload");
+            return true;
+        }
         switch (tick) {
             case 0 -> {
+                retainedBodyFont = SaoUi.bodyFont();
                 // Missing subscribers during loader setup used to silently lose every addon contribution.
                 SaoPanel panel = SaoUi.panels().stream().filter(p -> id("notebook").equals(p.id()))
                         .findFirst().orElseThrow(() -> new IllegalStateException("Addon registration was not dispatched"));
@@ -196,12 +214,44 @@ final class FrameworkApiPreview {
             }
             case 136 -> SAOMenuPreview.grab(client, out, "api_theme_overflow.png");
             case 140 -> {
-                SAOMenu.LOGGER.info("[SAOMenu] API native checks passed: binary registration, rendered Unicode input, nested Tab/scroll, modal cancel/confirm, resize/remount, HUD cancel/save, 13 panels/40 rows with stable identity, 13 settings groups with isolated save/focus");
-                return true;
+                SaoUi.selectTheme(id("cyan"));
+                client.setScreen(new BoundaryScreen());
             }
+            case 144 -> SAOMenuPreview.grab(client, out, "api_boundaries.png");
+            case 146 -> reload = client.reloadResourcePacks();
             default -> { }
         }
         return false;
+    }
+
+    private static final class BoundaryScreen extends Screen {
+        private static final String SAMPLE = "Retained font 012345";
+
+        private BoundaryScreen() {
+            super(Component.literal("API boundary verification"));
+        }
+
+        @Override
+        protected void init() {
+            addPane(20, 1, 4);
+            addPane(40, 5, 2);
+            addPane(60, 5, 4);
+            addPane(80, 5, 20);
+        }
+
+        private void addPane(int x, int width, int height) {
+            SaoScrollPane pane = addRenderableWidget(
+                    new SaoScrollPane(x, 100, width, height, Component.empty()));
+            pane.setContentHeight(80);
+        }
+
+        @Override
+        public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            graphics.fill(0, 0, width, height, 0xFF19212B);
+            graphics.drawString(retainedBodyFont, SAMPLE, 40, 40, 0xFFFFFFFF, false);
+            graphics.drawString(SaoUi.bodyFont(), SAMPLE, 40, 60, 0xFFFFFFFF, false);
+            super.render(graphics, mouseX, mouseY, partialTick);
+        }
     }
 
     private static ResourceLocation id(String path) {
