@@ -1,15 +1,15 @@
 package com.sao.saomenu.client.menu;
 
-import com.sao.saomenu.client.SAOConfig;
-import com.sao.saomenu.client.SAONotification;
-import com.sao.saomenu.client.SAOAdvancementsScreen;
-import com.sao.saomenu.client.SAOSettingsScreen;
-import com.sao.saomenu.party.InviteC2S;
-import com.sao.saomenu.party.LeaveC2S;
-import com.sao.saomenu.skill.SaoSkill;
-import com.sao.saomenu.skill.SaoSkillRegistry;
-import com.sao.saomenu.skill.SaoSkills;
-import com.sao.saomenu.ui.SaoText;
+import com.sao.saomenu.client.hud.SAONotification;
+import com.sao.saomenu.client.screen.SAOAdvancementsScreen;
+import com.sao.saomenu.client.screen.settings.SAOSettingsScreen;
+import com.sao.saomenu.config.SAOConfig;
+import com.sao.saomenu.client.skill.SaoSkill;
+import com.sao.saomenu.client.skill.SaoSkillRegistry;
+import com.sao.saomenu.client.skill.SaoSkills;
+import com.sao.saomenu.network.c2s.InviteC2S;
+import com.sao.saomenu.network.c2s.LeaveC2S;
+import com.sao.saomenu.ui.text.SaoText;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.OptionsScreen;
 import net.minecraft.client.multiplayer.PlayerInfo;

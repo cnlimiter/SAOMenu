@@ -1,8 +1,10 @@
 package com.sao.saomenu.forge;
 
 import com.sao.saomenu.SAOMenu;
-import com.sao.saomenu.party.SAONetwork;
-import com.sao.saomenu.party.SAOTeamManager;
+import com.sao.saomenu.forge.registry.SAOMenuForgeParticles;
+import com.sao.saomenu.forge.registry.SAOMenuForgeSounds;
+import com.sao.saomenu.network.SAONetwork;
+import com.sao.saomenu.server.party.SAOTeamManager;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -13,7 +15,7 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 
 /**
  * Forge 入口。在模组构造期注册音效、粒子类型与组队网络消息;
- * 客户端按键由 {@link SAOMenuForgeClient} 在 FMLClientSetupEvent 里注册。
+ * 客户端按键由 {@link com.sao.saomenu.forge.client.SAOMenuForgeClient} 在 FMLClientSetupEvent 里注册。
  */
 @Mod(SAOMenu.MOD_ID)
 public class SAOMenuForge {
@@ -37,7 +39,7 @@ public class SAOMenuForge {
         public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
             if (event.getEntity() instanceof ServerPlayer sp) {
                 SAOTeamManager.clearPending(sp.getUUID());
-                com.sao.saomenu.skill.SaoSkillCooldowns.clearPlayer(sp.getUUID());
+                com.sao.saomenu.server.skill.SaoSkillCooldowns.clearPlayer(sp.getUUID());
                 if (SAOTeamManager.teamOf(sp.getServer(), sp) != null) {
                     SAOTeamManager.handleLeave(sp.getServer(), sp);
                 }

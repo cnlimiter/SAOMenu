@@ -1,6 +1,8 @@
 package com.sao.saomenu.forge;
 
-import com.sao.saomenu.mixin.ClientAdvancementsAccessor;
+import com.sao.saomenu.forge.registry.SAOMenuForgeParticles;
+import com.sao.saomenu.forge.registry.SAOMenuForgeSounds;
+import com.sao.saomenu.mixin.accessor.ClientAdvancementsAccessor;
 import net.minecraft.advancements.Advancement;
 import net.minecraft.advancements.AdvancementProgress;
 import net.minecraft.client.multiplayer.ClientAdvancements;

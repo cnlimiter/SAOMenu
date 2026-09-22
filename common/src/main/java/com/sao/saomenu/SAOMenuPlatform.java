@@ -10,7 +10,7 @@ import net.minecraft.sounds.SoundEvent;
 import java.util.Map;
 
 /**
- * 平台桥接:音效事件与粒子类型在 Forge/Fabric 各自注册后从这里取用。
+ * Architectury 平台桥接；当前发行目标为 Forge，具体注册与 accessor 实现在 forge 模块。
  */
 public class SAOMenuPlatform {
 

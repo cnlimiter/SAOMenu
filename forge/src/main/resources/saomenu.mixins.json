@@ -5,16 +5,16 @@
   "compatibilityLevel": "JAVA_17",
   "mixins": [],
   "client": [
-    "GuiMixin",
-    "ForgeGuiMixin",
-    "ToastMixin",
-    "AdvancementToastAccessor",
-    "AdvancementChatMixin",
-    "ClientAdvancementsAccessor",
-    "LivingDeathRenderMixin",
-    "KeyboardInputMixin",
-    "CameraMixin",
-    "MouseHandlerMixin"
+    "hud.GuiMixin",
+    "hud.ForgeGuiMixin",
+    "notification.ToastMixin",
+    "accessor.AdvancementToastAccessor",
+    "notification.AdvancementChatMixin",
+    "accessor.ClientAdvancementsAccessor",
+    "render.LivingDeathRenderMixin",
+    "input.KeyboardInputMixin",
+    "input.CameraMixin",
+    "input.MouseHandlerMixin"
   ],
   "server": [],
   "injectors": {

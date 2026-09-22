@@ -7,6 +7,15 @@ architectury {
     forge()
 }
 
+// The preview harness is compiled only for its development run, never into the mod artifact.
+sourceSets {
+    dev {
+        java.srcDir project(":common").file("src/dev/java")
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+    }
+}
+
 loom {
     forge {
         mixinConfig "saomenu.mixins.json"
@@ -15,9 +24,22 @@ loom {
         client {
             client()
             name "Forge Client"
-            runDir "run/client"
+            // Preview creates and removes its own fixture world; never use the normal client directory.
+            def configuredRunDir = project.rootProject.findProperty('saomenu.runDir')
+            runDir(configuredRunDir == null
+                    ? (project.rootProject.hasProperty('saomenu.preview') ? "run/preview" : "run/client")
+                    : project.relativePath(project.rootProject.file(configuredRunDir)))
             vmArgs "-Dneoforge.enabledGameTestNamespace=saomenu"
-            programArgs "--username", "${rootProject.properties.getOrDefault('minecraft_username', 'Player')}"
+            programArgs "--username", "${project.rootProject.properties.getOrDefault('minecraft_username', 'Player')}"
+            if (project.rootProject.hasProperty('saomenu.preview')) {
+                source sourceSets.dev
+                mods {
+                    saomenu {
+                        sourceSet sourceSets.main
+                        sourceSet sourceSets.dev
+                    }
+                }
+            }
         }
         server {
             server()

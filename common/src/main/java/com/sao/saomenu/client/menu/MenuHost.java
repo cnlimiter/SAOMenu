@@ -1,6 +1,6 @@
 package com.sao.saomenu.client.menu;
 
-import com.sao.saomenu.client.MenuLayout;
+import com.sao.saomenu.client.menu.MenuLayout;
 import net.minecraft.client.gui.screens.Screen;
 
 /**

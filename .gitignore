@@ -21,6 +21,9 @@ logs/
 dist/
 preview_out/
 
+# Python 开发工具
+__pycache__/
+
 # IDE
 .idea/
 *.iml
