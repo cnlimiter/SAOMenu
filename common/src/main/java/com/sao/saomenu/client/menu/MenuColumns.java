@@ -1,14 +1,18 @@
 package com.sao.saomenu.client.menu;
 
+import com.sao.saomenu.api.menu.MenuEntry;
+import com.sao.saomenu.api.menu.SaoPanel;
 import com.sao.saomenu.ui.render.SaoDraw;
 import com.sao.saomenu.ui.text.SAOScrollText;
 import com.sao.saomenu.ui.text.SaoText;
 import com.sao.saomenu.ui.theme.SaoTheme;
-import com.sao.saomenu.ui.theme.ThemeColors;
+import com.sao.saomenu.api.theme.ThemeColors;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
@@ -23,8 +27,8 @@ import static com.sao.saomenu.ui.animation.SaoMotion.easeOutBack;
 import static com.sao.saomenu.ui.animation.SaoMotion.easeOutCubic;
 import static com.sao.saomenu.ui.render.SaoDraw.mulAlpha;
 import static com.sao.saomenu.ui.render.SaoDraw.shaderAlpha;
-import static com.sao.saomenu.ui.text.SaoText.resolveLabel;
 import static com.sao.saomenu.ui.text.SaoText.tr;
+
 
 /** 主按钮列、一/二/三级菜单项与置顶拖拽幽灵。 */
 final class MenuColumns {
@@ -37,15 +41,20 @@ final class MenuColumns {
     }
 
     static void renderMainButtons(GuiGraphics g, SAOMenuScreen screen, MenuSession s, float globalAlpha) {
-        int stackY = s.buttonY(0, screen.height);
-        long unfoldNow = MenuSession.now();
         List<SaoPanel> ps = MenuSession.panels();
-        for (int i = 0; i < ps.size(); i++) {
+        int vis = MenuLayout.mainVisibleCount(screen.height, ps.size());
+        int stackY = s.buttonY(s.mainScroll, screen.height);
+        long unfoldNow = MenuSession.now();
+        for (int v = 0; v < vis; v++) {
+            int i = s.mainScroll + v;
+            if (i < 0 || i >= ps.size()) {
+                break;
+            }
             boolean active = s.isActive(i);
             int d = MenuLayout.btnSize(screen.height);
             int cx = s.baseAnchorX;
             float p = s.closing ? 1f
-                    : clamp01((unfoldNow - s.openedAt - i * UNFOLD_STAGGER_MS) / (float) UNFOLD_MS);
+                    : clamp01((unfoldNow - s.openedAt - v * UNFOLD_STAGGER_MS) / (float) UNFOLD_MS);
             float eased = easeOutBack(p);
             int cy = Math.round(stackY + (s.buttonY(i, screen.height) - stackY) * eased);
             boolean dim = s.mainTouched && !active;
@@ -56,7 +65,7 @@ final class MenuColumns {
             RenderSystem.enableBlend();
             g.blit(btnTex, cx - d / 2, cy - d / 2, 0, 0, d, d, d, d);
             shaderAlpha(1f);
-            ResourceLocation glyph = MenuAssets.symbol(ps.get(i).icon(), active);
+            ResourceLocation glyph = ps.get(i).icons().pick(active);
             int pad = Math.max(2, Math.round(d * 0.22f));
             int isz = d - pad * 2;
             shaderAlpha(a);
@@ -70,26 +79,28 @@ final class MenuColumns {
                             float globalAlpha, long now) {
         int main = s.activeMain();
         List<MenuEntry> items = s.activeItems(main);
+        List<MenuEntry> win = s.windowedItems(items, screen.height);
         int anchorY = s.buttonY(main, screen.height);
         long base = s.panelAt == Long.MIN_VALUE ? now - PANEL_MS : s.panelAt;
         Font font = screen.menuFont();
 
-        renderIndicator(g, screen, s, items.size(), anchorY, s.baseAnchorX, globalAlpha, true);
+        renderIndicator(g, screen, s, win.size(), anchorY, s.baseAnchorX, globalAlpha, true);
 
-        for (int i = 0; i < items.size(); i++) {
+        for (int i = 0; i < win.size(); i++) {
+            int real = s.itemScroll + i;
             float p = clamp01((now - base - i * ITEM_STAGGER_MS) / (float) ITEM_MS);
             if (p <= 0f) {
                 continue;
             }
             float eased = easeOutCubic(p);
-            MenuLayout.Rect rect = MenuLayout.menuItemRectAt(screen.width, screen.height, items.size(),
+            MenuLayout.Rect rect = MenuLayout.menuItemRectAt(screen.width, screen.height, win.size(),
                     s.baseAnchorX, anchorY, i);
             int slide = Math.round((1f - eased) * rect.w() * 0.45f);
             MenuLayout.Rect at = new MenuLayout.Rect(rect.x() - slide, rect.y(), rect.w(), rect.h());
-            boolean dim = s.expandedItem != -1 && s.expandedItem != i;
-            renderMenuItem(g, font, s, at, items.get(i).label(), items.get(i).icon(),
+            boolean dim = s.expandedItem != -1 && s.expandedItem != real;
+            renderMenuItem(g, font, s, at, win.get(i).label(), win.get(i).icon(),
                     s.hoverItem == i, globalAlpha * eased * (dim ? 0.45f : 1f),
-                    s.itemPressing(0, i), items.get(i).stack());
+                    s.itemPressing(0, i), win.get(i).stack());
         }
 
         int shown = s.visibleChildrenItem(items);
@@ -99,8 +110,7 @@ final class MenuColumns {
                 s.childAt = now;
             }
             List<MenuEntry> children = s.windowedChildren(items.get(shown).children(), screen.height);
-            int childAnchor = MenuLayout.menuItemRectAt(screen.width, screen.height, items.size(),
-                    s.baseAnchorX, anchorY, shown).centerY();
+            int childAnchor = s.childAnchorY(items, shown, screen.width, screen.height);
             boolean childDim = s.equipOwner != -1;
             for (int i = 0; i < children.size(); i++) {
                 float p = clamp01((now - s.childAt - i * ITEM_STAGGER_MS) / (float) ITEM_MS);
@@ -112,7 +122,7 @@ final class MenuColumns {
                         s.baseAnchorX, childAnchor, i);
                 int slide = Math.round((1f - eased) * rect.w() * 0.45f);
                 MenuLayout.Rect at = new MenuLayout.Rect(rect.x() - slide, rect.y(), rect.w(), rect.h());
-                boolean dim = childDim && s.equipOwner != i;
+                boolean dim = childDim && s.equipOwner != (s.childScroll + i);
                 renderMenuItem(g, font, s, at, children.get(i).label(), children.get(i).icon(),
                         s.hoverChild == i || (s.actionMenuOpen && s.actionRow == i),
                         globalAlpha * eased * (dim ? 0.45f : 1f),
@@ -153,7 +163,7 @@ final class MenuColumns {
                 }
                 renderEquipColumn(g, screen, s, font,
                         s.equipKindAt(items, shown, equipTarget),
-                        s.equipAnchorY(items, shown, equipTarget, screen.height),
+                        s.equipAnchorY(items, shown, equipTarget, screen.width, screen.height),
                         globalAlpha, now);
             } else {
                 s.equipShownOwner = -1;
@@ -205,9 +215,7 @@ final class MenuColumns {
             int shown = s.visibleChildrenItem(items);
             if (shown >= 0 && items.get(shown).children() != null) {
                 List<MenuEntry> children = s.windowedChildren(items.get(shown).children(), screen.height);
-                int anchorY = s.buttonY(s.selectedMain, screen.height);
-                int childAnchor = MenuLayout.menuItemRectAt(screen.width, screen.height,
-                        items.size(), s.baseAnchorX, anchorY, shown).centerY();
+                int childAnchor = s.childAnchorY(items, shown, screen.width, screen.height);
                 MenuLayout.Rect at = MenuLayout.childItemRectAt(screen.width, screen.height,
                         children.size(), s.baseAnchorX, childAnchor, target);
                 MenuLayout.Rect scr = xform.boxToScreen(at.x(), at.y() - 1, at.w(), 2);
@@ -268,7 +276,8 @@ final class MenuColumns {
             g.pose().popPose();
         }
 
-        String label = e.empty() ? tr("saomenu.equip.empty") : e.stack().getHoverName().getString();
+        net.minecraft.network.chat.Component label = e.empty()
+                ? net.minecraft.network.chat.Component.translatable("saomenu.equip.empty") : e.stack().getHoverName();
         int textX = iconX + iconSize + Math.round(at.h() * 0.18f);
         int maxW = at.x() + at.w() - textX - 6;
         int color = e.empty() ? mulAlpha(theme().textMuted(), alpha)
@@ -302,7 +311,7 @@ final class MenuColumns {
     }
 
     private static void renderMenuItem(GuiGraphics g, Font f, MenuSession s, MenuLayout.Rect at,
-                                       String labelKey, String icon, boolean hovered, float alpha,
+                                       Component labelComp, ResourceLocation icon, boolean hovered, float alpha,
                                        boolean pressed, ItemStack stack) {
         int r = Math.max(2, Math.round(at.h() * 0.12f));
         SaoDraw.roundedRect(g, at.x() + 2, at.y() + 2, at.w(), at.h(), r, mulAlpha(theme().shadow(), alpha));
@@ -329,11 +338,10 @@ final class MenuColumns {
                 g.renderItem(stack, -8, -8);
                 g.pose().popPose();
             }
-        } else {
+        } else if (icon != null) {
             shaderAlpha(alpha);
             RenderSystem.enableBlend();
-            g.blit(MenuAssets.tex(icon + ".png"), iconX, iconY,
-                    0, 0, iconSize, iconSize, iconSize, iconSize);
+            g.blit(icon, iconX, iconY, 0, 0, iconSize, iconSize, iconSize, iconSize);
             shaderAlpha(1f);
         }
 
@@ -354,14 +362,13 @@ final class MenuColumns {
             g.pose().popPose();
         }
 
-        String label = resolveLabel(labelKey);
         int textX = at.x() + Math.round(at.h() * 0.18f) + iconSize + Math.round(at.h() * 0.22f);
         int maxW = at.x() + at.w() - textX - Math.round(at.h() * 0.16f);
         int color = hovered ? mulAlpha(theme().textOnAccent(), alpha) : mulAlpha(theme().textOnSurface(), alpha);
-        drawScrollingLabel(g, f, label, textX, at.y(), at.h(), maxW, color, hovered);
+        drawScrollingLabel(g, f, labelComp, textX, at.y(), at.h(), maxW, color, hovered);
     }
 
-    private static void drawScrollingLabel(GuiGraphics g, Font f, String label,
+    private static void drawScrollingLabel(GuiGraphics g, Font f, net.minecraft.network.chat.Component label,
                                            float x, float rowY, float rowH, float maxW, int color, boolean hovered) {
         if (maxW <= 0f || rowH <= 0f) {
             return;
@@ -372,7 +379,7 @@ final class MenuColumns {
         float th = f.lineHeight * sc;
         float y = rowY + (rowH - th) / 2f;
         if (textW <= cap) {
-            SaoDraw.drawScaled(g, f, label, x, y, sc, color, false);
+            SaoDraw.drawScaled(g, f, label.getVisualOrderText(), x, y, sc, color, false);
             return;
         }
         if (!hovered) {
@@ -380,9 +387,22 @@ final class MenuColumns {
             return;
         }
         int shift = SAOScrollText.offset(textW, cap, MenuSession.now(), label.hashCode());
-        String visible = SAOScrollText.window(label, f::width, shift, cap);
-        if (!visible.isEmpty()) {
-            SaoDraw.drawScaled(g, f, visible, x, y, sc, color, false);
+        // 1.20.1 GuiGraphics scissor coordinates are screen GUI pixels, not pose-local pixels.
+        var matrix = g.pose().last().pose();
+        float sx = matrix.m00() * x + matrix.m10() * rowY + matrix.m30();
+        float sy = matrix.m01() * x + matrix.m11() * rowY + matrix.m31();
+        float wx = matrix.m00() * maxW;
+        float hx = matrix.m10() * rowH;
+        float wy = matrix.m01() * maxW;
+        float hy = matrix.m11() * rowH;
+        g.enableScissor(Mth.floor(sx + Math.min(0, wx) + Math.min(0, hx)),
+                Mth.floor(sy + Math.min(0, wy) + Math.min(0, hy)),
+                Mth.ceil(sx + Math.max(0, wx) + Math.max(0, hx)),
+                Mth.ceil(sy + Math.max(0, wy) + Math.max(0, hy)));
+        try {
+            SaoDraw.drawScaled(g, f, label.getVisualOrderText(), x - shift * sc, y, sc, color, false);
+        } finally {
+            g.disableScissor();
         }
     }
 }

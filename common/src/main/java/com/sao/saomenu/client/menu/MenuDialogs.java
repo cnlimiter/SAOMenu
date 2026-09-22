@@ -2,7 +2,7 @@ package com.sao.saomenu.client.menu;
 
 import com.sao.saomenu.ui.render.SaoDraw;
 import com.sao.saomenu.ui.theme.SaoTheme;
-import com.sao.saomenu.ui.theme.ThemeColors;
+import com.sao.saomenu.api.theme.ThemeColors;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;

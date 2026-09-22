@@ -1,10 +1,10 @@
 package com.sao.saomenu.client.skill;
 
-import com.sao.saomenu.client.hud.SAONotification;
+import com.sao.saomenu.api.SaoUi;
 import com.sao.saomenu.skill.DualWieldSkill;
 import com.sao.saomenu.network.c2s.DualWieldC2S;
-import com.sao.saomenu.ui.text.SaoText;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.chat.Component;
 
 import java.util.List;
 
@@ -70,7 +70,7 @@ public final class SaoSkills {
         }
         if (skill.precheck() != null && !skill.precheck().canActivate(player)) {
             if (skill.notice() != null) {
-                SAONotification.push(SaoText.tr(skill.notice()), "");
+                SaoUi.notify(Component.translatable(skill.notice()), Component.empty());
             }
             return;
         }
@@ -93,9 +93,9 @@ public final class SaoSkills {
         }
         new DualWieldC2S(slots[0], slots[1]).sendToServer();
         SAODualWield.requestBattleMode();
-        SAONotification.push(SaoText.tr("saomenu.skill.dual_wield"),
-                SAODualWield.epicFightPresent()
-                        ? SaoText.tr("saomenu.skill.dual_wield.on")
-                        : SaoText.tr("saomenu.skill.dual_wield.no_ef"));
+        SaoUi.notify(Component.translatable("saomenu.skill.dual_wield"),
+                Component.translatable(SAODualWield.epicFightPresent()
+                        ? "saomenu.skill.dual_wield.on"
+                        : "saomenu.skill.dual_wield.no_ef"));
     }
 }

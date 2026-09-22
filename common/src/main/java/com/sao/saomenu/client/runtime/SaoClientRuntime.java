@@ -1,5 +1,6 @@
 package com.sao.saomenu.client.runtime;
 
+import com.sao.saomenu.api.lifecycle.SessionListener;
 import com.sao.saomenu.client.effect.SAODeathEffect;
 import com.sao.saomenu.client.effect.SAOWelcome;
 import com.sao.saomenu.client.hud.SAOBossBanner;
@@ -7,18 +8,18 @@ import com.sao.saomenu.client.hud.SAOHud;
 import com.sao.saomenu.client.hud.SAOMapPanel;
 import com.sao.saomenu.client.input.SAOFreeLook;
 import com.sao.saomenu.client.input.SAOKeybinds;
-import com.sao.saomenu.client.menu.SaoMenuRegistry;
+import com.sao.saomenu.client.render.SaoWorldOverlays;
 import com.sao.saomenu.client.input.SAOMenuMovement;
 import com.sao.saomenu.client.menu.SaoPanels;
 import com.sao.saomenu.client.party.SAOClientPartyState;
-import com.sao.saomenu.client.render.SAOMenu3DPanel;
-import com.sao.saomenu.client.render.target.SAOTargetBar3D;
 import com.sao.saomenu.client.skill.SAODualWield;
 import com.sao.saomenu.client.skill.SaoSkillClientState;
 import com.sao.saomenu.client.skill.SaoSkillRegistry;
+import com.sao.saomenu.client.screen.settings.SettingsCatalog;
 import com.sao.saomenu.config.SAOConfig;
 import com.sao.saomenu.network.ClientboundPartyMessages;
 import com.sao.saomenu.ui.theme.SaoThemeLibrary;
+import com.sao.saomenu.ui.theme.SaoTheme;
 import dev.architectury.event.events.client.ClientTickEvent;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -42,8 +43,17 @@ public final class SaoClientRuntime {
         }
         Path configDirectory = Minecraft.getInstance().gameDirectory.toPath().resolve("config");
         SAOConfig.load(configDirectory.resolve("saomenu.json"));
+        UiRegistries.begin();
+        UiRegistries registry = UiRegistries.instance();
+        SaoPanels.registerBuiltins(registry);
+        SAOHud.registerBuiltins(registry);
+        SettingsCatalog.registerBuiltins(registry);
+        SaoTheme.registerBuiltins(registry);
+        SaoWorldOverlays.registerBuiltins(registry);
+        SAOClientPlatform.registerUi(registry);
+        UiRegistries.freeze();
+        SaoTheme.installRegistered(registry.themes());
         SaoThemeLibrary.load(configDirectory.resolve("saomenu"));
-        SaoMenuRegistry.registerBuiltins();
         SaoSkillRegistry.registerBuiltins();
         ClientboundPartyMessages.install(new ClientboundPartyMessages.Receiver() {
             @Override
@@ -62,6 +72,11 @@ public final class SaoClientRuntime {
 
     private static void tick(Minecraft client) {
         boolean available = client.player != null && client.level != null;
+        if (client.level != activeLevel) {
+            for (SessionListener listener : UiRegistries.instance().sessionListeners()) {
+                listener.levelChanged(activeLevel, client.level);
+            }
+        }
         if (!available && inWorld) {
             leaveWorld(client);
         } else if (available && !inWorld) {
@@ -83,11 +98,9 @@ public final class SaoClientRuntime {
     }
 
     private static void resetWorldVisuals() {
-        SAOTargetBar3D.reset();
         SAODeathEffect.reset();
         SAOBossBanner.reset();
         SAOMapPanel.reset();
-        SAOMenu3DPanel.reset();
         SaoPanels.resetSession();
     }
 

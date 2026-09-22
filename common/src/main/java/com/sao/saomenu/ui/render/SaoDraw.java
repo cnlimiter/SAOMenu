@@ -5,6 +5,10 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.Font;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
+import net.minecraft.locale.Language;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.FormattedText;
+import net.minecraft.util.FormattedCharSequence;
 
 /**
  * 共用绘制笔刷。
@@ -85,6 +89,19 @@ public final class SaoDraw {
         pose.popPose();
     }
 
+    public static void drawScaled(GuiGraphics g, Font font, FormattedCharSequence text,
+                                  float x, float y, float scale, int argb, boolean shadow) {
+        var pose = g.pose();
+        pose.pushPose();
+        try {
+            pose.translate(x, y, 0f);
+            pose.scale(scale, scale, 1f);
+            g.drawString(font, text, 0, 0, argb, shadow);
+        } finally {
+            pose.popPose();
+        }
+    }
+
     /**
      * 以 (cx, cy) 为视觉中心画字,字号随 {@code scale} 变。
      * 垂直方向按 {@link Font#lineHeight} 居中,不再写死 8px。
@@ -147,6 +164,23 @@ public final class SaoDraw {
         return font.plainSubstrByWidth(s, maxUnscaled - dots) + "…";
     }
 
+    /** Clips without flattening translated siblings, colors, fonts or emphasis to a String. */
+    public static FormattedCharSequence clipTo(Font font, Component text, int maxUnscaled) {
+        if (maxUnscaled <= 0) {
+            return FormattedCharSequence.EMPTY;
+        }
+        if (font.width(text) <= maxUnscaled) {
+            return text.getVisualOrderText();
+        }
+        FormattedText dots = FormattedText.of("…", text.getStyle());
+        int remaining = maxUnscaled - font.width(dots);
+        if (remaining <= 0) {
+            return FormattedCharSequence.EMPTY;
+        }
+        return Language.getInstance().getVisualOrder(
+                FormattedText.composite(font.substrByWidth(text, remaining), dots));
+    }
+
     /**
      * 行内左对齐:字号缩进行高,垂直居中。{@code maxW} 是屏幕像素宽。
      */
@@ -163,6 +197,17 @@ public final class SaoDraw {
         }
         float th = font.lineHeight * s;
         drawScaled(g, font, shown, x, rowY + (rowH - th) / 2f, s, argb, shadow);
+    }
+
+    public static void drawInRow(GuiGraphics g, Font font, Component text,
+                                 float x, float rowY, float rowH, float maxW,
+                                 int argb, boolean shadow) {
+        if (maxW <= 0f || rowH <= 0f) {
+            return;
+        }
+        float scale = fitScale(font, rowH);
+        FormattedCharSequence shown = clipTo(font, text, Math.max(0, Math.round(maxW / scale)));
+        drawScaled(g, font, shown, x, rowY + (rowH - font.lineHeight * scale) / 2f, scale, argb, shadow);
     }
 
     /** 在高 {@code boxH} 的行里垂直居中原字号文字的 Y(顶边)。 */

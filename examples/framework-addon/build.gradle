@@ -1,0 +1,57 @@
+plugins {
+    id 'java'
+    id 'dev.architectury.loom' version '1.6-SNAPSHOT'
+}
+
+group = 'com.sao.examples'
+version = '1.0.0'
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://maven.architectury.dev/' }
+    maven { url = 'https://maven.minecraftforge.net/' }
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(17)
+    withSourcesJar()
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+
+tasks.withType(JavaExec).configureEach {
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(17) }
+}
+
+def saomenuArtifact = file(providers.gradleProperty('saomenuJar')
+        .getOrElse('../../forge/build/libs/saomenu-forge-1.0.0.jar'))
+if (!saomenuArtifact.isFile()) {
+    throw new GradleException('Build SAOMenu :forge:build first, or set -PsaomenuJar=<release JAR>.')
+}
+
+dependencies {
+    minecraft 'com.mojang:minecraft:1.20.1'
+    mappings loom.officialMojangMappings()
+    forge 'net.minecraftforge:forge:1.20.1-47.3.0'
+    // A produced binary, never project(:common), sourceSets, or internal implementation sources.
+    modImplementation files(saomenuArtifact)
+    modRuntimeOnly 'dev.architectury:architectury-forge:9.2.14'
+}
+
+loom {
+    runs {
+        client {
+            client()
+            runDir 'run/client'
+            programArgs '--username', 'Showcase'
+        }
+    }
+}
+
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('META-INF/mods.toml') { expand version: project.version }
+}

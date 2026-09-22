@@ -1,30 +1,46 @@
 package com.sao.saomenu.client.hud;
 
 import com.sao.saomenu.SAOMenuPlatform;
+import com.sao.saomenu.api.SaoUi;
+import com.sao.saomenu.api.hud.HudBox;
+import com.sao.saomenu.api.hud.HudElement;
+import com.sao.saomenu.api.hud.HudLayoutBinding;
+import com.sao.saomenu.api.hud.HudPass;
 import com.sao.saomenu.config.SAOConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 
+import java.util.List;
+
 /**
  * 菜单内 HUD 拖动/图钉交互。坐标是 GUI 屏幕像素,不是菜单组局部坐标。
  *
- * <p>拖动会话只在本实例上,松手才 {@link SAOConfig#save()};{@link #cancel()}
- * 恢复按下时的锚点且不写盘。</p>
+ * <p>拖动会话只在本实例上,左键松手才 {@link HudLayoutBinding#save()};{@link #cancel()}
+ * 恢复按下时的锚点且不写盘。非左键松开不得结束左键拖动。</p>
  */
 public final class HudLayoutEditor {
 
-    private enum Handle {
-        CLOCK, SKILL, PLATE, FOOD, MAP
-    }
+    private static final int MAP_PIN_PRIORITY = 15;
 
     private static HudLayoutEditor live;
 
-    private Handle handle;
+    private final List<HudElement> override;
+    private final HudFrame hitFrame = new HudFrame();
+
+    private HudLayoutBinding binding;
     private float grabFx;
     private float grabFy;
     private float origX;
     private float origY;
     private boolean moved;
+
+    public HudLayoutEditor() {
+        this.override = null;
+    }
+
+    HudLayoutEditor(List<HudElement> override) {
+        this.override = override;
+    }
 
     public boolean mouseClicked(Minecraft mc, int width, int height, double mouseX, double mouseY, int button) {
         if (button != 0) {
@@ -32,73 +48,67 @@ public final class HudLayoutEditor {
         }
         int mx = (int) mouseX;
         int my = (int) mouseY;
-        boolean hud = SAOConfig.showHud();
-        if (hud && SAOClockPanel.hitCard(width, height, mx, my)) {
-            begin(Handle.CLOCK, SAOConfig.clockPanelX(), SAOConfig.clockPanelY(),
-                    (mx - SAOClockPanel.panelX(width)) / (float) Math.max(1, SAOClockPanel.panelW()),
-                    (my - SAOClockPanel.panelY(height)) / (float) Math.max(1, SAOClockPanel.panelH()));
-            return true;
-        }
-        if (hud && SaoSkillBar.hitSkillBar(width, height, mx, my)) {
-            int bw = SaoSkillBar.barWidth(height, SaoSkillBar.slotCount());
-            int bh = SaoSkillBar.slotSize(height);
-            begin(Handle.SKILL, SAOConfig.skillBarX(), SAOConfig.skillBarY(),
-                    (mx - SaoSkillBar.barX(width, bw)) / (float) Math.max(1, bw),
-                    (my - SaoSkillBar.barY(height, bh)) / (float) Math.max(1, bh));
-            return true;
-        }
-        if (hud && SAOPlayerPlate.hit(mc, width, height, mx, my)) {
-            int pw = SAOPlayerPlate.plateW(width);
-            int gh = SAOPlayerPlate.plateGroupH(width, mc);
-            begin(Handle.PLATE, SAOConfig.platePanelX(), SAOConfig.platePanelY(),
-                    (mx - SAOPlayerPlate.plateX(width)) / (float) Math.max(1, pw),
-                    (my - SAOPlayerPlate.plateY(height)) / (float) Math.max(1, gh));
-            return true;
-        }
-        if (SAOFoodBar.hit(width, height, mx, my)) {
-            begin(Handle.FOOD, SAOConfig.foodPanelX(), SAOConfig.foodPanelY(),
-                    (mx - SAOFoodBar.foodX(width)) / (float) SAOFoodBar.FOOD_W,
-                    (my - SAOFoodBar.foodY(height)) / (float) SAOFoodBar.FOOD_H);
-            return true;
-        }
-        if (SAOMapPanel.isShown()) {
-            if (SAOMapPanel.hitPin(width, height, mx, my)) {
-                SAOMapPanel.togglePin();
-                playClick(mc);
-                return true;
+        hitFrame.begin(null, mc, width, height, 1f, 1f, HudPass.MENU_OVERLAY, mx, my);
+        List<HudElement> elements = elements();
+        HudLayoutBinding best = null;
+        int bestPri = Integer.MIN_VALUE;
+        boolean pinHit = false;
+        for (int i = 0, n = elements.size(); i < n; i++) {
+            HudElement element = elements.get(i);
+            if (!element.visible(hitFrame)) {
+                continue;
             }
-            if (SAOMapPanel.hitCard(width, height, mx, my)) {
-                begin(Handle.MAP, SAOConfig.mapPanelX(), SAOConfig.mapPanelY(),
-                        (mx - SAOMapPanel.cardX(width, height)) / (float) Math.max(1, SAOMapPanel.panelW(height)),
-                        (my - SAOMapPanel.cardY(width, height)) / (float) Math.max(1, SAOMapPanel.panelH(height)));
-                return true;
+            if (HudBuiltins.MAP.equals(element.id())
+                    && SAOMapPanel.isShown()
+                    && SAOMapPanel.hitPin(width, height, mx, my)
+                    && MAP_PIN_PRIORITY > bestPri) {
+                bestPri = MAP_PIN_PRIORITY;
+                pinHit = true;
+                best = null;
+            }
+            HudLayoutBinding layout = element.layout();
+            if (layout == null || !layout.hit(mc, width, height, mx, my)) {
+                continue;
+            }
+            if (layout.priority() > bestPri) {
+                bestPri = layout.priority();
+                pinHit = false;
+                best = layout;
             }
         }
-        return false;
+        hitFrame.clear();
+        if (pinHit) {
+            SAOMapPanel.togglePin();
+            playClick(mc);
+            return true;
+        }
+        if (best == null) {
+            return false;
+        }
+        HudBox box = best.box(mc, width, height);
+        float gx = box.width() <= 0 ? 0f : (mx - box.x()) / (float) box.width();
+        float gy = box.height() <= 0 ? 0f : (my - box.y()) / (float) box.height();
+        begin(best, best.anchorX(), best.anchorY(), gx, gy);
+        return true;
     }
 
     public void mouseMoved(Minecraft mc, int width, int height, double mouseX, double mouseY) {
-        if (handle == null) {
+        if (binding == null) {
             return;
         }
-        int mx = (int) mouseX;
-        int my = (int) mouseY;
-        switch (handle) {
-            case CLOCK -> SAOClockPanel.moveTo(width, height, grabFx, grabFy, mx, my);
-            case SKILL -> SaoSkillBar.moveTo(width, height, grabFx, grabFy, mx, my);
-            case PLATE -> SAOPlayerPlate.moveTo(mc, width, height, grabFx, grabFy, mx, my);
-            case FOOD -> SAOFoodBar.moveTo(width, height, grabFx, grabFy, mx, my);
-            case MAP -> SAOMapPanel.moveTo(width, height, grabFx, grabFy, mx, my);
-        }
+        binding.moveTo(mc, width, height, grabFx, grabFy, (int) mouseX, (int) mouseY);
         moved = true;
     }
 
     public boolean mouseReleased(Minecraft mc, int width, int height, double mouseX, double mouseY, int button) {
-        if (handle == null) {
+        if (binding == null) {
+            return false;
+        }
+        if (button != 0) {
             return false;
         }
         if (moved) {
-            SAOConfig.save();
+            binding.save();
         }
         clear();
         return true;
@@ -106,8 +116,8 @@ public final class HudLayoutEditor {
 
     /** 放弃未落盘的拖动:锚点回到按下时,不写配置。 */
     public void cancel() {
-        if (handle != null) {
-            restore();
+        if (binding != null) {
+            binding.restore(origX, origY);
         }
         clear();
     }
@@ -118,9 +128,13 @@ public final class HudLayoutEditor {
         }
     }
 
-    private void begin(Handle next, float ox, float oy, float gx, float gy) {
+    private List<HudElement> elements() {
+        return override != null ? override : SaoUi.hudElements();
+    }
+
+    private void begin(HudLayoutBinding next, float ox, float oy, float gx, float gy) {
         live = this;
-        handle = next;
+        binding = next;
         origX = ox;
         origY = oy;
         grabFx = gx;
@@ -128,33 +142,8 @@ public final class HudLayoutEditor {
         moved = false;
     }
 
-    private void restore() {
-        switch (handle) {
-            case CLOCK -> {
-                SAOConfig.setClockPanelX(origX);
-                SAOConfig.setClockPanelY(origY);
-            }
-            case SKILL -> {
-                SAOConfig.setSkillBarX(origX);
-                SAOConfig.setSkillBarY(origY);
-            }
-            case PLATE -> {
-                SAOConfig.setPlatePanelX(origX);
-                SAOConfig.setPlatePanelY(origY);
-            }
-            case FOOD -> {
-                SAOConfig.setFoodPanelX(origX);
-                SAOConfig.setFoodPanelY(origY);
-            }
-            case MAP -> {
-                SAOConfig.setMapPanelX(origX);
-                SAOConfig.setMapPanelY(origY);
-            }
-        }
-    }
-
     private void clear() {
-        handle = null;
+        binding = null;
         moved = false;
         if (live == this) {
             live = null;

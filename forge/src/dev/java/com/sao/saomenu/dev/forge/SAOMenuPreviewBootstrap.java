@@ -2,6 +2,8 @@ package com.sao.saomenu.dev.forge;
 
 import com.sao.saomenu.SAOMenu;
 import com.sao.saomenu.dev.preview.SAOMenuPreview;
+import com.sao.saomenu.api.forge.SaoUiRegisterEvent;
+import com.sao.saomenu.dev.preview.FrameworkApiFixtures;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -16,5 +18,13 @@ public final class SAOMenuPreviewBootstrap {
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(SAOMenuPreview::registerIfRequested);
+    }
+
+    @Mod.EventBusSubscriber(modid = SAOMenu.MOD_ID, value = Dist.CLIENT)
+    public static final class ApiRegistration {
+        @SubscribeEvent
+        public static void register(SaoUiRegisterEvent event) {
+            FrameworkApiFixtures.register(event.registry());
+        }
     }
 }

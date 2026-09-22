@@ -31,8 +31,10 @@ final class SettingsTimeline {
 
     private enum BgMode {FORWARD, REVERSE}
 
-    private SettingsPage page = SettingsPage.ROOT;
-    private SettingsPage transitionFrom = SettingsPage.ROOT;
+    private boolean root = true;
+    private int groupIndex = -1;
+    private boolean fromRoot = true;
+    private int fromGroupIndex = -1;
     private long transitionStart = -1;
     private boolean transitionForward;
     private int clickedCat = -1;
@@ -70,12 +72,16 @@ final class SettingsTimeline {
         return dt;
     }
 
-    SettingsPage page() {
-        return page;
+    boolean isRoot() {
+        return root;
     }
 
-    SettingsPage transitionFrom() {
-        return transitionFrom;
+    int groupIndex() {
+        return groupIndex;
+    }
+
+    boolean fromRoot() {
+        return fromRoot;
     }
 
     boolean transitionForward() {
@@ -98,19 +104,30 @@ final class SettingsTimeline {
         return inTransition() ? now - transitionStart : 0;
     }
 
-    SettingsPage pageToRender(long now) {
+    boolean pageIsRoot(long now) {
         boolean inTransition = this.transitionStart >= 0;
         long trT = inTransition ? now - this.transitionStart : 0;
-        return inTransition && trT < TR_SWAP_MS ? this.transitionFrom : this.page;
+        return inTransition && trT < TR_SWAP_MS ? this.fromRoot : this.root;
     }
 
-    SettingsPage transitionTarget() {
-        return this.transitionForward ? SettingsPage.CATEGORIES[this.clickedCat] : SettingsPage.ROOT;
+    int pageGroupIndex(long now) {
+        boolean inTransition = this.transitionStart >= 0;
+        long trT = inTransition ? now - this.transitionStart : 0;
+        return inTransition && trT < TR_SWAP_MS ? this.fromGroupIndex : this.groupIndex;
+    }
+
+    private boolean targetRoot() {
+        return !this.transitionForward;
+    }
+
+    private int targetGroupIndex() {
+        return this.transitionForward ? this.clickedCat : -1;
     }
 
     void beginEnterCategory(int catIndex, long now) {
         this.clickedCat = catIndex;
-        this.transitionFrom = SettingsPage.ROOT;
+        this.fromRoot = true;
+        this.fromGroupIndex = -1;
         this.transitionForward = true;
         this.transitionStart = now;
         bgMode = BgMode.FORWARD;
@@ -121,7 +138,8 @@ final class SettingsTimeline {
     }
 
     void beginReturnToRoot(long now) {
-        this.transitionFrom = this.page;
+        this.fromRoot = this.root;
+        this.fromGroupIndex = this.groupIndex;
         this.transitionForward = false;
         this.transitionStart = now;
         bgMode = BgMode.REVERSE;
@@ -140,8 +158,9 @@ final class SettingsTimeline {
         }
         long trT = now - this.transitionStart;
         boolean swapped = false;
-        if (trT >= TR_SWAP_MS && this.page != transitionTarget()) {
-            this.page = transitionTarget();
+        if (trT >= TR_SWAP_MS && (this.root != targetRoot() || this.groupIndex != targetGroupIndex())) {
+            this.root = targetRoot();
+            this.groupIndex = targetGroupIndex();
             this.pageStartMs = now;
             swapped = true;
         }
@@ -152,14 +171,11 @@ final class SettingsTimeline {
         return swapped;
     }
 
-    void debugShowPage(SettingsPage want, long now) {
-        for (int i = 0; i < SettingsPage.CATEGORIES.length; i++) {
-            if (SettingsPage.CATEGORIES[i] == want) {
-                this.clickedCat = i;
-            }
-        }
-        this.page = want;
-        this.transitionFrom = want;
+    void debugShowPage(boolean wantRoot, int wantGroup, long now) {
+        this.root = wantRoot;
+        this.groupIndex = wantRoot ? -1 : wantGroup;
+        this.fromRoot = this.root;
+        this.fromGroupIndex = this.groupIndex;
         this.transitionStart = -1;
         this.clickedCat = -1;
         this.pageStartMs = now - 1000L;

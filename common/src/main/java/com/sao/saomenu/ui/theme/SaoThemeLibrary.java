@@ -3,7 +3,13 @@ package com.sao.saomenu.ui.theme;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.sao.saomenu.api.theme.ThemeColors;
+import com.sao.saomenu.api.theme.ThemeDefinition;
+import com.sao.saomenu.api.theme.ThemeTokens;
 import com.sao.saomenu.ui.text.SaoText;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.contents.TranslatableContents;
+import net.minecraft.resources.ResourceLocation;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -11,21 +17,24 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /**
- * 外部主题加载:扫描 {@code config/saomenu/themes/*.json} 并注册进 {@link SaoTheme}。
+ * 外部主题加载:扫描 {@code config/saomenu/themes/*.json} 并覆盖进 {@link SaoTheme}。
  *
  * <p><b>一个坏文件只影响它自己。</b>解析或校验失败时记录一条警告并跳过该文件,内置预设
  * 原样保留 —— 主题文件是用户可手改的输入,任何情况下都不该让游戏起不来或让菜单变空白。</p>
  *
- * <p>文件格式(除 {@code id} 外全部可选,缺省继承 SAO 配色,因此只写想改的那几个键也能用):</p>
+ * <p>文件格式(除 {@code id} 外全部可选;缺省继承同 id 已注册定义,否则继承 SAO 令牌):</p>
  * <pre>
  * {
  *   "id": "my_theme",
  *   "name": "我的主题",
  *   "defaultHue": 120,
+ *   "bodyFont": "minecraft:default",
+ *   "displayFont": "minecraft:alt",
+ *   "enterMillis": 260,
+ *   "exitMillis": 170,
  *   "colors": {
  *     "textOnSurface": "#3C3C3D",
  *     "divider": "#A09FA0"
@@ -33,17 +42,15 @@ import java.util.stream.Stream;
  * }
  * </pre>
  *
- * <p>{@code accent} 不读:主题色永远由 {@code defaultHue} 经色相滑条实时派生
- * (见 {@link SaoTheme#active()}),文件里写它只会与滑条打架。</p>
+ * <p>短 id(无 {@code :})在加载时显式迁到 {@code saomenu:<id>}。{@code accent} 不读:
+ * 主题色永远由色相滑条实时派生,文件里写它只会与滑条打架。</p>
  */
 public final class SaoThemeLibrary {
 
     /** 目录名(相对 Minecraft 的 config 目录)。 */
     public static final String DIR_NAME = "themes";
 
-    private static final Pattern ID_OK = Pattern.compile("[a-z0-9_]{1,32}");
-
-    /** id → 展示名:只有外部文件会登记,内置预设走 {@code saomenu.theme.<id>} 翻译键。 */
+    /** id → 展示名:只有外部文件会登记,内置预设走 {@code saomenu.theme.<path>} 翻译键。 */
     private static final Map<String, String> LABELS = new LinkedHashMap<>();
 
     /** id → 语言键:外部文件写 {@code nameKey} 时登记,优先于字面 {@code name}。 */
@@ -78,7 +85,7 @@ public final class SaoThemeLibrary {
         }
         if (ok > 0) {
             StringBuilder sb = new StringBuilder();
-            for (SaoTheme t : SaoTheme.presets()) {
+            for (ThemeDefinition t : SaoTheme.definitions()) {
                 sb.append(t.id()).append(' ');
             }
             com.sao.saomenu.SAOMenu.LOGGER.info("[SAOMenu] 外部主题载入 {} 个,可用预设:{}",
@@ -110,13 +117,16 @@ public final class SaoThemeLibrary {
             return false;
         }
 
-        String id = str(obj, "id");
-        if (id == null || !ID_OK.matcher(id).matches()) {
-            warn(file.getFileName() + ": id 缺失或非法(只允许小写字母/数字/下划线,1-32 位)");
+        String rawId = str(obj, "id");
+        ResourceLocation id = SaoTheme.parseThemeId(rawId);
+        if (id == null) {
+            warn(file.getFileName() + ": id 缺失或非法(短 id 只允许小写字母/数字/下划线 1-32 位,或合法 ResourceLocation)");
             return false;
         }
 
-        float hue = SaoTheme.byId(SaoTheme.SAO).defaultHue();
+        ThemeDefinition previous = SaoTheme.definitionOrNull(id.toString());
+        ThemeTokens baseTokens = previous != null ? previous.tokens() : ThemeTokens.sao();
+        float hue = previous != null ? previous.defaultHue() : SaoTheme.byId(SaoTheme.SAO).defaultHue();
         if (obj.has("defaultHue")) {
             try {
                 hue = obj.get("defaultHue").getAsFloat();
@@ -128,10 +138,10 @@ public final class SaoThemeLibrary {
                 warn(file.getFileName() + ": defaultHue 不是有限数");
                 return false;
             }
-            hue = ((hue % 360f) + 360f) % 360f;
+            hue = ThemeDefinition.wrapHue(hue);
         }
 
-        ThemeColors base = ThemeColors.sao();
+        ThemeColors base = baseTokens.colors();
         if (obj.has("colors")) {
             JsonElement ce = obj.get("colors");
             if (!ce.isJsonObject()) {
@@ -147,7 +157,7 @@ public final class SaoThemeLibrary {
                     base.dialogSurface(), base.dialogShadow()};
             String[] keys = {"accent", "textOnSurface", "textOnAccent", "textMuted", "highlight",
                     "divider", "shadow", "surfaceSlot", "dialogSurface", "dialogShadow"};
-            for (int i = 0; i < keys.length; i++) {
+            for (int i = 1; i < keys.length; i++) {
                 if (!co.has(keys[i])) {
                     continue;
                 }
@@ -162,21 +172,88 @@ public final class SaoThemeLibrary {
             base = new ThemeColors(v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9]);
         }
 
-        SaoTheme.register(new SaoTheme(id, hue, base));
-        // nameKey 优先:主题包可以只给语言键,由资源包做本地化
+        ResourceLocation bodyFont = baseTokens.bodyFont();
+        ResourceLocation displayFont = baseTokens.displayFont();
+        if (obj.has("bodyFont")) {
+            ResourceLocation parsed = font(obj, "bodyFont");
+            if (parsed == null) {
+                warn(file.getFileName() + ": bodyFont 不是合法资源名");
+                return false;
+            }
+            bodyFont = parsed;
+        }
+        if (obj.has("displayFont")) {
+            ResourceLocation parsed = font(obj, "displayFont");
+            if (parsed == null) {
+                warn(file.getFileName() + ": displayFont 不是合法资源名");
+                return false;
+            }
+            displayFont = parsed;
+        }
+
+        int enter = baseTokens.enterMillis();
+        int exit = baseTokens.exitMillis();
+        Integer parsedEnter = millis(obj, "enterMillis", file);
+        if (obj.has("enterMillis") && parsedEnter == null) {
+            return false;
+        }
+        if (parsedEnter != null) {
+            enter = parsedEnter;
+        }
+        Integer parsedExit = millis(obj, "exitMillis", file);
+        if (obj.has("exitMillis") && parsedExit == null) {
+            return false;
+        }
+        if (parsedExit != null) {
+            exit = parsedExit;
+        }
+
+        ThemeTokens tokens;
+        try {
+            tokens = new ThemeTokens(base, bodyFont, displayFont, enter, exit);
+        } catch (RuntimeException e) {
+            warn(file.getFileName() + ": tokens 非法 " + e.getMessage());
+            return false;
+        }
+
+        int order = previous != null ? previous.order() : SaoTheme.nextOrder();
+        if (obj.has("order")) {
+            try {
+                order = obj.get("order").getAsInt();
+            } catch (RuntimeException e) {
+                warn(file.getFileName() + ": order 不是整数");
+                return false;
+            }
+        }
+
         String labelKey = str(obj, "nameKey");
         String label = str(obj, "name");
+        Component component;
+        String canonical = id.toString();
         if (labelKey != null && !labelKey.isBlank()) {
-            LABEL_KEYS.put(id, labelKey);
-            LABELS.remove(id);
+            LABEL_KEYS.put(canonical, labelKey);
+            LABELS.remove(canonical);
+            component = Component.translatable(labelKey);
         } else if (label != null && !label.isBlank()) {
-            LABELS.put(id, label);
-            LABEL_KEYS.remove(id);
+            LABELS.put(canonical, label);
+            LABEL_KEYS.remove(canonical);
+            component = Component.literal(label);
+        } else if (previous != null) {
+            component = previous.label();
+        } else {
+            component = Component.literal(id.getPath());
+        }
+
+        try {
+            SaoTheme.overlay(new ThemeDefinition(id, order, component, hue, tokens));
+        } catch (RuntimeException e) {
+            warn(file.getFileName() + ": 主题定义非法 " + e.getMessage());
+            return false;
         }
         return true;
     }
 
-    /** 主题的展示名:外部文件的 nameKey(已翻译)> 外部文件的 name > 翻译键 > id 本身。 */
+    /** 主题的展示名:外部文件的 nameKey(已翻译)> 外部文件的 name > 定义标签 > 翻译键 > path。 */
     public static String label(String id) {
         String literal = LABELS.get(id);
         if (literal != null) {
@@ -188,18 +265,37 @@ public final class SaoThemeLibrary {
             if (translated != null && !translated.equals(customKey)) {
                 return translated;
             }
-            // 语言键没解析到(缺资源包):退回 id,而不是把裸键名显示在界面上
-            return id;
+            return pathOf(id);
         }
-        String key = "saomenu.theme." + id;
+        ThemeDefinition def = SaoTheme.definitionOrNull(id);
+        if (def != null) {
+            if (def.label().getContents() instanceof TranslatableContents tc) {
+                String translated = SaoText.resolveLabel(tc.getKey());
+                if (translated != null && !translated.equals(tc.getKey())) {
+                    return translated;
+                }
+            } else {
+                String text = def.label().getString();
+                if (text != null && !text.isBlank()) {
+                    return text;
+                }
+            }
+        }
+        String path = pathOf(id);
+        String key = "saomenu.theme." + path;
         String resolved = SaoText.resolveLabel(key);
-        return resolved == null || resolved.equals(key) ? id : resolved;
+        return resolved == null || resolved.equals(key) ? path : resolved;
     }
 
     /** 测试用:清掉外部主题留下的展示名登记。 */
     static void resetForTest() {
         LABELS.clear();
         LABEL_KEYS.clear();
+    }
+
+    private static String pathOf(String canonical) {
+        int colon = canonical.indexOf(':');
+        return colon < 0 ? canonical : canonical.substring(colon + 1);
     }
 
     private static String str(JsonObject o, String key) {
@@ -209,6 +305,31 @@ public final class SaoThemeLibrary {
         try {
             return o.get(key).getAsString();
         } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    private static ResourceLocation font(JsonObject o, String key) {
+        String raw = str(o, key);
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        return ResourceLocation.tryParse(raw.trim());
+    }
+
+    private static Integer millis(JsonObject o, String key, Path file) {
+        if (!o.has(key)) {
+            return null;
+        }
+        try {
+            int value = o.get(key).getAsInt();
+            if (value < 0) {
+                warn(file.getFileName() + ": " + key + " 不能为负");
+                return null;
+            }
+            return value;
+        } catch (RuntimeException e) {
+            warn(file.getFileName() + ": " + key + " 不是整数");
             return null;
         }
     }

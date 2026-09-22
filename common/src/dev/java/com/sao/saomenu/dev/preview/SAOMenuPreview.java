@@ -310,7 +310,7 @@ public final class SAOMenuPreview {
                 }
                 if (worldReadyTicks == 123) {
                     // 演示通知:截图前入队(停留 2.6s,hud.png 应可见)
-                    SAONotification.push(Component.translatable("saomenu.notify.demo").getString(), "Preview");
+                    SAONotification.push(Component.translatable("saomenu.notify.demo"), Component.literal("Preview"));
                 }
                 if (worldReadyTicks == 124) {
                     // 无菜单状态:验证血条板 / 圆点物品栏 / 原版快捷栏已隐藏
@@ -747,7 +747,11 @@ public final class SAOMenuPreview {
             SAOConfig.setShowHud(true);
         } else if (menuTicks == 208) {
             grab(client, out, "hud_restored.png");
-        } else if (menuTicks == 210) {
+        } else if (menuTicks >= 210) {
+            if (Boolean.getBoolean("saomenu.preview.api")
+                    && !FrameworkApiPreview.tick(client, out, menuTicks - 210)) {
+                return;
+            }
             done = true;
             restoreGuiScale(client);
             if (Boolean.getBoolean("saomenu.preview.keepOpen")) {
@@ -885,7 +889,7 @@ public final class SAOMenuPreview {
         }
     }
 
-    private static void grab(Minecraft client, String out, String name) {
+    static void grab(Minecraft client, String out, String name) {
         try (NativeImage image = Screenshot.takeScreenshot(client.getMainRenderTarget())) {
             Path dir = new File(out).toPath();
             Files.createDirectories(dir);

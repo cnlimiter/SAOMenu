@@ -257,7 +257,7 @@ class SAOConfigTest {
         SAOConfig.reset();
         assertEquals(com.sao.saomenu.ui.theme.SaoTheme.SAO, SAOConfig.themeId(), "reset 应回到 SAO");
         SAOConfig.load(file);
-        assertEquals("qinglan", SAOConfig.themeId(), "主题 id 应持久化");
+        assertEquals("saomenu:qinglan", SAOConfig.themeId(), "主题 id 应迁移并持久化");
     }
 
     @Test
@@ -294,13 +294,13 @@ class SAOConfigTest {
         assertTrue(SAOConfig.isPinned("minecraft:stick"));
         assertEquals(0, SAOConfig.orderIndex("minecraft:stick"));
         assertEquals(1, SAOConfig.orderIndex("minecraft:dirt"));
-        assertEquals("qinglan", SAOConfig.themeId());
+        assertEquals("saomenu:qinglan", SAOConfig.themeId());
         SAOConfig.save(file);
         SAOConfig.reset();
         SAOConfig.load(file);
         assertTrue(SAOConfig.isPinned("minecraft:stick"), "回写不得丢掉置顶");
         assertEquals(0, SAOConfig.orderIndex("minecraft:stick"), "回写不得丢掉手动顺序");
-        assertEquals("qinglan", SAOConfig.themeId(), "回写不得丢掉主题 id");
+        assertEquals("saomenu:qinglan", SAOConfig.themeId(), "回写不得丢掉迁移后的主题 id");
     }
 
     @Test

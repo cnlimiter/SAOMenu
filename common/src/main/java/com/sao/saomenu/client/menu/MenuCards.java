@@ -1,8 +1,11 @@
 package com.sao.saomenu.client.menu;
 
+import com.sao.saomenu.api.layout.UiRect;
+import com.sao.saomenu.api.menu.MenuContext;
+import com.sao.saomenu.api.menu.SideCard;
 import com.sao.saomenu.ui.render.SaoDraw;
 import com.sao.saomenu.ui.theme.SaoTheme;
-import com.sao.saomenu.ui.theme.ThemeColors;
+import com.sao.saomenu.api.theme.ThemeColors;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -22,13 +25,24 @@ import static com.sao.saomenu.ui.render.SaoDraw.mulAlpha;
 import static com.sao.saomenu.ui.render.SaoDraw.shaderAlpha;
 import static com.sao.saomenu.ui.text.SaoText.tr;
 
-/** 玩家 / 队伍 / 好友侧卡。内置三张卡仍由本类画;面板自带 SideCard 时走接口。 */
+/** Builtin side cards. Addon panels supply their own {@link SideCard}. */
 final class MenuCards {
 
     private MenuCards() {
     }
 
-    static void render(GuiGraphics g, SAOMenuScreen screen, MenuSession s, MenuTransform xform,
+    static SideCard playerCard() {
+        return MenuCards::renderPlayerCard;
+    }
+
+    static SideCard teamCard() {
+        return MenuCards::renderTeamCard;
+    }
+
+    static SideCard friendsCard() {
+        return MenuCards::renderFriendsCard;
+    }
+    static void render(GuiGraphics g, SAOMenuScreen screen, MenuSession s,
                        int main, int mouseX, int mouseY, float globalAlpha, long now) {
         int anchorY = s.buttonY(main, screen.height);
         float p = s.panelAt == Long.MIN_VALUE ? 1f
@@ -37,38 +51,36 @@ final class MenuCards {
         float eased = com.sao.saomenu.ui.animation.SaoMotion.easeOutCubic(p);
         float alpha = globalAlpha * p;
 
-        SaoPanel panel = MenuSession.panelAt(main);
-        if (panel == null) {
+        var panel = MenuSession.panelAt(main);
+        if (panel == null || panel.sideCard() == null) {
             return;
         }
-        if (panel.sideCard() != null) {
-            MenuLayout.Rect rect = MenuLayout.cardRectAt(screen.width, screen.height, s.baseAnchorX, anchorY);
-            int slide = Math.round((1f - eased) * rect.w() * 0.35f);
-            panel.sideCard().render(g, Minecraft.getInstance(), screen.menuFont(), screen,
-                    new MenuLayout.Rect(rect.x() + slide, rect.y(), rect.w(), rect.h()),
-                    eased, alpha, mouseX, mouseY);
-            return;
-        }
-        switch (panel.id()) {
-            case SaoPanels.PROFILE -> renderPlayerCard(g, screen, s, xform, anchorY, mouseX, mouseY, eased, alpha);
-            case SaoPanels.PARTY -> renderTeamCard(g, screen, s, anchorY, eased, alpha);
-            case SaoPanels.FRIENDS -> renderFriendsCard(g, screen, s, anchorY, eased, alpha);
-            default -> {
+        MenuLayout.Rect rect = MenuLayout.cardRectAt(screen.width, screen.height, s.baseAnchorX, anchorY);
+        int slide = Math.round((1f - eased) * rect.w() * 0.35f);
+        MenuLayout.Rect at = new MenuLayout.Rect(rect.x() + slide, rect.y(), rect.w(), rect.h());
+        UiRect clip = screen.localBoxToScreen(at.x(), at.y(), at.w(), at.h());
+        if (clip.width() > 0 && clip.height() > 0) {
+            g.flush();
+            g.enableScissor(clip.x(), clip.y(), clip.right(), clip.bottom());
+            try {
+                panel.sideCard().render(g, MenuContext.of(screen), MenuRects.ui(at), eased, alpha, mouseX, mouseY);
+                g.flush();
+            } finally {
+                g.disableScissor();
             }
         }
+        renderArrowRight(g, s, at, anchorY, alpha, screen.height);
     }
 
     private static ThemeColors theme() {
         return SaoTheme.palette();
     }
 
-    private static void renderPlayerCard(GuiGraphics g, SAOMenuScreen screen, MenuSession s, MenuTransform xform,
-                                         int anchorY, int mouseX, int mouseY, float eased, float alpha) {
-        Minecraft mc = Minecraft.getInstance();
-        Font f = screen.menuFont();
-        MenuLayout.Rect rect = MenuLayout.cardRectAt(screen.width, screen.height, s.baseAnchorX, anchorY);
-        int slide = Math.round((1f - eased) * rect.w() * 0.35f);
-        MenuLayout.Rect at = new MenuLayout.Rect(rect.x() + slide, rect.y(), rect.w(), rect.h());
+    private static void renderPlayerCard(GuiGraphics g, MenuContext ctx, UiRect bounds, float eased, float alpha,
+                                         int mouseX, int mouseY) {
+        Minecraft mc = ctx.minecraft();
+        Font f = mc.font;
+        MenuLayout.Rect at = MenuRects.local(bounds);
 
         ItemStack held = mc.player != null ? mc.player.getInventory().getSelected() : ItemStack.EMPTY;
         boolean hasHeld = !held.isEmpty();
@@ -112,8 +124,8 @@ final class MenuCards {
             int halfW = Math.round(k * 0.8f);
             float dx = ax - mouseX;
             float dy = feetY - mouseY;
-            MenuLayout.Rect clip = xform.boxToScreen(ax - halfW, areaTop, halfW * 2, areaH);
-            g.enableScissor(clip.x(), clip.y(), clip.x() + clip.w(), clip.y() + clip.h());
+            UiRect clip = ctx.host().localBoxToScreen(ax - halfW, areaTop, halfW * 2, areaH);
+            g.enableScissor(clip.x(), clip.y(), clip.right(), clip.bottom());
             shaderAlpha(alpha);
             InventoryScreen.renderEntityInInventoryFollowsMouse(g, ax, feetY, k, dx, dy, mc.player);
             shaderAlpha(1f);
@@ -151,12 +163,11 @@ final class MenuCards {
                         at.w() - 12, mulAlpha(theme().textOnSurface(), alpha), false);
             }
         }
-        renderArrowRight(g, s, at, anchorY, alpha, screen.height);
     }
 
-    private static void renderTeamCard(GuiGraphics g, SAOMenuScreen screen, MenuSession s,
-                                       int anchorY, float eased, float alpha) {
-        Minecraft mc = Minecraft.getInstance();
+    private static void renderTeamCard(GuiGraphics g, MenuContext ctx, UiRect bounds, float eased, float alpha,
+                                       int mouseX, int mouseY) {
+        Minecraft mc = ctx.minecraft();
         List<String> rows = new ArrayList<>();
         String title = tr("saomenu.party");
         String subtitle = null;
@@ -174,12 +185,12 @@ final class MenuCards {
                 subtitle = tr("saomenu.panel.no_team");
             }
         }
-        renderListCard(g, screen, s, title, subtitle, rows, footer, anchorY, eased, alpha);
+        renderListCard(g, ctx.minecraft().font, MenuRects.local(bounds), title, subtitle, rows, footer, alpha);
     }
 
-    private static void renderFriendsCard(GuiGraphics g, SAOMenuScreen screen, MenuSession s,
-                                          int anchorY, float eased, float alpha) {
-        Minecraft mc = Minecraft.getInstance();
+    private static void renderFriendsCard(GuiGraphics g, MenuContext ctx, UiRect bounds, float eased, float alpha,
+                                          int mouseX, int mouseY) {
+        Minecraft mc = ctx.minecraft();
         List<String> rows = new ArrayList<>();
         int online = 0;
         if (mc.getConnection() != null) {
@@ -191,18 +202,12 @@ final class MenuCards {
             online = names.size();
             rows.addAll(names);
         }
-        renderListCard(g, screen, s, tr("saomenu.friends"), null, rows,
-                tr("saomenu.panel.online", online), anchorY, eased, alpha);
+        renderListCard(g, mc.font, MenuRects.local(bounds), tr("saomenu.friends"), null, rows,
+                tr("saomenu.panel.online", online), alpha);
     }
 
-    private static void renderListCard(GuiGraphics g, SAOMenuScreen screen, MenuSession s,
-                                       String title, String subtitle, List<String> rows, String footer,
-                                       int anchorY, float eased, float alpha) {
-        Font f = screen.menuFont();
-        MenuLayout.Rect rect = MenuLayout.cardRectAt(screen.width, screen.height, s.baseAnchorX, anchorY);
-        int slide = Math.round((1f - eased) * rect.w() * 0.35f);
-        MenuLayout.Rect at = new MenuLayout.Rect(rect.x() + slide, rect.y(), rect.w(), rect.h());
-
+    private static void renderListCard(GuiGraphics g, Font f, MenuLayout.Rect at,
+                                       String title, String subtitle, List<String> rows, String footer, float alpha) {
         shaderAlpha(alpha);
         SaoDraw.blendedBlit(g, MenuAssets.PANEL, at.x(), at.y(), at.w(), at.h());
         shaderAlpha(1f);
@@ -243,7 +248,6 @@ final class MenuCards {
         float footH = Math.max(8f, at.h() * 0.07f);
         SaoDraw.drawInRow(g, f, footer, at.x() + at.w() * 0.35f, at.y() + at.h() - footH, footH,
                 at.w() * 0.60f, mulAlpha(theme().textOnSurface(), alpha), false);
-        renderArrowRight(g, s, at, anchorY, alpha, screen.height);
     }
 
     private static void renderArrowRight(GuiGraphics g, MenuSession s, MenuLayout.Rect card,

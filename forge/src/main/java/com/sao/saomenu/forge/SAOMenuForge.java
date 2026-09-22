@@ -17,7 +17,7 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 
 /**
  * Forge 入口。在模组构造期注册音效、粒子类型与组队网络消息;
- * 客户端按键由 RegisterKeyMappingsEvent 注册,客户端运行时由 FMLClientSetupEvent 排入主线程。
+ * 客户端按键由 RegisterKeyMappingsEvent 注册,客户端运行时在 Forge 总线启用后的首个 tick 初始化。
  */
 @Mod(SAOMenu.MOD_ID)
 public class SAOMenuForge {

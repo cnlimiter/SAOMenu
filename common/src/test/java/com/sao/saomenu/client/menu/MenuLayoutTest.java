@@ -43,6 +43,14 @@ class MenuLayoutTest {
     }
 
     @Test
+    void extendedMainColumnDoesNotStealFoodBarClicks() {
+        int visible = MenuLayout.mainVisibleCount(H, 13);
+        int bottom = MenuLayout.buttonCenterY(H, visible - 1) + MenuLayout.btnSize(H) / 2;
+        assertTrue(visible >= MenuLayout.BTN_COUNT, "Builtin navigation must remain visible");
+        assertTrue(bottom < H - 39, "Extended menu buttons must not overlap the native food row");
+    }
+
+    @Test
     void hitTestCenterAndOutside() {
         int cx = MenuLayout.firstButtonCenterX(W);
         int cy = MenuLayout.buttonCenterY(H, 1);
@@ -267,5 +275,41 @@ class MenuLayoutTest {
         } finally {
             SAOConfig.setHotbarScale(1.0f);
         }
+    }
+
+    @Test
+    void fourBuiltinButtonsAllFitAtReferenceHeight() {
+        assertEquals(4, MenuLayout.mainVisibleCount(H, 4), "四个内置面板不得被窗口裁掉");
+        int last = MenuLayout.buttonCenterY(H, 3) + MenuLayout.btnSize(H) / 2;
+        assertTrue(last <= H);
+    }
+
+    @Test
+    void extraMainButtonsStayInsideViewportWhenWindowed() {
+        int total = 24;
+        int vis = MenuLayout.mainVisibleCount(H, total);
+        assertTrue(vis < total, "过多主按钮必须窗口化");
+        assertTrue(vis >= 4, "参考高度至少能放下四个内置按钮");
+        int last = MenuLayout.buttonCenterYAt(H, MenuLayout.firstButtonCenterY(H), vis - 1)
+                + MenuLayout.btnSize(H) / 2;
+        assertTrue(last <= H, "窗口内末按钮不得越出屏幕底");
+        int ax = MenuLayout.firstButtonCenterX(W);
+        int ay = MenuLayout.firstButtonCenterY(H);
+        assertEquals(-1, MenuLayout.hoveredMainButtonAt(W, H, ax, ay, vis, 2, 2));
+        assertEquals(vis - 1, MenuLayout.hoveredMainButtonAt(W, H, ax, ay, vis,
+                ax, MenuLayout.buttonCenterYAt(H, ay, vis - 1)));
+        assertEquals(-1, MenuLayout.hoveredMainButtonAt(W, H, ax, ay, vis,
+                ax, MenuLayout.buttonCenterYAt(H, ay, vis)));
+    }
+
+    @Test
+    void longItemColumnWindowStaysOnScreen() {
+        int rows = MenuLayout.itemVisibleRows(H);
+        assertTrue(rows >= 4, "参考高度应能放下个人面板四项");
+        int anchor = MenuLayout.buttonCenterY(H, 0);
+        MenuLayout.Rect first = MenuLayout.menuItemRect(W, H, rows, anchor, 0);
+        MenuLayout.Rect last = MenuLayout.menuItemRect(W, H, rows, anchor, rows - 1);
+        assertTrue(first.y() >= 0, "窗口首项不得高于屏幕顶");
+        assertTrue(last.y() + last.h() <= H, "窗口末项不得低于屏幕底");
     }
 }

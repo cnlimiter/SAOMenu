@@ -2,6 +2,10 @@ package com.sao.saomenu.client.menu;
 
 import com.sao.saomenu.SAOMenu;
 import com.sao.saomenu.SAOMenuPlatform;
+import com.sao.saomenu.api.SaoUi;
+import com.sao.saomenu.api.layout.UiRect;
+import com.sao.saomenu.api.menu.MenuHost;
+import com.sao.saomenu.api.menu.SaoPanel;
 import com.sao.saomenu.client.hud.HudLayoutEditor;
 import com.sao.saomenu.client.hud.SAOHud;
 import com.sao.saomenu.client.hud.SAOMapPanel;
@@ -41,10 +45,15 @@ public class SAOMenuScreen extends Screen implements MenuHost {
                 this.width, this.height, session.baseAnchorX, session.baseAnchorY);
     }
 
-    /** 个人面板一级项数量(预览自检复用,直接问注册表,避免与面板定义脱钩)。 */
+    /** Profile panel first-level row count (preview harness; reads the frozen registry). */
     public static int profileItemCount() {
-        SaoPanel p = SaoMenuRegistry.byId(SaoPanels.PROFILE);
-        return p == null ? 0 : p.items().get().size();
+        for (SaoPanel p : SaoUi.panels()) {
+            if (SaoPanels.PROFILE.equals(p.id())) {
+                var items = p.items().get();
+                return items == null ? 0 : items.size();
+            }
+        }
+        return 0;
     }
 
     @Override
@@ -84,6 +93,7 @@ public class SAOMenuScreen extends Screen implements MenuHost {
             return;
         }
 
+        session.rebindSelection(this.height);
         float openP = session.openP(now);
         float closeP = session.closeP(now);
         float globalAlpha = session.globalAlpha(now);
@@ -108,7 +118,7 @@ public class SAOMenuScreen extends Screen implements MenuHost {
         pose.pushPose();
         transform.apply(pose);
         if (main >= 0) {
-            MenuCards.render(g, this, session, transform, main, mouseX, mouseY, globalAlpha, now);
+            MenuCards.render(g, this, session, main, mouseX, mouseY, globalAlpha, now);
             MenuColumns.renderItems(g, this, session, globalAlpha, now);
         }
         MenuColumns.renderMainButtons(g, this, session, globalAlpha);
@@ -194,6 +204,7 @@ public class SAOMenuScreen extends Screen implements MenuHost {
     @Override
     public void selectMain(int index) {
         session.selectMain(index);
+        session.ensureMainVisible(index, this.height);
     }
 
     @Override
@@ -209,8 +220,8 @@ public class SAOMenuScreen extends Screen implements MenuHost {
     }
 
     @Override
-    public MenuLayout.Rect localBoxToScreen(int lx, int ly, int w, int h) {
-        return transform.boxToScreen(lx, ly, w, h);
+    public UiRect localBoxToScreen(int lx, int ly, int w, int h) {
+        return MenuRects.ui(transform.boxToScreen(lx, ly, w, h));
     }
 
     @Override

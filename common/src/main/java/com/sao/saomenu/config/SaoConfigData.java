@@ -53,7 +53,7 @@ final class SaoConfigData {
     boolean hasOpenedSettings;
 
     /**
-     * 载入后钳制范围、迁移旧锚点、洗净列表。空白 themeId 由门面按「保留原值」处理,这里不动。
+     * 载入后钳制范围、迁移旧锚点和主题 ID、洗净列表。空白 themeId 的保留策略由门面处理。
      */
     void normalize() {
         if (Math.abs(anchorX - 0.32f) < 0.0001f) {
@@ -78,6 +78,7 @@ final class SaoConfigData {
         foodPanelY = SAOConfig.clamp(foodPanelY, 0f, 1f, SAOConfig.DEF_FOOD_PANEL_Y);
         skillBarX = SAOConfig.clamp(skillBarX, 0f, 1f, SAOConfig.DEF_SKILL_BAR_X);
         skillBarY = SAOConfig.clamp(skillBarY, 0f, 1f, SAOConfig.DEF_SKILL_BAR_Y);
+        themeId = SaoTheme.canonicalizeId(themeId);
         pinnedItems = sanitize(pinnedItems);
         itemOrder = sanitize(itemOrder);
     }

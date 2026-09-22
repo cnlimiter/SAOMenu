@@ -1,4 +1,4 @@
-package com.sao.saomenu.ui.theme;
+package com.sao.saomenu.api.theme;
 
 /**
  * 主题调色板。

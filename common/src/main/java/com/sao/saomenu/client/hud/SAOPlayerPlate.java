@@ -11,6 +11,7 @@ import com.sao.saomenu.ui.theme.SaoTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
@@ -272,8 +273,8 @@ public final class SAOPlayerPlate {
 
     static void detectEvents(Player p) {
         if (lastLevel >= 0 && p.experienceLevel > lastLevel) {
-            SAONotification.push(SaoText.tr("saomenu.notify.levelup.title"),
-                    SaoText.tr("saomenu.notify.levelup.msg", p.experienceLevel));
+            SAONotification.push(Component.translatable("saomenu.notify.levelup.title"),
+                    Component.literal(SaoText.tr("saomenu.notify.levelup.msg", p.experienceLevel)));
         }
         lastLevel = p.experienceLevel;
         float hpNow = p.getHealth();
@@ -284,7 +285,7 @@ public final class SAOPlayerPlate {
         float frac = p.getMaxHealth() <= 0f ? 0f : p.getHealth() / p.getMaxHealth();
         boolean low = frac > 0f && frac < 0.2f;
         if (low && !lastLow) {
-            SAONotification.push(SaoText.tr("saomenu.notify.lowhp"), "");
+            SAONotification.push(Component.translatable("saomenu.notify.lowhp"), Component.empty());
         }
         lastLow = low;
     }

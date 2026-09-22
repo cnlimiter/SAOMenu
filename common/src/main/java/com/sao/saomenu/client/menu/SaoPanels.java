@@ -1,6 +1,12 @@
 package com.sao.saomenu.client.menu;
 
-import com.sao.saomenu.client.hud.SAONotification;
+import com.sao.saomenu.SAOMenu;
+import com.sao.saomenu.api.SaoUi;
+import com.sao.saomenu.api.SaoUiRegistry;
+import com.sao.saomenu.api.menu.MenuEntry;
+import com.sao.saomenu.api.menu.MenuIcon;
+import com.sao.saomenu.api.menu.SaoPanel;
+import com.sao.saomenu.api.menu.MenuContext;
 import com.sao.saomenu.client.screen.SAOAdvancementsScreen;
 import com.sao.saomenu.client.screen.settings.SAOSettingsScreen;
 import com.sao.saomenu.config.SAOConfig;
@@ -16,107 +22,109 @@ import net.minecraft.client.gui.screens.OptionsScreen;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
- * 内置面板:个人 / 队伍 / 好友 / 设置。
+ * Builtin panels: profile / party / friends / settings.
  *
- * <p>一级列是稳定列表;背包与邀请两列由本类持有的有界缓存供应。
- * 置顶/换序、打开菜单、世界结束时 {@link #resetSession()} 立即失效。</p>
+ * <p>First-level rows are stable lists. Inventory and invite columns are owned by
+ * bounded caches on this class. Pin reorder, opening the menu, and leaving a world
+ * call {@link #resetSession()}.</p>
  */
 public final class SaoPanels {
 
-    public static final String PROFILE = "profile";
-    public static final String PARTY = "party";
-    public static final String FRIENDS = "friends";
-    public static final String SETTINGS = "settings";
+    public static final ResourceLocation PROFILE = id("profile");
+    public static final ResourceLocation PARTY = id("party");
+    public static final ResourceLocation FRIENDS = id("friends");
+    public static final ResourceLocation SETTINGS = id("settings");
 
-    /** 背包/在线玩家列的重建间隔:菜单屏每帧都会取子列,不缓存就等于每帧重建。 */
     private static final long LIST_TTL_MS = 1000L;
 
     private static final MenuListCache INVENTORY = new MenuListCache(SaoPanels::inventoryItems, LIST_TTL_MS);
     private static final MenuListCache INVITES = new MenuListCache(SaoPanels::inviteItems, LIST_TTL_MS);
+    private static final MenuListCache SKILLS = new MenuListCache(SaoPanels::skillItems, LIST_TTL_MS);
 
     private static final List<MenuEntry> PROFILE_ITEMS = List.of(
-            MenuEntry.submenu("saomenu.menu.skill", "item_status", SaoPanels::skillItems),
-            MenuEntry.submenu("saomenu.menu.equip", "item_weapon", SaoPanels::equipItems),
-            MenuEntry.submenu("saomenu.menu.items", "item_bag", INVENTORY),
-            MenuEntry.action("saomenu.menu.map", "item_map", ctx -> {
+            MenuEntry.submenu(id("profile/skill"), tr("saomenu.menu.skill"), itemIcon("item_status"), SKILLS),
+            MenuEntry.submenu(id("profile/equip"), tr("saomenu.menu.equip"), itemIcon("item_weapon"), SaoPanels::equipItems),
+            MenuEntry.submenu(id("profile/items"), tr("saomenu.menu.items"), itemIcon("item_bag"), INVENTORY),
+            MenuEntry.action(id("profile/map"), tr("saomenu.menu.map"), itemIcon("item_map"), ctx -> {
                 ctx.host().playPanel();
                 ctx.host().toggleMap();
             }));
 
     private static final List<MenuEntry> EQUIP_ITEMS = List.of(
-            MenuEntry.equipColumn("saomenu.menu.weapon", "item_weapon", MenuEntry.EquipKind.WEAPON),
-            MenuEntry.equipColumn("saomenu.menu.armor", "item_armor", MenuEntry.EquipKind.ARMOR),
-            MenuEntry.equipColumn("saomenu.menu.trinket", "item_ring", MenuEntry.EquipKind.TRINKET));
+            MenuEntry.equipColumn(id("equip/weapon"), tr("saomenu.menu.weapon"), itemIcon("item_weapon"), MenuEntry.EquipKind.WEAPON),
+            MenuEntry.equipColumn(id("equip/armor"), tr("saomenu.menu.armor"), itemIcon("item_armor"), MenuEntry.EquipKind.ARMOR),
+            MenuEntry.equipColumn(id("equip/trinket"), tr("saomenu.menu.trinket"), itemIcon("item_ring"), MenuEntry.EquipKind.TRINKET));
 
     private static final List<MenuEntry> PARTY_ITEMS = List.of(
-            MenuEntry.submenu("saomenu.menu.invite", "item_status", INVITES),
-            MenuEntry.action("saomenu.menu.leave_team", "item_bag", ctx -> {
+            MenuEntry.submenu(id("party/invite"), tr("saomenu.menu.invite"), itemIcon("item_status"), INVITES),
+            MenuEntry.action(id("party/leave"), tr("saomenu.menu.leave_team"), itemIcon("item_bag"), ctx -> {
                 new LeaveC2S().sendToServer();
                 ctx.host().playClick();
             }));
 
     private static final List<MenuEntry> FRIENDS_ITEMS = List.of(
-            MenuEntry.action("saomenu.menu.advancements", "item_status", ctx -> {
+            MenuEntry.action(id("friends/advancements"), tr("saomenu.menu.advancements"), itemIcon("item_status"), ctx -> {
                 ctx.host().playClick();
                 ctx.openScreen(new SAOAdvancementsScreen(ctx.screen()));
             }),
-            MenuEntry.action("saomenu.menu.refresh", "item_bag", SaoPanels::switchToParty));
+            MenuEntry.action(id("friends/refresh"), tr("saomenu.menu.refresh"), itemIcon("item_bag"), SaoPanels::switchToParty));
 
     private static final List<MenuEntry> SETTINGS_ITEMS = List.of(
-            MenuEntry.action("saomenu.menu.config", "item_config", ctx -> {
+            MenuEntry.action(id("settings/config"), tr("saomenu.menu.config"), itemIcon("item_config"), ctx -> {
                 ctx.host().playClick();
                 ctx.openScreen(new SAOSettingsScreen(ctx.screen()));
             }),
-            MenuEntry.action("saomenu.menu.options", "item_status", ctx -> {
+            MenuEntry.action(id("settings/options"), tr("saomenu.menu.options"), itemIcon("item_status"), ctx -> {
                 ctx.host().playClick();
                 ctx.openScreen(new OptionsScreen(ctx.screen(), ctx.minecraft().options));
             }),
-            MenuEntry.action("saomenu.menu.close", "item_logout", SaoPanels::requestClose));
+            MenuEntry.action(id("settings/close"), tr("saomenu.menu.close"), itemIcon("item_logout"), SaoPanels::requestClose));
 
     private SaoPanels() {
     }
 
-    /** 内置面板,按主按钮列从上到下的顺序。 */
-    public static List<SaoPanel> all() {
-        return List.of(
-                SaoPanel.of(PROFILE, "info", SaoPanels::profileItems),
-                SaoPanel.of(PARTY, "party", SaoPanels::partyItems),
-                SaoPanel.of(FRIENDS, "msg", SaoPanels::friendsItems),
-                SaoPanel.of(SETTINGS, "setting", SaoPanels::settingsItems));
+    /** Register the four builtin panels. Duplicate ids fail in the shared registry. */
+    public static void registerBuiltins(SaoUiRegistry registry) {
+        Objects.requireNonNull(registry, "registry");
+        registry.menu(SaoPanel.of(PROFILE, 100, tr("saomenu.panel.profile"), symbol("info"),
+                SaoPanels::profileItems, MenuCards.playerCard()));
+        registry.menu(SaoPanel.of(PARTY, 200, tr("saomenu.party"), symbol("party"),
+                SaoPanels::partyItems, MenuCards.teamCard()));
+        registry.menu(SaoPanel.of(FRIENDS, 300, tr("saomenu.friends"), symbol("msg"),
+                SaoPanels::friendsItems, MenuCards.friendsCard()));
+        registry.menu(SaoPanel.of(SETTINGS, 400, tr("saomenu.panel.settings"), symbol("setting"),
+                SaoPanels::settingsItems));
     }
 
-    /**
-     * 失效背包/邀请缓存。置顶换序、打开菜单、世界结束时由运行时调用。
-     */
     public static void resetSession() {
         INVENTORY.invalidate();
         INVITES.invalidate();
+        SKILLS.invalidate();
     }
 
     private static List<MenuEntry> profileItems() {
         return PROFILE_ITEMS;
     }
 
-    /**
-     * 剑技列:直接由 {@link SaoSkillRegistry} 生成。
-     *
-     * <p>菜单项不再知道任何具体技能——加一个技能只需注册它,技能列自动出现,
-     * 且与技能快捷键走同一个激活入口,两个入口行为一致。</p>
-     */
     private static List<MenuEntry> skillItems() {
         List<MenuEntry> out = new ArrayList<>();
         for (SaoSkill skill : SaoSkillRegistry.skills()) {
-            out.add(MenuEntry.action(skill.nameKey(), skill.icon(), ctx -> {
-                ctx.host().playClick();
-                SaoSkills.activate(ctx.player(), skill);
-            }));
+            out.add(MenuEntry.action(id("skill/" + safePath(skill.id())), tr(skill.nameKey()),
+                    itemIcon(skill.icon()), ctx -> {
+                        ctx.host().playClick();
+                        SaoSkills.activate(ctx.player(), skill);
+                    }));
         }
         return out;
     }
@@ -125,12 +133,6 @@ public final class SaoPanels {
         return EQUIP_ITEMS;
     }
 
-    /**
-     * 背包条目:快捷栏 + 主背包的非空物品。
-     *
-     * <p>排序优先级:置顶(按置顶先后)→ 手动拖动顺序 → 背包槽位。
-     * 键用物品注册名而不是槽位,所以丢掉后重新捡起仍然保持置顶/顺序。</p>
-     */
     private static List<MenuEntry> inventoryItems() {
         List<MenuEntry> list = new ArrayList<>();
         LocalPlayer p = Minecraft.getInstance().player;
@@ -138,7 +140,7 @@ public final class SaoPanels {
             for (int i = 0; i < 36; i++) {
                 ItemStack s = p.getInventory().getItem(i);
                 if (!s.isEmpty()) {
-                    list.add(MenuEntry.item(s, i));
+                    list.add(MenuEntry.item(id("inv/" + i), s, i));
                 }
             }
             list.sort((a, b) -> {
@@ -156,12 +158,11 @@ public final class SaoPanels {
             });
         }
         if (list.isEmpty()) {
-            list.add(MenuEntry.of("saomenu.inv.empty", "item_bag"));
+            list.add(MenuEntry.of(id("inv/empty"), tr("saomenu.inv.empty"), itemIcon("item_bag")));
         }
         return list;
     }
 
-    /** 物品的置顶顺序号;未置顶为 MAX_VALUE(排序时沉底)。 */
     public static int pinOrderOf(ItemStack st) {
         if (st == null || st.isEmpty()) {
             return Integer.MAX_VALUE;
@@ -169,7 +170,6 @@ public final class SaoPanels {
         return SAOConfig.pinOrder(itemId(st));
     }
 
-    /** 物品的手动顺序号;不在自定义顺序里为 MAX_VALUE。 */
     public static int orderIndexOf(ItemStack st) {
         if (st == null || st.isEmpty()) {
             return Integer.MAX_VALUE;
@@ -177,7 +177,6 @@ public final class SaoPanels {
         return SAOConfig.orderIndex(itemId(st));
     }
 
-    /** 物品注册名;取不到返回空串。 */
     public static String itemId(ItemStack st) {
         if (st == null || st.isEmpty()) {
             return "";
@@ -190,7 +189,6 @@ public final class SaoPanels {
         return PARTY_ITEMS;
     }
 
-    /** 在线玩家列(被邀请人);自己不在其中,一个都没有时给占位行。 */
     private static List<MenuEntry> inviteItems() {
         List<MenuEntry> list = new ArrayList<>();
         var conn = Minecraft.getInstance().getConnection();
@@ -201,21 +199,22 @@ public final class SaoPanels {
                 if (self != null && name.equals(self.getGameProfile().getName())) {
                     continue;
                 }
-                list.add(MenuEntry.action(name, "item_status", SaoPanels::invite));
+                list.add(MenuEntry.action(id("invite/" + safePath(name)), Component.literal(name),
+                        itemIcon("item_status"), SaoPanels::invite));
             }
         }
         if (list.isEmpty()) {
-            list.add(MenuEntry.of("saomenu.panel.no_players", "item_status"));
+            list.add(MenuEntry.of(id("invite/empty"), tr("saomenu.panel.no_players"), itemIcon("item_status")));
         }
         return list;
     }
 
     private static void invite(MenuContext ctx) {
-        String target = ctx.entry() == null ? null : ctx.entry().label();
+        String target = ctx.entry() == null ? null : ctx.entry().label().getString();
         if (target != null && !target.isEmpty()) {
             new InviteC2S(target).sendToServer();
-            SAONotification.push(SaoText.tr("saomenu.party.notify.sent.title"),
-                    SaoText.tr("saomenu.party.notify.sent.msg", target));
+            SaoUi.notify(Component.translatable("saomenu.party.notify.sent.title"),
+                    Component.literal(SaoText.tr("saomenu.party.notify.sent.msg", target)));
         }
         ctx.host().playClick();
     }
@@ -225,7 +224,7 @@ public final class SaoPanels {
     }
 
     private static void switchToParty(MenuContext ctx) {
-        ctx.host().selectMain(SaoMenuRegistry.indexOf(PARTY));
+        ctx.host().selectPanel(PARTY);
         ctx.host().playPanel();
     }
 
@@ -237,7 +236,41 @@ public final class SaoPanels {
         ctx.host().openCloseConfirm();
     }
 
-    /** 有界 TTL 缓存:只由本类持有两份,不再往全局列表登记。 */
+    private static ResourceLocation id(String path) {
+        return new ResourceLocation(SAOMenu.MOD_ID, path);
+    }
+
+    private static ResourceLocation itemIcon(String name) {
+        return new ResourceLocation(SAOMenu.MOD_ID, "textures/gui/" + name + ".png");
+    }
+
+    private static MenuIcon symbol(String name) {
+        return new MenuIcon(
+                new ResourceLocation(SAOMenu.MOD_ID, "textures/gui/symbol_" + name + "_normal.png"),
+                new ResourceLocation(SAOMenu.MOD_ID, "textures/gui/symbol_" + name + "_hover.png"));
+    }
+
+    private static Component tr(String key) {
+        return Component.translatable(key);
+    }
+
+    static String safePath(String raw) {
+        if (raw == null || raw.isEmpty()) {
+            return "x";
+        }
+        String s = raw.toLowerCase(Locale.ROOT);
+        StringBuilder b = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '_' || c == '-' || c == '/' || c == '.') {
+                b.append(c);
+            } else {
+                b.append('_');
+            }
+        }
+        return b.isEmpty() ? "x" : b.toString();
+    }
+
     private static final class MenuListCache implements Supplier<List<MenuEntry>> {
         private final Supplier<List<MenuEntry>> source;
         private final long ttlMs;

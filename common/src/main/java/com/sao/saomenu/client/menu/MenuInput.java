@@ -1,5 +1,6 @@
 package com.sao.saomenu.client.menu;
 
+import com.sao.saomenu.api.menu.MenuEntry;
 import com.sao.saomenu.client.hud.HudLayoutEditor;
 import com.sao.saomenu.client.hud.SAOMapPanel;
 import com.sao.saomenu.config.SAOConfig;
@@ -11,7 +12,7 @@ import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
 
-/** 菜单键鼠、移动穿透、物品置顶拖拽。HUD 拖拽交给 {@link HudLayoutEditor}。 */
+/** Menu keys, mouse, movement passthrough, item pin drag. HUD drag stays on {@link HudLayoutEditor}. */
 final class MenuInput {
 
     private MenuInput() {
@@ -50,6 +51,8 @@ final class MenuInput {
         if (s.closing) {
             return false;
         }
+        s.keyboardFocus = false;
+        s.rebindSelection(screen.height);
         Minecraft mc = Minecraft.getInstance();
         if (button == 1) {
             xform.toLocal(mouseX, mouseY);
@@ -119,8 +122,7 @@ final class MenuInput {
             int shownA = itemsA != null ? s.visibleChildrenItem(itemsA) : -1;
             if (itemsA != null && shownA >= 0 && itemsA.get(shownA).children() != null) {
                 List<MenuEntry> winA = s.windowedChildren(itemsA.get(shownA).children(), screen.height);
-                int anchorA = MenuLayout.menuItemRectAt(screen.width, screen.height, itemsA.size(),
-                        s.baseAnchorX, s.buttonY(mainA, screen.height), shownA).centerY();
+                int anchorA = s.childAnchorY(itemsA, shownA, screen.width, screen.height);
                 if (s.actionRow >= 0 && s.actionRow < winA.size() && winA.get(s.actionRow).stack() != null) {
                     MenuLayout.Rect rowA = MenuLayout.childItemRectAt(screen.width, screen.height,
                             winA.size(), s.baseAnchorX, anchorA, s.actionRow);
@@ -139,6 +141,7 @@ final class MenuInput {
                                 }
                             } else {
                                 s.actionMenuOpen = false;
+                                s.actionEntryId = null;
                             }
                             return true;
                         }
@@ -147,26 +150,21 @@ final class MenuInput {
             }
         }
 
-        int hitMain = MenuLayout.hoveredMainButtonAt(screen.width, screen.height, s.baseAnchorX, s.baseAnchorY,
-                MenuSession.panels().size(), lx, ly);
+        int visMain = MenuLayout.mainVisibleCount(screen.height, MenuSession.panels().size());
+        int hitVis = MenuLayout.hoveredMainButtonAt(screen.width, screen.height, s.baseAnchorX, s.baseAnchorY,
+                visMain, lx, ly);
+        int hitMain = hitVis < 0 ? -1 : hitVis + s.mainScroll;
         if (hitMain != -1) {
             s.mainTouched = true;
             if (s.selectedMain == hitMain) {
-                s.selectedMain = -1;
+                s.selectMain(-1);
                 s.panelOwner = -1;
-                s.expandedItem = -1;
-                s.equipOwner = -1;
-                s.actionMenuOpen = false;
                 s.infoOpen = false;
-                s.childScroll = 0;
                 screen.playPanel();
             } else {
-                s.selectedMain = hitMain;
-                s.expandedItem = -1;
-                s.equipOwner = -1;
-                s.actionMenuOpen = false;
+                s.selectMain(hitMain);
                 s.infoOpen = false;
-                s.childScroll = 0;
+                s.ensureMainVisible(hitMain, screen.height);
                 screen.playClick();
             }
             s.mainPressIndex = hitMain;
@@ -190,24 +188,29 @@ final class MenuInput {
         int main = s.activeMain();
         if (main >= 0) {
             List<MenuEntry> items = s.activeItems(main);
+            List<MenuEntry> win = s.windowedItems(items, screen.height);
             int anchorY = s.buttonY(main, screen.height);
-            for (int i = 0; i < items.size(); i++) {
-                if (MenuLayout.menuItemRectAt(screen.width, screen.height, items.size(),
+            for (int i = 0; i < win.size(); i++) {
+                if (MenuLayout.menuItemRectAt(screen.width, screen.height, win.size(),
                         s.baseAnchorX, anchorY, i).contains(lx, ly)) {
                     s.itemPressColumn = 0;
                     s.itemPressIndex = i;
                     s.itemPressAt = MenuSession.now();
-                    if (items.get(i).hasChildren()) {
-                        int newExpanded = s.expandedItem == i ? -1 : i;
+                    int real = s.itemScroll + i;
+                    if (win.get(i).hasChildren()) {
+                        int newExpanded = s.expandedItem == real ? -1 : real;
                         if (newExpanded != s.expandedItem) {
                             s.equipOwner = -1;
+                            s.equipEntryId = null;
                             s.childScroll = 0;
                             s.actionMenuOpen = false;
+                            s.actionEntryId = null;
                         }
                         s.expandedItem = newExpanded;
+                        s.expandedEntryId = newExpanded < 0 ? null : win.get(i).id();
                         screen.playPanel();
                     } else {
-                        s.activate(screen, items.get(i));
+                        s.activate(screen, win.get(i));
                     }
                     return true;
                 }
@@ -215,11 +218,10 @@ final class MenuInput {
             int shown = s.visibleChildrenItem(items);
             if (shown >= 0 && items.get(shown).children() != null) {
                 List<MenuEntry> children = s.windowedChildren(items.get(shown).children(), screen.height);
-                int childAnchor = MenuLayout.menuItemRectAt(screen.width, screen.height, items.size(),
-                        s.baseAnchorX, anchorY, shown).centerY();
+                int childAnchor = s.childAnchorY(items, shown, screen.width, screen.height);
                 int equipTarget = s.equipTargetIndex(items, shown);
                 if (equipTarget >= 0) {
-                    int equipAnchor = s.equipAnchorY(items, shown, equipTarget, screen.height);
+                    int equipAnchor = s.equipAnchorY(items, shown, equipTarget, screen.width, screen.height);
                     List<MenuSession.EquipEntry> entries = s.equipEntries(
                             s.equipKindAt(items, shown, equipTarget), mc.player);
                     for (int i = 0; i < entries.size(); i++) {
@@ -239,18 +241,23 @@ final class MenuInput {
                         MenuEntry child = children.get(i);
                         if (child.equip() != null) {
                             s.actionMenuOpen = false;
-                            if (s.equipOwner != i) {
-                                s.equipOwner = i;
+                            s.actionEntryId = null;
+                            int realChild = s.childScroll + i;
+                            if (s.equipOwner != realChild) {
+                                s.equipOwner = realChild;
+                                s.equipEntryId = child.id();
                                 s.equipAt = MenuSession.now();
                                 screen.playPanel();
                             }
                         } else if (child.isItem()) {
                             if (s.actionMenuOpen && s.actionRow == i) {
                                 s.actionMenuOpen = false;
+                                s.actionEntryId = null;
                                 screen.playPanel();
                             } else {
                                 s.actionMenuOpen = true;
                                 s.actionRow = i;
+                                s.actionEntryId = child.id();
                                 s.actionAt = MenuSession.now();
                                 screen.playPanel();
                             }
@@ -265,6 +272,7 @@ final class MenuInput {
 
         if (s.actionMenuOpen) {
             s.actionMenuOpen = false;
+            s.actionEntryId = null;
             screen.playPanel();
             return true;
         }
@@ -277,37 +285,71 @@ final class MenuInput {
         if (s.closing || s.confirmClose || delta == 0) {
             return false;
         }
-        int main = s.activeMain();
-        List<MenuEntry> items = main >= 0 ? s.activeItems(main) : null;
-        int shown = items != null ? s.visibleChildrenItem(items) : -1;
-        if (items == null || shown < 0 || items.get(shown).children() == null
-                || items.get(shown).children().isEmpty()
-                || items.get(shown).children().get(0).stack() == null) {
-            return false;
-        }
-        List<MenuEntry> children = items.get(shown).children();
-        int rows = s.childVisibleRows(screen.height);
+        s.keyboardFocus = false;
+        s.rebindSelection(screen.height);
         xform.toLocal(mouseX, mouseY);
         int lx = xform.localXi();
         int ly = xform.localYi();
-        int anchorY = MenuLayout.menuItemRectAt(screen.width, screen.height, items.size(),
-                s.baseAnchorX, s.buttonY(main, screen.height), shown).centerY();
-        boolean over = false;
-        for (int v = 0; v < Math.min(rows, children.size()); v++) {
-            if (MenuLayout.childItemRectAt(screen.width, screen.height, rows, s.baseAnchorX, anchorY, v)
-                    .contains(lx, ly)) {
-                over = true;
-                break;
+        int step = (int) Math.signum(delta);
+        int main = s.activeMain();
+        List<MenuEntry> items = main >= 0 ? s.activeItems(main) : null;
+
+        if (items != null) {
+            int shown = s.visibleChildrenItem(items);
+            if (shown >= 0 && items.get(shown).children() != null && !items.get(shown).children().isEmpty()) {
+                List<MenuEntry> children = items.get(shown).children();
+                int rows = s.childVisibleRows(screen.height);
+                List<MenuEntry> winChildren = s.windowedChildren(children, screen.height);
+                int childAnchor = s.childAnchorY(items, shown, screen.width, screen.height);
+                boolean over = false;
+                for (int v = 0; v < winChildren.size(); v++) {
+                    if (MenuLayout.childItemRectAt(screen.width, screen.height, winChildren.size(),
+                            s.baseAnchorX, childAnchor, v).contains(lx, ly)) {
+                        over = true;
+                        break;
+                    }
+                }
+                if (over) {
+                    return scrollList(screen, s, children.size(), rows, true, step);
+                }
+            }
+            List<MenuEntry> win = s.windowedItems(items, screen.height);
+            int anchorY = s.buttonY(main, screen.height);
+            for (int i = 0; i < win.size(); i++) {
+                if (MenuLayout.menuItemRectAt(screen.width, screen.height, win.size(),
+                        s.baseAnchorX, anchorY, i).contains(lx, ly)) {
+                    return scrollList(screen, s, items.size(), s.itemVisibleRows(screen.height), false, step);
+                }
             }
         }
-        if (!over) {
-            return false;
+
+        int visMain = MenuLayout.mainVisibleCount(screen.height, MenuSession.panels().size());
+        int hit = MenuLayout.hoveredMainButtonAt(screen.width, screen.height, s.baseAnchorX, s.baseAnchorY,
+                visMain, lx, ly);
+        if (hit != -1) {
+            int total = MenuSession.panels().size();
+            int before = s.mainScroll;
+            s.mainScroll = Mth.clamp(s.mainScroll - step, 0, Math.max(0, total - visMain));
+            if (s.mainScroll != before) {
+                screen.playClick();
+            }
+            return true;
         }
-        int max = Math.max(0, children.size() - rows);
-        int before = s.childScroll;
-        s.childScroll = Mth.clamp(s.childScroll - (int) Math.signum(delta), 0, max);
-        if (s.childScroll != before) {
+        return false;
+    }
+
+    private static boolean scrollList(SAOMenuScreen screen, MenuSession s, int size, int rows, boolean child, int step) {
+        int max = Math.max(0, size - rows);
+        int before = child ? s.childScroll : s.itemScroll;
+        int next = Mth.clamp(before - step, 0, max);
+        if (child) {
+            s.childScroll = next;
+        } else {
+            s.itemScroll = next;
+        }
+        if (next != before) {
             s.actionMenuOpen = false;
+            s.actionEntryId = null;
             screen.playClick();
         }
         return true;
@@ -339,7 +381,245 @@ final class MenuInput {
             beginClose(screen, s);
             return true;
         }
+        if (s.closing || s.confirmClose) {
+            return false;
+        }
+        s.rebindSelection(screen.height);
+        if (keyCode == GLFW.GLFW_KEY_UP) {
+            return navigate(screen, s, -1);
+        }
+        if (keyCode == GLFW.GLFW_KEY_DOWN) {
+            return navigate(screen, s, 1);
+        }
+        if (keyCode == GLFW.GLFW_KEY_LEFT) {
+            return navigateColumn(screen, s, -1);
+        }
+        if (keyCode == GLFW.GLFW_KEY_RIGHT || keyCode == GLFW.GLFW_KEY_ENTER
+                || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+            return navigateColumn(screen, s, 1);
+        }
+        if (keyCode == GLFW.GLFW_KEY_PAGE_UP) {
+            return page(screen, s, -1);
+        }
+        if (keyCode == GLFW.GLFW_KEY_PAGE_DOWN) {
+            return page(screen, s, 1);
+        }
         return false;
+    }
+
+    private static boolean navigate(SAOMenuScreen screen, MenuSession s, int delta) {
+        s.keyboardFocus = true;
+        if (s.actionMenuOpen) {
+            int cur = s.hoverAction < 0 ? 0 : s.hoverAction;
+            s.hoverAction = Mth.clamp(cur + delta, 0, 2);
+            return true;
+        }
+        int main = s.activeMain();
+        List<MenuEntry> items = main >= 0 ? s.activeItems(main) : List.of();
+        int shown = s.visibleChildrenItem(items);
+        if (shown >= 0 && items.get(shown).children() != null && !items.get(shown).children().isEmpty()
+                && (s.focusCol == 2 || s.hoverChild >= 0)) {
+            List<MenuEntry> all = items.get(shown).children();
+            int cur = s.focusCol == 2 ? MenuSession.indexOfEntry(all, s.focusEntryId) : -1;
+            if (cur < 0) {
+                cur = s.childScroll + Math.max(0, s.hoverChild);
+            }
+            int real = Mth.clamp(cur + delta, 0, all.size() - 1);
+            s.ensureChildVisible(real, screen.height, all.size());
+            s.hoverChild = real - s.childScroll;
+            s.focusEntryId = all.get(real).id();
+            s.focusCol = 2;
+            screen.playClick();
+            return true;
+        }
+        if (main >= 0 && !items.isEmpty() && (s.focusCol >= 1 || s.hoverItem >= 0 || s.selectedMain >= 0)) {
+            int cur = s.focusCol == 1 ? MenuSession.indexOfEntry(items, s.focusEntryId) : -1;
+            if (cur < 0) {
+                cur = s.itemScroll + Math.max(0, s.hoverItem);
+            }
+            int real = Mth.clamp(cur + delta, 0, items.size() - 1);
+            s.ensureItemVisible(real, screen.height, items.size());
+            s.hoverItem = real - s.itemScroll;
+            s.focusEntryId = items.get(real).id();
+            s.focusCol = 1;
+            screen.playClick();
+            return true;
+        }
+        int total = MenuSession.panels().size();
+        if (total == 0) {
+            return false;
+        }
+        int cur = s.hoverMain >= 0 ? s.hoverMain : Math.max(0, s.selectedMain);
+        cur = Mth.clamp(cur + delta, 0, total - 1);
+        s.ensureMainVisible(cur, screen.height);
+        s.hoverMain = cur;
+        s.focusCol = 0;
+        s.focusEntryId = null;
+        screen.playClick();
+        return true;
+    }
+
+    private static boolean navigateColumn(SAOMenuScreen screen, MenuSession s, int dir) {
+        s.keyboardFocus = true;
+        if (dir < 0) {
+            if (s.actionMenuOpen) {
+                s.actionMenuOpen = false;
+                s.actionEntryId = null;
+                screen.playPanel();
+                return true;
+            }
+            if (s.focusCol == 2 || s.hoverChild >= 0) {
+                s.hoverChild = -1;
+                s.equipOwner = -1;
+                s.equipEntryId = null;
+                s.focusCol = 1;
+                if (s.expandedEntryId != null) {
+                    s.focusEntryId = s.expandedEntryId;
+                }
+                screen.playPanel();
+                return true;
+            }
+            if (s.expandedItem >= 0) {
+                s.expandedItem = -1;
+                s.expandedEntryId = null;
+                s.childScroll = 0;
+                screen.playPanel();
+                return true;
+            }
+            if (s.selectedMain >= 0) {
+                s.selectMain(-1);
+                s.focusCol = 0;
+                s.focusEntryId = null;
+                screen.playPanel();
+                return true;
+            }
+            return false;
+        }
+        if (s.actionMenuOpen && s.hoverAction >= 0) {
+            int main = s.activeMain();
+            List<MenuEntry> items = main >= 0 ? s.activeItems(main) : null;
+            int shown = items != null ? s.visibleChildrenItem(items) : -1;
+            if (items != null && shown >= 0 && items.get(shown).children() != null) {
+                List<MenuEntry> all = items.get(shown).children();
+                int real = s.actionEntryId != null
+                        ? MenuSession.indexOfEntry(all, s.actionEntryId)
+                        : s.childScroll + s.actionRow;
+                if (real >= 0 && real < all.size() && all.get(real).stack() != null) {
+                    s.executeItemAction(s.hoverAction, all.get(real));
+                    screen.playClick();
+                    return true;
+                }
+            }
+        }
+        if (s.focusCol == 2 || s.hoverChild >= 0) {
+            int main = s.activeMain();
+            List<MenuEntry> items = s.activeItems(main);
+            List<MenuEntry> children = s.shownChildren(items, screen.height);
+            if (children != null && s.hoverChild >= 0 && s.hoverChild < children.size()) {
+                MenuEntry child = children.get(s.hoverChild);
+                if (child.equip() != null) {
+                    s.equipOwner = s.childScroll + s.hoverChild;
+                    s.equipEntryId = child.id();
+                    s.equipAt = MenuSession.now();
+                    screen.playPanel();
+                } else if (child.isItem()) {
+                    s.actionMenuOpen = true;
+                    s.actionRow = s.hoverChild;
+                    s.actionEntryId = child.id();
+                    s.actionAt = MenuSession.now();
+                    s.hoverAction = 0;
+                    screen.playPanel();
+                } else {
+                    s.activate(screen, child);
+                }
+                return true;
+            }
+        }
+        if (s.selectedMain >= 0) {
+            List<MenuEntry> items = s.activeItems(s.selectedMain);
+            List<MenuEntry> win = s.windowedItems(items, screen.height);
+            int vis = s.hoverItem >= 0 ? s.hoverItem : 0;
+            if (vis < win.size()) {
+                MenuEntry entry = win.get(vis);
+                int real = s.itemScroll + vis;
+                if (entry.hasChildren()) {
+                    s.expandedItem = real;
+                    s.expandedEntryId = entry.id();
+                    s.focusCol = 2;
+                    s.hoverChild = 0;
+                    s.childScroll = 0;
+                    List<MenuEntry> ch = entry.children();
+                    s.focusEntryId = ch != null && !ch.isEmpty() ? ch.get(0).id() : null;
+                    screen.playPanel();
+                } else {
+                    s.activate(screen, entry);
+                }
+                return true;
+            }
+        }
+        if (s.hoverMain >= 0) {
+            s.selectMain(s.hoverMain);
+            s.ensureMainVisible(s.hoverMain, screen.height);
+            s.focusCol = 1;
+            s.hoverItem = 0;
+            List<MenuEntry> opened = s.activeItems(s.selectedMain);
+            s.focusEntryId = opened.isEmpty() ? null : opened.get(0).id();
+            screen.playClick();
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean page(SAOMenuScreen screen, MenuSession s, int dir) {
+        s.keyboardFocus = true;
+        int main = s.activeMain();
+        List<MenuEntry> items = main >= 0 ? s.activeItems(main) : null;
+        int shown = items != null ? s.visibleChildrenItem(items) : -1;
+        if (items != null && shown >= 0 && items.get(shown).children() != null
+                && !items.get(shown).children().isEmpty()) {
+            List<MenuEntry> all = items.get(shown).children();
+            int rows = s.childVisibleRows(screen.height);
+            int cur = MenuSession.indexOfEntry(all, s.focusEntryId);
+            if (cur < 0) {
+                cur = s.childScroll + Math.max(0, s.hoverChild);
+            }
+            int real = Mth.clamp(cur + dir * rows, 0, all.size() - 1);
+            s.ensureChildVisible(real, screen.height, all.size());
+            s.hoverChild = real - s.childScroll;
+            s.focusEntryId = all.get(real).id();
+            s.focusCol = 2;
+            s.actionMenuOpen = false;
+            s.actionEntryId = null;
+            screen.playClick();
+            return true;
+        }
+        if (items != null && !items.isEmpty()) {
+            int rows = s.itemVisibleRows(screen.height);
+            int cur = MenuSession.indexOfEntry(items, s.focusEntryId);
+            if (cur < 0) {
+                cur = s.itemScroll + Math.max(0, s.hoverItem);
+            }
+            int real = Mth.clamp(cur + dir * rows, 0, items.size() - 1);
+            s.ensureItemVisible(real, screen.height, items.size());
+            s.hoverItem = real - s.itemScroll;
+            s.focusEntryId = items.get(real).id();
+            s.focusCol = 1;
+            screen.playClick();
+            return true;
+        }
+        int total = MenuSession.panels().size();
+        if (total == 0) {
+            return false;
+        }
+        int vis = MenuLayout.mainVisibleCount(screen.height, total);
+        int cur = s.hoverMain >= 0 ? s.hoverMain : Math.max(0, s.selectedMain);
+        cur = Mth.clamp(cur + dir * vis, 0, total - 1);
+        s.ensureMainVisible(cur, screen.height);
+        s.hoverMain = cur;
+        s.focusCol = 0;
+        s.focusEntryId = null;
+        screen.playClick();
+        return true;
     }
 
     static void beginClose(SAOMenuScreen screen, MenuSession s) {

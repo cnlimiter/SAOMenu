@@ -22,6 +22,34 @@ public final class MenuLayout {
     /** 底部圆点数量。 */
     public static final int DOT_COUNT = 10;
 
+    /**
+     * How many main buttons fit above the native food/armor and hotbar region.
+     * Four builtins always fit at the reference 240 GUI-px height.
+     */
+    public static int mainVisibleCount(int screenH, int total) {
+        if (total <= 0) {
+            return 0;
+        }
+        int radius = btnSize(screenH) / 2;
+        int firstY = firstButtonCenterY(screenH);
+        int step = btnStep(screenH);
+        int lastCenter = screenH - 48 - radius;
+        int fit = 1 + Math.max(0, (lastCenter - firstY) / Math.max(1, step));
+        return Math.min(total, Math.max(1, fit));
+    }
+
+    /**
+     * How many menu rows fit in {@code screenH} with {@code pad} reserved and at least {@code min} rows.
+     */
+    public static int itemVisibleRows(int screenH, int pad, int min) {
+        int step = itemH(screenH) + itemGap(screenH);
+        return Math.max(min, (screenH - pad) / Math.max(1, step));
+    }
+
+    public static int itemVisibleRows(int screenH) {
+        return itemVisibleRows(screenH, 8, 1);
+    }
+
     private MenuLayout() {
     }
 

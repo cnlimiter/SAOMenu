@@ -72,6 +72,7 @@ allprojects {
 		if (rootProject.hasProperty('saomenu.preview')) {
 			systemProperty 'saomenu.preview', rootProject.property('saomenu.preview')
 			systemProperty 'saomenu.preview.keepOpen', rootProject.properties.getOrDefault('saomenu.preview.keepOpen', 'false')
+			systemProperty 'saomenu.preview.api', rootProject.properties.getOrDefault('saomenu.preview.api', 'false')
 		}
 	}
 }

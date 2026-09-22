@@ -1,60 +1,140 @@
 package com.sao.saomenu.ui.theme;
 
+import com.sao.saomenu.SAOMenu;
+import com.sao.saomenu.api.SaoUiRegistry;
+import com.sao.saomenu.api.theme.ThemeColors;
+import com.sao.saomenu.api.theme.ThemeDefinition;
+import com.sao.saomenu.api.theme.ThemeTokens;
 import com.sao.saomenu.config.SAOConfig;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.regex.Pattern;
 
 /**
  * 主题:一套调色板 + 它的默认色相。
  *
- * <p>主题是全局的(不是每个界面一份),所以用静态入口 {@link #active()} 取用。
+ * <p>主题是全局的(不是每个界面一份),所以用静态入口 {@link #active()} / {@link #tokens()} 取用。
  * 给上百个绘制调用点穿一个 context 参数换来的只是"纯度",却让每次读主题都要
  * 往上找参数;这里选择先简单。</p>
  *
  * <p>{@code accent} 由色相实时派生,因此主题切换 = 换预设 + 换色相;
  * 色相滑条是用户对主题的个人覆盖,预设只提供默认值。</p>
+ *
+ * <p>代码预设经 {@link #registerBuiltins} 进入公开注册表,冻结后
+ * {@link #installRegistered} 成为稳定底表,用户 JSON 再按同 id 覆盖。
+ * {@link #definitions()} 是合并后的不可变快照,不是每次映射。</p>
  */
 public record SaoTheme(String id, float defaultHue, ThemeColors colors) {
 
     /** SAO:原作橙。 */
-    public static final String SAO = "sao";
+    public static final String SAO = SAOMenu.MOD_ID + ":sao";
     /** ALO:妖精之舞蓝。 */
-    public static final String ALO = "alo";
+    public static final String ALO = SAOMenu.MOD_ID + ":alo";
     /** GGO:枪界红。 */
-    public static final String GGO = "ggo";
+    public static final String GGO = SAOMenu.MOD_ID + ":ggo";
 
-    /** 内置预设:永远在,且顺序固定(决定设置页按钮顺序)。 */
-    private static final List<SaoTheme> BUILTIN = List.of(
-            new SaoTheme(SAO, 41.44f, ThemeColors.sao()),
-            new SaoTheme(ALO, 202f, ThemeColors.sao()),
-            new SaoTheme(GGO, 355f, ThemeColors.sao()));
+    static final Pattern SHORT_ID = Pattern.compile("[a-z0-9_]{1,32}");
 
-    /** 当前可用预设 = 内置 + {@code config/saomenu/themes/*.json} 载入的。 */
-    private static final List<SaoTheme> PRESETS = new ArrayList<>(BUILTIN);
-    private static List<SaoTheme> presetSnapshot = List.copyOf(PRESETS);
-    private static SaoTheme cachedActive;
+    private static final List<ThemeDefinition> BUILTIN = List.of(
+            builtin("sao", 100, 41.44f),
+            builtin("alo", 200, 202f),
+            builtin("ggo", 300, 355f));
+
+    /** 当前可用预设 = 冻结的代码定义 + {@code config/saomenu/themes/*.json} 覆盖。 */
+    private static final List<ThemeDefinition> PRESETS = new ArrayList<>(BUILTIN);
+    private static List<ThemeDefinition> definitionSnapshot = List.copyOf(PRESETS);
+    private static List<SaoTheme> presetSnapshot = views(PRESETS);
+
+    private static ThemeTokens cachedTokens;
+    private static String cachedTokenId;
     private static float cachedHue;
 
     private static String selectedId = SAO;
 
-    /** 按 id 取预设;不存在返回 null(与 {@link #byId} 不同,这里不做回落)。 */
-    private static SaoTheme findById(String id) {
-        if (id == null) {
-            return null;
+    private static ThemeDefinition builtin(String path, int order, float hue) {
+        return new ThemeDefinition(
+                new ResourceLocation(SAOMenu.MOD_ID, path),
+                order,
+                Component.translatable("saomenu.theme." + path),
+                hue,
+                ThemeTokens.sao());
+    }
+
+    private static List<SaoTheme> views(List<ThemeDefinition> defs) {
+        List<SaoTheme> views = new ArrayList<>(defs.size());
+        for (ThemeDefinition def : defs) {
+            views.add(view(def));
         }
-        for (SaoTheme t : PRESETS) {
-            if (t.id.equals(id)) {
-                return t;
+        return List.copyOf(views);
+    }
+
+    private static SaoTheme view(ThemeDefinition def) {
+        return new SaoTheme(def.id().toString(), def.defaultHue(), def.tokens().colors());
+    }
+
+    /** Register the three builtin SAO / ALO / GGO definitions. */
+    public static void registerBuiltins(SaoUiRegistry registry) {
+        Objects.requireNonNull(registry, "registry");
+        for (ThemeDefinition def : BUILTIN) {
+            registry.theme(def);
+        }
+    }
+
+    /**
+     * Install the frozen code (and addon) definitions as the stable preset table.
+     * User JSON overlays are applied afterwards and are not passed through this method.
+     */
+    public static void installRegistered(List<ThemeDefinition> definitions) {
+        PRESETS.clear();
+        if (definitions != null) {
+            for (ThemeDefinition def : definitions) {
+                if (def != null) {
+                    PRESETS.add(def);
+                }
+            }
+        }
+        if (PRESETS.isEmpty()) {
+            PRESETS.addAll(BUILTIN);
+        }
+        resolvedFromConfig = false;
+        refreshSnapshots();
+    }
+
+    /**
+     * Merged selectable themes: frozen code definitions plus user-file overlays.
+     * Cached immutable snapshot; callers must not expect a defensive copy per call.
+     */
+    public static List<ThemeDefinition> definitions() {
+        return definitionSnapshot;
+    }
+
+    /** 按 id 取预设;不存在返回 null(与 {@link #byId} 不同,这里不做回落)。 */
+    private static ThemeDefinition findDefinition(String id) {
+        for (ThemeDefinition def : PRESETS) {
+            if (def.id().toString().equals(id)) {
+                return def;
             }
         }
         return null;
     }
 
+    static ThemeDefinition definitionOrNull(String id) {
+        return findDefinition(id);
+    }
+
     /** 按 id 取预设;未知 id 回落到 SAO(配置文件被手改坏了也不至于崩)。 */
     public static SaoTheme byId(String id) {
-        SaoTheme found = findById(id);
-        return found != null ? found : PRESETS.get(0);
+        ThemeDefinition found = findDefinition(id);
+        return view(found != null ? found : defaultDefinition());
+    }
+
+    private static ThemeDefinition defaultDefinition() {
+        ThemeDefinition sao = findDefinition(SAO);
+        return sao != null ? sao : BUILTIN.get(0);
     }
 
     /** 全部可用预设(内置 + 外部主题文件)。返回不可变副本,避免调用点改到注册表。 */
@@ -63,14 +143,14 @@ public record SaoTheme(String id, float defaultHue, ThemeColors colors) {
     }
 
     /**
-     * 注册一个外部主题(来自 {@code config/saomenu/themes/*.json})。
-     *
-     * <p>id 与已有预设相同则<b>替换</b>它(主题包改写内置预设),否则追加到末尾。
-     * 替换或新增后统一失效当前调色板缓存;用户主题覆盖与插件注册策略是不同边界。</p>
+     * Overlay or append a definition after freeze (user JSON / same-id reload).
+     * Same id replaces in place and invalidates the active token cache.
      */
-    public static void register(SaoTheme theme) {
+    static void overlay(ThemeDefinition theme) {
+        Objects.requireNonNull(theme, "theme");
         int index = 0;
-        while (index < PRESETS.size() && !PRESETS.get(index).id.equals(theme.id)) {
+        String id = theme.id().toString();
+        while (index < PRESETS.size() && !PRESETS.get(index).id().toString().equals(id)) {
             index++;
         }
         if (index < PRESETS.size()) {
@@ -78,32 +158,76 @@ public record SaoTheme(String id, float defaultHue, ThemeColors colors) {
         } else {
             PRESETS.add(theme);
         }
-        presetSnapshot = List.copyOf(PRESETS);
-        cachedActive = null;
+        refreshSnapshots();
+    }
+
+    static int nextOrder() {
+        int max = 0;
+        for (ThemeDefinition def : PRESETS) {
+            max = Math.max(max, def.order());
+        }
+        return max + 100;
+    }
+
+    private static void refreshSnapshots() {
+        definitionSnapshot = List.copyOf(PRESETS);
+        presetSnapshot = views(PRESETS);
+        cachedTokens = null;
+        cachedTokenId = null;
     }
 
     /** 配置身份变化时重新解析;只拖动色相不改变调色板身份。 */
     private static boolean resolvedFromConfig = false;
     private static String resolvedConfigId;
 
+    /**
+     * Legacy config / JSON ids were un-namespaced ({@code sao}). Missing {@code :}
+     * is migrated to {@code saomenu:<id>} explicitly; already-namespaced ids stay.
+     */
+    public static String canonicalizeId(String raw) {
+        ResourceLocation loc = parseThemeId(raw);
+        return loc != null ? loc.toString() : SAO;
+    }
+
+    /**
+     * Parse a theme identity. Short ids matching {@link #SHORT_ID} become
+     * {@code saomenu:<id>}; namespaced ids go through {@link ResourceLocation#tryParse}.
+     */
+    public static ResourceLocation parseThemeId(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String id = raw.trim();
+        if (id.isEmpty()) {
+            return null;
+        }
+        if (id.indexOf(':') < 0) {
+            if (!SHORT_ID.matcher(id).matches()) {
+                return null;
+            }
+            return new ResourceLocation(SAOMenu.MOD_ID, id);
+        }
+        return ResourceLocation.tryParse(id);
+    }
+
     /** Restore selection after loading/resetting config, never by following every hue-slider tick. */
     private static void resolveConfiguredSelection() {
         String stored = SAOConfig.themeId();
-        if (resolvedFromConfig && java.util.Objects.equals(stored, resolvedConfigId)) {
+        if (resolvedFromConfig && Objects.equals(stored, resolvedConfigId)) {
             return;
         }
         resolvedFromConfig = true;
         resolvedConfigId = stored;
         selectedId = SAO;
-        if (findById(stored) != null) {
+        if (findDefinition(stored) != null) {
             selectedId = stored;
             return;
         }
         // Legacy/missing themes resolve by hue once for this configured identity.
         int hue = Math.round(SAOConfig.accentHue());
-        for (SaoTheme theme : PRESETS) {
-            if (Math.round(theme.defaultHue) == hue) {
-                selectedId = theme.id;
+        for (ThemeDefinition theme : PRESETS) {
+            if (Math.round(theme.defaultHue()) == hue) {
+                selectedId = theme.id().toString();
                 return;
             }
         }
@@ -118,9 +242,9 @@ public record SaoTheme(String id, float defaultHue, ThemeColors colors) {
      */
     public static String matchingPreset(float hue) {
         int want = Math.round(hue);
-        for (SaoTheme t : PRESETS) {
-            if (Math.round(t.defaultHue) == want) {
-                return t.id;
+        for (ThemeDefinition t : PRESETS) {
+            if (Math.round(t.defaultHue()) == want) {
+                return t.id().toString();
             }
         }
         return null;
@@ -136,7 +260,7 @@ public record SaoTheme(String id, float defaultHue, ThemeColors colors) {
         return selectedId;
     }
 
-    /** 选择预设;把 id 与默认色相一并写入配置。 */
+    /** 选择完整 namespaced id;把 id 与默认色相一并写入配置。 */
     public static void select(String id) {
         SaoTheme t = byId(id);
         selectedId = t.id;
@@ -144,6 +268,28 @@ public record SaoTheme(String id, float defaultHue, ThemeColors colors) {
         SAOConfig.setThemeId(t.id);
         resolvedConfigId = t.id;
         SAOConfig.setAccentHue(t.defaultHue);
+        cachedTokens = null;
+        cachedTokenId = null;
+    }
+
+    /**
+     * Active tokens: registered fonts / durations plus the live hue-derived accent.
+     * Rebuilt only when selection, hue, or the underlying definition changes.
+     */
+    public static ThemeTokens tokens() {
+        String id = selectedId();
+        float hue = SAOConfig.accentHue();
+        if (cachedTokens == null || !id.equals(cachedTokenId) || Float.compare(cachedHue, hue) != 0) {
+            ThemeDefinition preset = findDefinition(id);
+            if (preset == null) {
+                preset = defaultDefinition();
+            }
+            ThemeTokens base = preset.tokens();
+            cachedTokens = base.withColors(base.colors().withAccent(accentFromHue(hue)));
+            cachedTokenId = id;
+            cachedHue = hue;
+        }
+        return cachedTokens;
     }
 
     /**
@@ -153,20 +299,17 @@ public record SaoTheme(String id, float defaultHue, ThemeColors colors) {
      * 每帧多次读取不会复制预设列表或重复派生颜色。</p>
      */
     public static SaoTheme active() {
-        String id = selectedId();
-        float hue = SAOConfig.accentHue();
-        if (cachedActive == null || !cachedActive.id.equals(id) || Float.compare(cachedHue, hue) != 0) {
-            SaoTheme preset = byId(id);
-            cachedActive = new SaoTheme(preset.id, preset.defaultHue,
-                    preset.colors.withAccent(accentFromHue(hue)));
-            cachedHue = hue;
+        ThemeTokens tokens = tokens();
+        ThemeDefinition preset = findDefinition(selectedId());
+        if (preset == null) {
+            preset = defaultDefinition();
         }
-        return cachedActive;
+        return new SaoTheme(preset.id().toString(), preset.defaultHue(), tokens.colors());
     }
 
     /** 当前生效调色板(最常用的一层快捷方式)。 */
     public static ThemeColors palette() {
-        return active().colors;
+        return tokens().colors();
     }
 
     /** 当前主题色。 */
@@ -224,9 +367,11 @@ public record SaoTheme(String id, float defaultHue, ThemeColors colors) {
     static void resetForTest() {
         selectedId = SAO;
         resolvedFromConfig = false;
+        resolvedConfigId = null;
         PRESETS.clear();
         PRESETS.addAll(BUILTIN);
-        presetSnapshot = List.copyOf(PRESETS);
-        cachedActive = null;
+        cachedTokens = null;
+        cachedTokenId = null;
+        refreshSnapshots();
     }
 }

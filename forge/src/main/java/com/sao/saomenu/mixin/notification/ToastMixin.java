@@ -2,7 +2,7 @@ package com.sao.saomenu.mixin.notification;
 
 import com.sao.saomenu.SAOMenu;
 import com.sao.saomenu.config.SAOConfig;
-import com.sao.saomenu.client.hud.SAONotification;
+import com.sao.saomenu.api.SaoUi;
 import com.sao.saomenu.mixin.accessor.AdvancementToastAccessor;
 import net.minecraft.advancements.Advancement;
 import net.minecraft.advancements.DisplayInfo;
@@ -23,7 +23,7 @@ public class ToastMixin {
 
     @Inject(method = "addToast", at = @At("HEAD"), cancellable = true)
     private void saomenu$replaceAdvancementToast(Toast toast, CallbackInfo ci) {
-        if (!(toast instanceof AdvancementToast at) || !SAOConfig.saoToasts()) {
+        if (!(toast instanceof AdvancementToast at) || !SAOConfig.saoToasts() || !SAOConfig.showHud()) {
             return;
         }
         Advancement advancement = ((AdvancementToastAccessor) at).saomenu$advancement();
@@ -32,8 +32,7 @@ public class ToastMixin {
             if (display != null) {
                 SAOMenu.LOGGER.info("[SAOMenu] advancement toast replaced: {}",
                         display.getTitle().getString());
-                SAONotification.push(display.getTitle().getString(),
-                        display.getDescription().getString(), display.getIcon());
+                SaoUi.notify(display.getTitle(), display.getDescription(), display.getIcon());
             }
         }
         ci.cancel();

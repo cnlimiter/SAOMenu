@@ -7,6 +7,7 @@ import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -118,7 +119,8 @@ public final class SAOCombatHud {
             Entity e = mc.level.getEntity(en.getKey());
             if (e instanceof LivingEntity le && !le.isAlive() && en.getValue() > 0f
                     && le.getLastHurtByMob() == p && SAOConfig.saoToasts()) {
-                SAONotification.push(SaoText.tr("saomenu.notify.kill", le.getDisplayName().getString()), "");
+                SAONotification.push(Component.literal(SaoText.tr("saomenu.notify.kill", le.getDisplayName().getString())),
+                        Component.empty());
             }
             it.remove();
         }
@@ -128,7 +130,7 @@ public final class SAOCombatHud {
 
         int xp = p.totalExperience;
         if (lastXp >= 0 && xp > lastXp && SAOConfig.saoToasts()) {
-            SAONotification.push(SaoText.tr("saomenu.notify.exp", xp - lastXp), "");
+            SAONotification.push(Component.literal(SaoText.tr("saomenu.notify.exp", xp - lastXp)), Component.empty());
         }
         lastXp = xp;
         if (lastLevel >= 0 && p.experienceLevel > lastLevel) {

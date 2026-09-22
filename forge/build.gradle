@@ -149,6 +149,22 @@ dependencies {
     // Architectury API - 使用 Jar-in-Jar 内嵌
     modApi("dev.architectury:architectury-forge:9.2.14")
     include("dev.architectury:architectury-forge:9.2.14")
+
+    // Load an independently built addon for API verification without adding its sources to this mod.
+    if (rootProject.hasProperty('saomenu.addonJar')) {
+        def addon = rootProject.file(rootProject.property('saomenu.addonJar'))
+        if (!addon.isFile()) {
+            throw new GradleException("Addon JAR does not exist: ${addon}")
+        }
+        // Loom's dependency remapper reads hierarchy only from mod configurations.
+        // The release API is analysis/compile-only here: never load a second SAOMenu at runtime.
+        def apiJar = file("build/libs/saomenu-forge-${project.version}.jar")
+        if (!apiJar.isFile()) {
+            throw new GradleException("Build :forge:build before verifying a binary addon.")
+        }
+        modCompileOnly files(apiJar)
+        modRuntimeOnly files(addon)
+    }
 }
 
 // Source JAR 组装（合并 common 源码）
@@ -175,4 +191,22 @@ sourceSets {
             exclude 'assets/saomenu/lang/*.json'
         }
     }
+}
+
+tasks.register('apiJavadoc', Javadoc) {
+    dependsOn classes, project(':common').tasks.named('classes')
+    source project(':common').fileTree('src/main/java') { include 'com/sao/saomenu/api/**/*.java' }
+    source sourceSets.main.allJava.matching { include 'com/sao/saomenu/api/**/*.java' }
+    classpath = sourceSets.main.compileClasspath + sourceSets.main.output
+    destinationDir = layout.buildDirectory.dir('docs/api').get().asFile
+    options.encoding = 'UTF-8'
+    options.charSet = 'UTF-8'
+    options.windowTitle = 'SAOMenu Client UI API'
+    javadocTool = javaToolchains.javadocToolFor { languageVersion = JavaLanguageVersion.of(17) }
+}
+
+tasks.register('apiJavadocJar', Jar) {
+    dependsOn tasks.named('apiJavadoc')
+    archiveClassifier = 'api-javadoc'
+    from tasks.named('apiJavadoc').map { it.destinationDir }
 }

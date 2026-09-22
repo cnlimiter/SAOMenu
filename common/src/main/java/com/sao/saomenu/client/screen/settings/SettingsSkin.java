@@ -1,15 +1,23 @@
 package com.sao.saomenu.client.screen.settings;
 
+import java.util.List;
 import java.util.Locale;
 
 import com.mojang.math.Axis;
+import com.sao.saomenu.api.settings.ActionSetting;
+import com.sao.saomenu.api.settings.ChoiceSetting;
+import com.sao.saomenu.api.settings.NativeSetting;
+import com.sao.saomenu.api.settings.Setting;
+import com.sao.saomenu.api.settings.SettingsGroup;
+import com.sao.saomenu.api.settings.SliderSetting;
+import com.sao.saomenu.api.settings.ToggleSetting;
 import com.sao.saomenu.config.SAOConfig;
 import com.sao.saomenu.ui.render.SaoDraw;
 import com.sao.saomenu.ui.theme.SaoTheme;
-import com.sao.saomenu.ui.theme.SaoThemeLibrary;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
 import static com.sao.saomenu.ui.animation.SaoMotion.clamp01;
@@ -24,6 +32,7 @@ final class SettingsSkin {
 
     private static final int MIN_PRESET_W = 44;
     private static final int MAX_PRESET_COLS = 4;
+    private static final Component SELECT_VALUE = Component.translatable("saomenu.settings.select_value");
 
     static final int KIRITO_BLUE = 0x4FA8E8;
     static final int KIRITO_BRIGHT = 0xA8DFFF;
@@ -35,7 +44,7 @@ final class SettingsSkin {
     static final int RGB_GRAY = 0xB9BEC6;
     static final int RGB_DARK_TEXT = 0x16171A;
 
-    private final float[] catHover = new float[SettingsPage.CATEGORIES.length];
+    private float[] catHover = new float[0];
     private float backHover;
     private int hoverRow = -1;
     private int dragRow = -1;
@@ -46,11 +55,25 @@ final class SettingsSkin {
     private Font font;
     private int w;
     private int h;
+    private List<SettingsGroup> groups = List.of();
+    private SettingsNavigator nav = new SettingsNavigator();
+    private SettingsGroup pageGroup;
 
-    void bind(Font font, int width, int height) {
+    void bind(Font font, int width, int height, List<SettingsGroup> groups, SettingsNavigator nav) {
         this.font = font;
         this.w = width;
         this.h = height;
+        this.groups = groups == null ? List.of() : groups;
+        this.nav = nav;
+        if (this.catHover.length != this.groups.size()) {
+            this.catHover = java.util.Arrays.copyOf(this.catHover, this.groups.size());
+        }
+        nav.sync(this.groups);
+        nav.setVisibleGroups(SettingsLayout.VISIBLE_CATS);
+        SettingsGroup current = nav.currentGroup();
+        int count = current == null ? 0 : current.options().size();
+        int avail = rowAvail();
+        nav.setVisibleOptions(Math.max(1, SettingsLayout.visibleRows(avail, Math.max(1, count))));
     }
 
     int dragRow() {
@@ -69,12 +92,12 @@ final class SettingsSkin {
         return lastPresetDebug;
     }
 
-    int uiAccent(SettingsPage p) {
-        return p == SettingsPage.ROOT ? KIRITO_BLUE : ASUNA_PINK;
+    int uiAccent(boolean root) {
+        return root ? KIRITO_BLUE : ASUNA_PINK;
     }
 
-    int uiDeep(SettingsPage p) {
-        return p == SettingsPage.ROOT ? KIRITO_DEEP : ASUNA_DEEP;
+    int uiDeep(boolean root) {
+        return root ? KIRITO_DEEP : ASUNA_DEEP;
     }
 
     int sideX() {
@@ -86,7 +109,7 @@ final class SettingsSkin {
     }
 
     int catH() {
-        return Mth.clamp((this.h - 120) / 4 - 8, 24, 44);
+        return Mth.clamp((this.h - 120) / SettingsLayout.VISIBLE_CATS - 8, 24, 44);
     }
 
     int catGap() {
@@ -94,43 +117,58 @@ final class SettingsSkin {
     }
 
     int catY0() {
-        return Math.max(56, (this.h - (catH() * 4 + catGap() * 3)) / 2 + 4);
+        int n = SettingsLayout.VISIBLE_CATS;
+        return Math.max(56, (this.h - (catH() * n + catGap() * (n - 1))) / 2 + 4);
     }
 
-    int catX(int i) {
-        return sideX() + i * 18 + Math.round(catHover[i] * 8f);
+    int catX(int visibleSlot) {
+        int group = nav.groupScroll() + visibleSlot;
+        float hover = group >= 0 && group < catHover.length ? catHover[group] : 0f;
+        return sideX() + visibleSlot * 18 + Math.round(hover * 8f);
     }
 
-    int catY(int i) {
-        return catY0() + i * (catH() + catGap());
+    int catY(int visibleSlot) {
+        return catY0() + visibleSlot * (catH() + catGap());
     }
 
-    boolean catHovered(int i, int mx, int my) {
-        int x = catX(i);
+    boolean catHovered(int visibleSlot, int mx, int my) {
+        int x = catX(visibleSlot);
         return mx >= x - 16 && mx <= x + catW() - 10
-                && my >= catY(i) - 2 && my < catY(i) + catH() + 2;
+                && my >= catY(visibleSlot) - 2 && my < catY(visibleSlot) + catH() + 2;
     }
 
     int hitCategory(int mx, int my) {
-        for (int i = 0; i < SettingsPage.CATEGORIES.length; i++) {
-            if (catHovered(i, mx, my)) {
-                return i;
+        int vis = visibleGroupSlots();
+        for (int slot = 0; slot < vis; slot++) {
+            if (catHovered(slot, mx, my)) {
+                int index = nav.groupScroll() + slot;
+                if (index >= 0 && index < groups.size()) {
+                    return index;
+                }
             }
         }
         return -1;
+    }
+
+    int visibleGroupSlots() {
+        return SettingsLayout.visibleSlots(groups.size(), nav.groupScroll(), nav.visibleGroups());
     }
 
     int rowsTop() {
         return Math.max(58, (int) (this.h * 0.20f));
     }
 
-    int rowH(SettingsPage page) {
-        int avail = this.h - rowsTop() - 46;
-        return Mth.clamp(avail / Math.max(1, SettingsCatalog.rowCount(page)), 16, 34);
+    int rowAvail() {
+        return SettingsLayout.optionViewport(rowsTop(), smallBtnY() - 6);
     }
 
-    int rowY(SettingsPage page, int i) {
-        return rowsTop() + i * rowH(page);
+    int rowH(SettingsGroup group) {
+        int n = group == null ? 1 : Math.max(1, group.options().size());
+        return SettingsLayout.rowH(rowAvail(), n);
+    }
+
+    int rowY(SettingsGroup group, int absoluteIndex) {
+        return rowsTop() + (absoluteIndex - nav.optionScroll()) * rowH(group);
     }
 
     int rowX0() {
@@ -141,9 +179,29 @@ final class SettingsSkin {
         return this.w - sideX();
     }
 
-    boolean rowHovered(SettingsPage page, int i, int mx, int my) {
-        int y = rowY(page, i);
-        return mx >= rowX0() && mx <= rowX1() && my >= y && my < y + rowH(page);
+    boolean rowVisible(SettingsGroup group, int absoluteIndex) {
+        if (group == null) {
+            return false;
+        }
+        return SettingsLayout.indexInViewport(
+                absoluteIndex, nav.optionScroll(), nav.visibleOptions(), group.options().size());
+    }
+
+    boolean rowHovered(SettingsGroup group, int i, int mx, int my) {
+        if (!rowVisible(group, i)) {
+            return false;
+        }
+        int y = rowY(group, i);
+        return mx >= rowX0() && mx <= rowX1() && my >= y && my < y + rowH(group);
+    }
+
+    int[] nativeRect(SettingsGroup group, int i) {
+        int y = rowY(group, i);
+        int rh = rowH(group);
+        int x0 = rowX0();
+        int x1 = rowX1();
+        int tx0 = x0 + (x1 - x0) * 55 / 100;
+        return new int[]{tx0, y + 3, Math.max(24, x1 - tx0 - 8), Math.max(10, rh - 6)};
     }
 
     int smallBtnW() {
@@ -179,25 +237,38 @@ final class SettingsSkin {
 
     void updateHovers(SettingsTimeline tl, float dt, int mouseX, int mouseY) {
         float k = Math.min(1f, dt * 12f);
-        for (int i = 0; i < SettingsPage.CATEGORIES.length; i++) {
-            boolean target = tl.page() == SettingsPage.ROOT && !tl.inTransition()
-                    && catHovered(i, mouseX, mouseY);
+        boolean root = tl.isRoot();
+        int vis = visibleGroupSlots();
+        for (int i = 0; i < catHover.length; i++) {
+            boolean target = false;
+            if (root && !tl.inTransition()) {
+                int slot = i - nav.groupScroll();
+                target = slot >= 0 && slot < vis && catHovered(slot, mouseX, mouseY);
+            }
             catHover[i] += ((target ? 1f : 0f) - catHover[i]) * k;
         }
-        boolean backTarget = tl.page() != SettingsPage.ROOT && !tl.inTransition()
-                && backHovered(mouseX, mouseY);
+        boolean backTarget = !root && !tl.inTransition() && backHovered(mouseX, mouseY);
         backHover += ((backTarget ? 1f : 0f) - backHover) * k;
 
         int newHover = -1;
-        if (tl.page() != SettingsPage.ROOT && !tl.inTransition()) {
-            for (int i = 0; i < SettingsCatalog.rowCount(tl.page()); i++) {
-                if (rowHovered(tl.page(), i, mouseX, mouseY)) {
+        SettingsGroup group = nav.currentGroup();
+        if (!root && !tl.inTransition() && group != null) {
+            for (int i = 0; i < group.options().size(); i++) {
+                if (rowHovered(group, i, mouseX, mouseY)) {
                     newHover = i;
                     break;
                 }
             }
         }
         hoverRow = newHover;
+        if (newHover >= 0) {
+            nav.focusOption(newHover);
+        } else if (root && !tl.inTransition()) {
+            int cat = hitCategory(mouseX, mouseY);
+            if (cat >= 0) {
+                nav.focusGroup(cat);
+            }
+        }
 
         int bw = smallBtnW();
         int by = smallBtnY();
@@ -213,24 +284,25 @@ final class SettingsSkin {
         fillSlab(g, a1, this.h * 0.16f, this.w * 0.5f, 2f, -18f, 0x30FFFFFF);
         fillSlab(g, a2, this.h * 0.88f, this.w * 0.5f, 2f, -18f, 0x2699CCDD);
         fillSlab(g, this.w * 0.86f, this.h * 0.5f, 3f, this.h * 1.6f, -18f,
-                withAlpha(uiAccent(tl.page()), 46));
+                withAlpha(uiAccent(tl.isRoot()), 46));
     }
 
     void renderScrim(GuiGraphics g) {
         g.fillGradient(0, 0, this.w, this.h, 0x1E000000, 0x61000000);
     }
 
-    void renderPage(GuiGraphics g, SettingsTimeline tl, SettingsPage p, int mx, int my,
-                    long now, boolean inTransition, long trT) {
+    void renderPage(GuiGraphics g, SettingsTimeline tl, boolean pageRoot, SettingsGroup pageGroup,
+                    int mx, int my, long now, boolean inTransition, long trT) {
+        this.pageGroup = pageGroup;
         float exitP = inTransition && trT < SettingsTimeline.TR_SWAP_MS
                 ? Mth.clamp(trT / (float) SettingsTimeline.TR_SWAP_MS, 0f, 1f) : 0f;
         boolean exiting = exitP > 0f;
-        if (p == SettingsPage.ROOT) {
+        if (pageRoot) {
             renderRootPage(g, tl, mx, my, now, exiting, exitP);
         } else {
-            renderRowsPage(g, tl, p, mx, my, now, exiting, exitP);
+            renderRowsPage(g, tl, pageGroup, mx, my, now, exiting, exitP);
         }
-        renderBottomBar(g, tl, p, now, exiting, exitP);
+        renderBottomBar(g, tl, pageRoot, now, exiting, exitP);
     }
 
     void renderWipe(GuiGraphics g, SettingsTimeline tl, long trT) {
@@ -261,47 +333,57 @@ final class SettingsSkin {
         drawScaled(g, tr("saomenu.settings.subtitle"), sideX() + 32 + titleOff,
                 titleY + 20, 0.8f, withAlpha(RGB_GRAY, alpha(titleIn, 0.88f)), false);
 
-        for (int i = 0; i < SettingsPage.CATEGORIES.length; i++) {
+        int vis = visibleGroupSlots();
+        for (int slot = 0; slot < vis; slot++) {
+            int i = nav.groupScroll() + slot;
             float off;
             float alphaF;
             if (exiting) {
                 boolean lead = tl.transitionForward() && i == tl.clickedCat();
-                float local = clamp01((exitP * SettingsTimeline.TR_SWAP_MS - (lead ? 0f : 40f + i * 30f)) / 230f);
+                float local = clamp01((exitP * SettingsTimeline.TR_SWAP_MS - (lead ? 0f : 40f + slot * 30f)) / 230f);
                 off = (lead ? -1f : 1f) * easeInCubic(local) * this.w * 0.75f;
                 alphaF = 1f - easeInCubic(local);
             } else {
-                float enterT = clamp01((enter - 140f - i * SettingsTimeline.ENTER_STAGGER_MS) / 380f);
+                float enterT = clamp01((enter - 140f - slot * SettingsTimeline.ENTER_STAGGER_MS) / 380f);
                 off = (1f - easeOutBack(enterT)) * -220f;
                 alphaF = clamp01(enterT * 1.8f);
             }
-            renderCategory(g, tl, i, off, alphaF, mx, my);
+            renderCategory(g, tl, slot, i, off, alphaF);
         }
 
         int hi = -1;
-        for (int i = 0; i < SettingsPage.CATEGORIES.length; i++) {
+        for (int i = 0; i < catHover.length; i++) {
             if (catHover[i] > 0.35f) {
                 hi = i;
             }
+        }
+        if (hi < 0 && !exiting && nav.groupIndex() >= 0) {
+            hi = nav.groupIndex();
         }
         if (hi >= 0 && !exiting) {
             String num = String.format(Locale.ROOT, "0%d", hi + 1);
             float gs = this.h / 26f;
             drawScaledRot(g, num, this.w * 0.70f, this.h * 0.26f, gs, -10f,
-                    withAlpha(KIRITO_BLUE, Math.round(catHover[hi] * 52)), false);
+                    withAlpha(KIRITO_BLUE, Math.round(Math.max(catHover.length > hi ? catHover[hi] : 0f, 0.35f) * 52)),
+                    false);
         }
     }
 
-    private void renderCategory(GuiGraphics g, SettingsTimeline tl, int i, float xOff, float alphaF,
-                                int mx, int my) {
-        if (alphaF <= 0.02f) {
+    private void renderCategory(GuiGraphics g, SettingsTimeline tl, int slot, int groupIndex,
+                                float xOff, float alphaF) {
+        if (alphaF <= 0.02f || groupIndex < 0 || groupIndex >= groups.size()) {
             return;
         }
+        SettingsGroup group = groups.get(groupIndex);
         int a = alpha(alphaF, 1f);
         int width = catW();
         int height = catH();
-        int x = catX(i) + Math.round(xOff);
-        int y = catY(i);
-        float hv = catHover[i];
+        int x = catX(slot) + Math.round(xOff);
+        int y = catY(slot);
+        float hv = catHover.length > groupIndex ? catHover[groupIndex] : 0f;
+        if (hv < 0.15f && nav.isRoot() && nav.groupIndex() == groupIndex && !tl.inTransition()) {
+            hv = Math.max(hv, 0.4f);
+        }
         boolean hovered = hv > 0.5f && !tl.inTransition() && alphaF > 0.9f;
 
         if (hv > 0.02f) {
@@ -322,49 +404,59 @@ final class SettingsSkin {
         pose.pushPose();
         pose.translate(x + 14, y, 0);
         pose.mulPose(Axis.ZP.rotationDegrees(-2f));
-        drawScaled(g, String.format(Locale.ROOT, "0%d", i + 1), 0, 2, 0.7f,
+        drawScaled(g, String.format(Locale.ROOT, "0%d", groupIndex + 1), 0, 2, 0.7f,
                 withAlpha(hovered ? KIRITO_BRIGHT : RGB_GRAY, Math.round(a * 0.85f)), false);
-        drawScaled(g, tr(SettingsPage.CATEGORIES[i].titleKey()), 0, height * 0.5f - 6, Math.min(1.6f, height / 20f),
-                withAlpha(hovered ? KIRITO_BRIGHT : RGB_WHITE, a), false);
-        drawScaled(g, tr(SettingsPage.CATEGORIES[i].subKey()), 1, height - 10, 0.62f,
-                withAlpha(RGB_GRAY, Math.round(a * 0.8f)), false);
+        float labelScale = Math.min(1.6f, height / 20f);
+        drawFitted(g, group.label(), 0, height * 0.5f - 6, labelScale, width - 28,
+                withAlpha(hovered ? KIRITO_BRIGHT : RGB_WHITE, a));
+        drawFitted(g, group.description(), 1, height - 10, 0.62f, width - 28,
+                withAlpha(RGB_GRAY, Math.round(a * 0.8f)));
         pose.popPose();
     }
 
-    private void renderRowsPage(GuiGraphics g, SettingsTimeline tl, SettingsPage p, int mx, int my,
+    private void renderRowsPage(GuiGraphics g, SettingsTimeline tl, SettingsGroup group, int mx, int my,
                                 long now, boolean exiting, float exitP) {
         long enter = now - tl.pageStartMs();
         int accent = ASUNA_PINK;
+        Component title = group == null ? Component.empty() : group.label();
+        Component sub = group == null ? Component.empty() : group.description();
 
         float headIn = exiting ? 1f : easeOutCubic(clamp01(enter / 300f));
         float headOff = exiting ? easeInCubic(exitP) * this.w * 0.55f : (1f - headIn) * 200f;
         renderBackButton(g, tl, headOff, alpha(headIn, 1f), mx, my);
         int titleX = sideX() + 76;
-        drawScaled(g, tr(p.titleKey()), titleX + headOff, rowsTop() - 32, 1.45f,
-                withAlpha(RGB_WHITE, alpha(headIn, 1f)), false);
+        drawFitted(g, title, titleX + headOff, rowsTop() - 32, 1.45f, w - titleX - 16,
+                withAlpha(RGB_WHITE, alpha(headIn, 1f)));
         fillSlab(g, titleX - 8 + headOff, rowsTop() - 22, 3.4f, 21f, -6f,
                 withAlpha(accent, alpha(headIn, 1f)));
-        drawScaled(g, tr(p.subKey()), titleX + 2 + headOff, rowsTop() - 14, 0.62f,
-                withAlpha(RGB_GRAY, Math.round(headIn * 220)), false);
+        drawFitted(g, sub, titleX + 2 + headOff, rowsTop() - 14, 0.62f, w - titleX - 18,
+                withAlpha(RGB_GRAY, Math.round(headIn * 220)));
 
-        int n = SettingsCatalog.rowCount(p);
-        for (int i = 0; i < n; i++) {
+        if (group == null) {
+            return;
+        }
+        int n = group.options().size();
+        int start = nav.optionScroll();
+        int vis = SettingsLayout.visibleSlots(n, start, nav.visibleOptions());
+        int end = start + vis;
+        for (int i = start; i < end; i++) {
+            int visIndex = i - start;
             float local;
             if (exiting) {
-                local = clamp01((exitP * SettingsTimeline.TR_SWAP_MS - i * 22f) / 200f);
+                local = clamp01((exitP * SettingsTimeline.TR_SWAP_MS - visIndex * 22f) / 200f);
             } else {
-                local = clamp01((enter - 60f - i * SettingsTimeline.ENTER_STAGGER_MS) / 360f);
+                local = clamp01((enter - 60f - visIndex * SettingsTimeline.ENTER_STAGGER_MS) / 360f);
             }
             float off = exiting
                     ? easeInCubic(local) * this.w * 0.7f
                     : (1f - easeOutBack(local)) * 190f;
             float alphaF = exiting ? 1f - easeInCubic(local) : clamp01(local * 2.2f);
-            renderRow(g, tl, p, i, off, alphaF, mx, my);
+            renderRow(g, tl, group, i, off, alphaF);
         }
     }
 
-    private void renderRow(GuiGraphics g, SettingsTimeline tl, SettingsPage p, int i, float off,
-                           float alphaF, int mx, int my) {
+    private void renderRow(GuiGraphics g, SettingsTimeline tl, SettingsGroup group, int i, float off,
+                           float alphaF) {
         if (alphaF <= 0.02f) {
             return;
         }
@@ -372,37 +464,40 @@ final class SettingsSkin {
         int accent = ASUNA_PINK;
         int x0 = rowX0() + Math.round(off);
         int x1 = rowX1() + Math.round(off);
-        int y = rowY(p, i);
-        int rh = rowH(p);
-        boolean hovered = this.hoverRow == i && !tl.inTransition() && alphaF > 0.95f;
-        OptionSpec spec = SettingsCatalog.spec(p, i);
+        int y = rowY(group, i);
+        int rh = rowH(group);
+        boolean hovered = (this.hoverRow == i || (!tl.inTransition() && nav.optionIndex() == i))
+                && !tl.inTransition() && alphaF > 0.95f;
+        Setting spec = SettingsCatalog.setting(group, i);
 
         g.fill(x0 + 10, y + 1, x1, y + rh - 1,
                 withAlpha(ASUNA_DEEP, Math.round(a * (hovered ? 0.72f : 0.34f))));
         fillSlab(g, x0 + 7f, y + rh / 2f, 4, rh - 6f, -8f,
                 withAlpha(hovered ? ASUNA_BRIGHT : accent, Math.round(a * (hovered ? 1f : 0.72f))));
-        SaoDraw.drawInRow(g, this.font, rowLabel(spec), x0 + 18, y, rh,
+        SaoDraw.drawInRow(g, this.font, spec == null ? Component.empty() : spec.label(), x0 + 18, y, rh,
                 Math.max(8, (x1 - x0) * 0.48f),
                 withAlpha(RGB_WHITE, Math.round(a * (hovered ? 1f : 0.92f))), false);
 
-        if (spec != null && spec.isSlider()) {
-            renderSliderControl(g, spec, i, x0, x1, y, rh, a);
-        } else if (spec != null && spec.kind() == OptionSpec.Kind.PRESET) {
-            renderPresets(g, y, rh, a);
+        if (spec instanceof SliderSetting slider) {
+            renderSliderControl(g, slider, i, x0, x1, y, rh, a);
+        } else if (spec instanceof ChoiceSetting choice) {
+            renderChoiceControl(g, choice, y, rh, a);
+        } else if (spec instanceof ActionSetting action) {
+            renderActionControl(g, action, x1, y, rh, a);
+        } else if (spec instanceof NativeSetting) {
+            renderNativeFrame(g, x0, x1, y, rh, a);
         } else {
-            renderToggleControl(g, spec, x1, y, rh, a);
+            renderToggleControl(g, spec instanceof ToggleSetting toggle ? toggle : null, x1, y, rh, a);
         }
     }
 
-    private void renderSliderControl(GuiGraphics g, OptionSpec spec, int i, int x0, int x1,
+    private void renderSliderControl(GuiGraphics g, SliderSetting spec, int i, int x0, int x1,
                                      int y, int rh, int a) {
         int accent = ASUNA_PINK;
         int tx0 = x0 + (x1 - x0) * 55 / 100;
         int tx1 = x1 - 58;
-        float v = spec.get() == null ? 0f : spec.get().get();
-        float lo = spec.min();
-        float hi = spec.max();
-        float frac = Mth.clamp((v - lo) / (hi - lo), 0f, 1f);
+        float v = spec.value();
+        float frac = spec.fraction();
 
         int trackH = Math.max(4, rh / 5);
         int trackY = y + (rh - trackH) / 2 + 1;
@@ -418,12 +513,12 @@ final class SettingsSkin {
         fillSlab(g, kx, ky, d, d, 45f, withAlpha(dragging ? ASUNA_BRIGHT : accent, a));
         fillSlab(g, kx, ky, d * 0.45f, d * 0.45f, 45f, withAlpha(dragging ? accent : RGB_DARK_TEXT, a));
 
-        SaoDraw.drawInRow(g, this.font, spec.format(v), tx1 + 6, y, rh,
+        SaoDraw.drawInRow(g, this.font, spec.formatValue(), tx1 + 6, y, rh,
                 Math.max(8, x1 - tx1 - 8), withAlpha(RGB_GRAY, a), false);
     }
 
-    private void renderToggleControl(GuiGraphics g, OptionSpec spec, int x1, int y, int rh, int a) {
-        boolean on = spec != null && spec.boolGet() != null && spec.boolGet().get();
+    private void renderToggleControl(GuiGraphics g, ToggleSetting spec, int x1, int y, int rh, int a) {
+        boolean on = spec != null && spec.value();
         int accent = ASUNA_PINK;
         String s = tr(on ? "saomenu.config.on" : "saomenu.config.off");
         float fs = SaoDraw.fitScale(this.font, rh);
@@ -433,6 +528,27 @@ final class SettingsSkin {
                 on ? withAlpha(accent, a) : withAlpha(RGB_GRAY, a), false);
         fillSlab(g, x1 - 20 - tw, y + rh / 2f - 1f, 7, 7, 45f,
                 withAlpha(on ? accent : 0x55565A, a));
+    }
+
+    private void renderActionControl(GuiGraphics g, ActionSetting spec, int x1, int y, int rh, int a) {
+        float fs = SaoDraw.fitScale(this.font, rh);
+        var s = SaoDraw.clipTo(this.font, spec.actionLabel(),
+                Math.max(0, Math.round(((rowX1() - rowX0()) * 0.42f - 16) / fs)));
+        float tw = this.font.width(s) * fs;
+        int bw = Math.round(tw + 16);
+        int bh = Math.max(12, rh - 8);
+        float cx = x1 - 10 - bw / 2f;
+        float cy = y + rh / 2f;
+        fillSlab(g, cx, cy, bw, bh, -4f, withAlpha(ASUNA_PINK, Math.round(a * 0.9f)));
+        SaoDraw.drawScaled(g, this.font, s, x1 - 10 - tw - 6,
+                y + (rh - this.font.lineHeight * fs) / 2f, fs,
+                withAlpha(RGB_DARK_TEXT, a), false);
+    }
+
+    private void renderNativeFrame(GuiGraphics g, int x0, int x1, int y, int rh, int a) {
+        int tx0 = x0 + (x1 - x0) * 55 / 100;
+        g.fill(tx0, y + 3, x1 - 8, y + rh - 3, withAlpha(ASUNA_DEEP, Math.round(a * 0.55f)));
+        g.fill(tx0, y + 3, tx0 + 2, y + rh - 3, withAlpha(ASUNA_PINK, a));
     }
 
     private int presetCols() {
@@ -454,31 +570,54 @@ final class SettingsSkin {
         return new int[]{x, y + row * (bh + 6), bw, bh};
     }
 
-    private void renderPresets(GuiGraphics g, int y, int rh, int a) {
-        var presets = SaoTheme.presets();
-        String selId = SaoTheme.matchingPreset(SAOConfig.accentHue());
+    private void renderChoiceControl(GuiGraphics g, ChoiceSetting spec, int y, int rh, int a) {
+        List<ChoiceSetting.Option> options = spec.options();
+        ResourceLocation selId = spec.value();
         StringBuilder swatches = new StringBuilder();
-        for (int t = 0; t < presets.size(); t++) {
-            var preset = presets.get(t);
+        int cols = presetCols();
+        if (options.size() > cols) {
+            int selected = -1;
+            for (int i = 0; i < options.size(); i++) {
+                if (options.get(i).id().equals(selId)) {
+                    selected = i;
+                    break;
+                }
+            }
+            int left = choiceControlLeft();
+            int right = rowX1() - 8;
+            g.fill(left, y + 2, right, y + rh - 2, withAlpha(ASUNA_PINK, a));
+            Component caption = selected >= 0 ? options.get(selected).label() : SELECT_VALUE;
+            SaoDraw.drawInRow(g, font, caption, left + 5, y, rh,
+                    right - left - 24, withAlpha(RGB_DARK_TEXT, a), false);
+            SaoDraw.drawInRow(g, font, "›", right - 15, y, rh, 12,
+                    withAlpha(RGB_DARK_TEXT, a), false);
+            lastPresetDebug = "hue=" + Math.round(SAOConfig.accentHue()) + " cycle=" + debugId(selId);
+            return;
+        }
+        int shown = options.size();
+        for (int t = 0; t < shown; t++) {
+            ChoiceSetting.Option option = options.get(t);
             int[] r = presetRect(t, y, rh);
             int bx = r[0];
             int by = r[1];
             int bw = r[2];
             int bh = r[3];
-            boolean sel = preset.id().equals(selId);
-            swatches.append(preset.id()).append(sel ? "*" : "")
+            if (by + bh > y + rh) {
+                break;
+            }
+            boolean sel = selId != null && option.id().equals(selId);
+            swatches.append(debugId(option.id())).append(sel ? "*" : "")
                     .append('@').append(bx).append(',').append(by).append(' ');
+            int fill = sel ? RGB_WHITE
+                    : option.hasSwatch() ? SaoTheme.hsvToRgb(option.swatchHue(), 1f, 1f) : ASUNA_PINK;
             fillSlab(g, bx + bw / 2f, by + bh / 2f, bw, bh, -4f,
-                    withAlpha(sel ? RGB_WHITE
-                                    : SaoTheme.hsvToRgb(preset.defaultHue(), 1f, 1f),
-                            Math.round(a * (sel ? 1f : 0.85f))));
+                    withAlpha(fill, Math.round(a * (sel ? 1f : 0.85f))));
             var pose = g.pose();
             pose.pushPose();
             pose.translate(bx, by, 0);
             pose.mulPose(Axis.ZP.rotationDegrees(-4f));
-            drawScaled(g, SaoThemeLibrary.label(preset.id()),
-                    3, (bh - this.font.lineHeight * 0.85f) / 2f, 0.85f,
-                    sel ? RGB_DARK_TEXT : RGB_WHITE, false);
+            drawFitted(g, option.label(), 3, (bh - this.font.lineHeight * 0.85f) / 2f,
+                    0.85f, bw - 6, sel ? RGB_DARK_TEXT : RGB_WHITE);
             pose.popPose();
         }
         lastPresetDebug = "hue=" + Math.round(SAOConfig.accentHue()) + " cols=" + presetCols()
@@ -503,7 +642,7 @@ final class SettingsSkin {
         pose.popPose();
     }
 
-    private void renderBottomBar(GuiGraphics g, SettingsTimeline tl, SettingsPage p, long now,
+    private void renderBottomBar(GuiGraphics g, SettingsTimeline tl, boolean root, long now,
                                  boolean exiting, float exitP) {
         long enter = now - tl.pageStartMs();
         float in = exiting
@@ -513,8 +652,8 @@ final class SettingsSkin {
             return;
         }
         int a = alpha(in, 1f);
-        int accent = uiAccent(p);
-        int deep = uiDeep(p);
+        int accent = uiAccent(root);
+        int deep = uiDeep(root);
         int bw = smallBtnW();
         int by = smallBtnY();
         int bh = smallBtnH();
@@ -538,48 +677,71 @@ final class SettingsSkin {
         pose.popPose();
     }
 
-    boolean applyPresetClick(SettingsPage page, int mx, int my) {
-        int row = SettingsCatalog.indexOf(page, OptionSpec.Kind.PRESET);
-        if (row < 0) {
+    private int choiceControlLeft() {
+        return rowX0() + (rowX1() - rowX0()) * 55 / 100;
+    }
+
+    boolean applyChoiceClick(SettingsGroup group, int mx, int my) {
+        if (group == null) {
             return false;
         }
-        var presets = SaoTheme.presets();
-        int y = rowY(page, row);
-        int rh = rowH(page);
-        for (int t = 0; t < presets.size(); t++) {
-            int[] r = presetRect(t, y, rh);
-            if (mx >= r[0] - 4 && mx <= r[0] + r[2] + 4
-                    && my >= r[1] - 2 && my <= r[1] + r[3] + 2) {
-                SaoTheme.select(presets.get(t).id());
-                return true;
+        List<Setting> options = group.options();
+        for (int i = 0; i < options.size(); i++) {
+            if (!(options.get(i) instanceof ChoiceSetting choice) || !rowVisible(group, i)) {
+                continue;
+            }
+            int y = rowY(group, i);
+            int rh = rowH(group);
+            List<ChoiceSetting.Option> choices = choice.options();
+            if (choices.size() > presetCols()) {
+                if (mx >= choiceControlLeft() && mx < rowX1() - 8 && my >= y + 2 && my < y + rh - 2) {
+                    choice.cycle(1);
+                    return true;
+                }
+                continue;
+            }
+            for (int t = 0; t < choices.size(); t++) {
+                int[] r = presetRect(t, y, rh);
+                if (r[1] + r[3] > y + rh) {
+                    break;
+                }
+                if (mx >= r[0] - 4 && mx <= r[0] + r[2] + 4
+                        && my >= r[1] - 2 && my <= r[1] + r[3] + 2) {
+                    choice.set(choices.get(t).id());
+                    return true;
+                }
             }
         }
         return false;
     }
 
-    boolean applySliderAt(SettingsPage page, int rowIdx, int mx) {
-        OptionSpec s = SettingsCatalog.spec(page, rowIdx);
-        if (s == null || s.set() == null) {
+    boolean applySliderAt(SettingsGroup group, int rowIdx, int mx) {
+        Setting s = SettingsCatalog.setting(group, rowIdx);
+        if (!(s instanceof SliderSetting slider)) {
             return false;
         }
         int x0 = rowX0() + (rowX1() - rowX0()) * 55 / 100;
         int x1 = rowX1() - 58;
         float frac = Mth.clamp((mx - x0) / (float) (x1 - x0), 0f, 1f);
-        s.set().set(s.min() + frac * (s.max() - s.min()));
+        slider.setFraction(frac);
         return true;
     }
 
-    boolean flipToggle(SettingsPage page, int rowIdx) {
-        OptionSpec s = SettingsCatalog.spec(page, rowIdx);
-        if (s == null || s.boolFlip() == null) {
-            return false;
+    boolean activateRow(SettingsGroup group, int rowIdx) {
+        Setting s = SettingsCatalog.setting(group, rowIdx);
+        if (s instanceof ToggleSetting toggle) {
+            toggle.toggle();
+            return true;
         }
-        s.boolFlip().flip();
-        return true;
-    }
-
-    private static String rowLabel(OptionSpec s) {
-        return tr(s == null ? "" : s.labelKey());
+        if (s instanceof ActionSetting action) {
+            action.run();
+            return true;
+        }
+        if (s instanceof ChoiceSetting choice) {
+            choice.cycle(1);
+            return true;
+        }
+        return false;
     }
 
     static float easeOutBack(float t) {
@@ -610,6 +772,12 @@ final class SettingsSkin {
         pose.popPose();
     }
 
+    private void drawFitted(GuiGraphics g, Component text, float x, float y, float scale,
+                            float maxWidth, int argb) {
+        SaoDraw.drawScaled(g, font, SaoDraw.clipTo(font, text, Math.max(0, Math.round(maxWidth / scale))),
+                x, y, scale, argb, false);
+    }
+
     private void drawScaledRot(GuiGraphics g, String text, float x, float y, float scale,
                                float rotDeg, int argb, boolean shadow) {
         var pose = g.pose();
@@ -631,5 +799,13 @@ final class SettingsSkin {
 
     private static String tr(String key) {
         return Component.translatable(key).getString();
+    }
+
+
+    static String debugId(ResourceLocation id) {
+        if (id == null) {
+            return "n/a";
+        }
+        return "saomenu".equals(id.getNamespace()) ? id.getPath() : id.toString();
     }
 }

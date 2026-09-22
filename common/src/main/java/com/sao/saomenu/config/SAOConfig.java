@@ -403,7 +403,7 @@ public final class SAOConfig {
     }
 
     public static void setThemeId(String v) {
-        data.themeId = v == null || v.isBlank() ? SaoTheme.SAO : v;
+        data.themeId = SaoTheme.canonicalizeId(v);
     }
 
     /** 置顶物品注册名列表(只读快照)。 */

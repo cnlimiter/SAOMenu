@@ -62,6 +62,7 @@ python -m unittest discover -s tools/verification -p test_*.py -v
 
 | 包 | 职责 |
 | --- | --- |
+| `api` | 附属模组使用的客户端 UI 契约；加载器事件在 Forge 模块的 `api.forge` |
 | `client/menu` | 菜单布局、面板、条目、会话上下文和菜单屏幕 |
 | `client/runtime` | 客户端初始化、世界切换与断开连接时的会话清理 |
 | `client/screen` | 独立页面；`settings` 保存设置页面及选项描述 |
@@ -76,13 +77,27 @@ python -m unittest discover -s tools/verification -p test_*.py -v
 | `skill` | 客户端与服务端共用的技能标识、冷却和物品判定；不依赖客户端类 |
 | `ui/render`、`ui/text`、`ui/animation`、`ui/theme` | 共用绘制、文字、动画、主题工具 |
 
-`forge` 保存加载器入口、注册、客户端事件适配与按职责分类的 Mixin。公共平台桥只提供声音和粒子；进度读取使用独立的 `client.runtime.SAOClientPlatform` 桥。两组实现都保持 Architectury 平台桥命名约定。测试目录跟随被测类的包。
+`forge` 保存加载器入口、注册、客户端事件适配与按职责分类的 Mixin。公共平台桥只提供声音和粒子；进度读取、UI 注册事件与原生弹层使用独立的 `client.runtime.SAOClientPlatform` 桥。两组实现都保持 Architectury 平台桥命名约定。测试目录跟随被测类的包。
 
 `common/src/dev/java/com/sao/saomenu/dev/preview` 保存开发预览与历史交互夹具，不作为开发者 API。
 
 `SAOMenuScreen` 仅作屏幕适配，菜单状态、输入、列、卡片和对话框分别持有职责；设置页的数据表与动画皮肤分离，HUD 组合与拖动会话分离，目标血条的追踪、几何和绘制分离。配置门面、数据及磁盘存储分开。世界切换清理投影、地图和实体视觉缓存；断线再清理队伍、技能、欢迎动画、自由视角和按键状态。
 
 这些内部类尚未自动成为稳定公共 API。服务端包不再通过客户端技能注册表判定冷却，S2C 消息通过客户端启动时安装的接收器派发；仍须分别验收独立服务端与联机行为。
+
+## 附属模组开发
+
+公共接入面是 `com.sao.saomenu.api`，不是上面的内部实现包。订阅客户端 Forge 总线的 `SaoUiRegisterEvent`，同步提交菜单、HUD、设置、主题、世界绘制与会话贡献；返回后注册表冻结。ID 使用自有命名空间的 `ResourceLocation`，文案使用 `Component`。
+
+- [快速开始与独立示例构建](docs/quickstart.md)
+- [注册、坐标、生命周期与 API 文档](docs/api.md)
+- [主题文件、字体与资源](docs/themes.md)
+- [旧接入方式迁移](docs/migration.md)
+- [支持与验收边界](docs/support-matrix.md)
+
+`examples/framework-addon` 是独立 Gradle 项目，只依赖产出的 Forge JAR，不加入主工程 source set；示例代码不进入 SAOMenu 发行包。原版界面全面适配和独立联机验收仍按支持矩阵分域推进。
+
+公开 API 阶段已通过 218 项普通测试，以及独立附属 JAR 的隔离客户端交互验收：13 面板/40 行重排保持选择、13 设置分类、原生输入/滚动/焦点、弹层、缩放重开与 HUD 保存。具体证据、未覆盖的输入法/跨世界/联机边界见支持矩阵。API Javadoc 可用 `gradlew :forge:apiJavadocJar` 生成。
 
 ## 资源工具
 
