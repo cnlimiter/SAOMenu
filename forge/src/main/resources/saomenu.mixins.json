@@ -14,7 +14,11 @@
     "render.LivingDeathRenderMixin",
     "input.KeyboardInputMixin",
     "input.CameraMixin",
-    "input.MouseHandlerMixin"
+    "input.MouseHandlerMixin",
+    "screen.container.StaticReskinScreensMixin",
+    "screen.container.AbstractFurnaceScreenMixin",
+    "screen.container.DecorateContainerScreensMixin",
+    "screen.container.ContainerLabelsMixin"
   ],
   "server": [],
   "injectors": {

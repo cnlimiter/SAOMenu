@@ -106,6 +106,7 @@ python -m unittest discover -s tools/verification -p test_*.py -v
 - `config/saomenu.json` 的 `frameworkEnabled` 保存用户开关；外观复位不重新开启框架。
 - 紧急启动参数 **`-Dsaomenu.safeMode=true`** 强制保留原版 UI，不覆盖用户配置，也不能从界面/API 重新开启。Gradle 开发运行使用 `-Psaomenu.safeMode=true`。
 - 字体位于自有 `saomenu:body`，不覆盖 Minecraft 的全局默认字体。未知原版子类/模组屏幕默认不接管。
+- 背包、储物容器、合成台和熔炉族通过精确原生类换肤；创造背包与复杂工作站保留内部功能绘制并装饰边框。槽位、菜单、输入与服务器协议仍由原版控制；熔炼箭头只更换透明材质，进度宽度不变。
 
 恢复验证独立于各域换肤验收；运行方式和当前证据见 [快速开始](docs/quickstart.md) 与 [支持矩阵](docs/support-matrix.md)。
 

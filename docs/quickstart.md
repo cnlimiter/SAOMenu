@@ -50,6 +50,14 @@ gradlew :forge:runClient -Psaomenu.preview=D:/saomenu-verify/recovery-safe -Psao
 
 此场景创建带时间戳的新世界，不删除既有存档。日志须出现 `native recovery checks passed`；安全模式应报告 HUD/世界贡献调用数均为零。它验证恢复开关、原生屏幕/持物连续性、真实服务器物品转移、原生统计与进度入口，不把这些结果冒充容器和前端换肤已经生效。
 
+容器/工作站原生场景：
+
+```text
+gradlew :forge:runClient -Psaomenu.preview=D:/saomenu-verify/containers -Psaomenu.preview.containers=true -Psaomenu.runDir=D:/saomenu-verify/containers-client --console=plain
+```
+
+此场景创建带时间戳的平坦世界和真实方块实体/村民，等待原版熔炼、酿造完成并检查服务器结果。日志出现 `awaiting native Shift-click` 时，聚焦该隔离客户端，按住 Shift 点击箱子左上角的八个苹果；不要普通点击取到光标。最后须出现 `containers native checks passed`。修饰键读取 GLFW 状态，直接调用 `KeyboardHandler` 不能代替这个操作系统输入步骤。截图与配置仅写入上述隔离目录。
+
 ## 接入约定
 
 1. 把客户端事件订阅器放在独立客户端类中，用 `Dist.CLIENT` 限制发现。

@@ -5,6 +5,7 @@ import com.sao.saomenu.dev.preview.SAOMenuPreview;
 import com.sao.saomenu.api.forge.SaoUiRegisterEvent;
 import com.sao.saomenu.dev.preview.FrameworkApiFixtures;
 import com.sao.saomenu.dev.preview.FrameworkRecoveryPreview;
+import com.sao.saomenu.dev.preview.ContainerNativePreview;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -20,6 +21,7 @@ public final class SAOMenuPreviewBootstrap {
     public static void onClientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
             if (FrameworkRecoveryPreview.requested()) FrameworkRecoveryPreview.register();
+            else if (ContainerNativePreview.requested()) ContainerNativePreview.register();
             else SAOMenuPreview.registerIfRequested();
         });
     }
