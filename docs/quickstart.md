@@ -58,6 +58,20 @@ gradlew :forge:runClient -Psaomenu.preview=D:/saomenu-verify/containers -Psaomen
 
 此场景创建带时间戳的平坦世界和真实方块实体/村民，等待原版熔炼、酿造完成并检查服务器结果。日志出现 `awaiting native Shift-click` 时，聚焦该隔离客户端，按住 Shift 点击箱子左上角的八个苹果；不要普通点击取到光标。最后须出现 `containers native checks passed`。修饰键读取 GLFW 状态，直接调用 `KeyboardHandler` 不能代替这个操作系统输入步骤。截图与配置仅写入上述隔离目录。
 
+## 原生文字、前端与转场
+
+使用新的隔离运行目录，不复制个人配置或已关闭联机警告的配置：
+
+```text
+gradlew :forge:runClient -Psaomenu.preview=D:/saomenu-verify/frontend-next -Psaomenu.preview.frontend=true -Psaomenu.runDir=D:/saomenu-verify/frontend-next-client --console=plain
+```
+
+遇到原生联机警告时，脚本停止推进，必须由操作者本次确认；不会点击确认或修改“不再显示”。若运行目录已经关闭该警告，完整场景在进入联机前拒绝继续，应改用新目录。连接测试使用仅绑定 `127.0.0.1` 的 TCP 夹具，分别验证原生取消关闭连接，以及对端关闭后出现断开页；这不证明 Minecraft 登录或多人协议。
+
+`-Psaomenu.preview.frontend=world` 只运行集成世界的文字/暂停/睡眠/死亡/存档重开场景，不进入联机入口。日志明确区分 `frontend native world checks passed` 与 `frontend native full checks passed`。
+
+截图和断言覆盖服务端书籍编辑、讲台翻页、告示牌两面及悬挂告示牌保存、完整暂停菜单和 F8 恢复、真实资源重载、睡眠退出保留聊天草稿、死亡重生以及保存后重开。进度页的 `frontend_progress_contract_*` 使用真实 `ProgressScreen` 回调验证百分比与关闭语义，**不是磁盘保存进度证据**。Forge 启动期覆层、真实账户/Realms、书籍署名和操作系统输入法组合不在本轮证据范围。
+
 ## 接入约定
 
 1. 把客户端事件订阅器放在独立客户端类中，用 `Dist.CLIENT` 限制发现。

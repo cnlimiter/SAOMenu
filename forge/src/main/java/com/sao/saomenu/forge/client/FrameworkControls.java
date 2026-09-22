@@ -5,6 +5,7 @@ import com.sao.saomenu.api.SaoUi;
 import com.sao.saomenu.api.widget.SaoButton;
 import net.minecraft.client.Minecraft;
 import com.sao.saomenu.client.input.SAOKeybinds;
+import com.sao.saomenu.mixin.accessor.PauseScreenAccessor;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.PauseScreen;
@@ -33,6 +34,9 @@ public final class FrameworkControls {
     public static void onScreenInit(ScreenEvent.Init.Post event) {
         Screen screen = event.getScreen();
         if (screen.getClass() != TitleScreen.class && screen.getClass() != PauseScreen.class) {
+            return;
+        }
+        if (screen instanceof PauseScreen && !((PauseScreenAccessor) screen).saomenu$showPauseMenu()) {
             return;
         }
         int width = Math.min(136, Math.max(60, (screen.width - 24) / 2));

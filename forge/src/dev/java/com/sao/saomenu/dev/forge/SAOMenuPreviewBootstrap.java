@@ -6,6 +6,7 @@ import com.sao.saomenu.api.forge.SaoUiRegisterEvent;
 import com.sao.saomenu.dev.preview.FrameworkApiFixtures;
 import com.sao.saomenu.dev.preview.FrameworkRecoveryPreview;
 import com.sao.saomenu.dev.preview.ContainerNativePreview;
+import com.sao.saomenu.dev.preview.FrontendNativePreview;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -22,6 +23,7 @@ public final class SAOMenuPreviewBootstrap {
         event.enqueueWork(() -> {
             if (FrameworkRecoveryPreview.requested()) FrameworkRecoveryPreview.register();
             else if (ContainerNativePreview.requested()) ContainerNativePreview.register();
+            else if (FrontendNativePreview.requested()) FrontendNativePreview.register();
             else SAOMenuPreview.registerIfRequested();
         });
     }

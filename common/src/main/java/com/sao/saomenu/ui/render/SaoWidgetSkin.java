@@ -19,7 +19,7 @@ public final class SaoWidgetSkin {
         }
         ThemeColors colors = SaoUi.theme().colors();
         boolean lit = highlighted && active;
-        int background = lit ? colors.accent() : colors.surfaceSlot();
+        int background = lit ? colors.accent() : colors.dialogSurface();
         int foreground = !active ? colors.textMuted()
                 : lit ? colors.textOnAccent() : colors.textOnSurface();
         SaoDraw.roundedRect(graphics, x, y, width, height, 3, SaoDraw.mulAlpha(background, alpha));

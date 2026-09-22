@@ -44,7 +44,9 @@ loom {
         server {
             server()
             name "Forge Server"
-            runDir "run/server"
+            def configuredRunDir = project.rootProject.findProperty('saomenu.runDir')
+            runDir(configuredRunDir == null
+                    ? "run/server" : project.relativePath(project.rootProject.file(configuredRunDir)))
             vmArgs "-Dneoforge.enabledGameTestNamespace=saomenu"
         }
     }

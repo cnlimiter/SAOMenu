@@ -76,6 +76,7 @@ allprojects {
 			systemProperty 'saomenu.preview.api', rootProject.properties.getOrDefault('saomenu.preview.api', 'false')
 			systemProperty 'saomenu.preview.recovery', rootProject.properties.getOrDefault('saomenu.preview.recovery', 'false')
 			systemProperty 'saomenu.preview.containers', rootProject.properties.getOrDefault('saomenu.preview.containers', 'false')
+			systemProperty 'saomenu.preview.frontend', rootProject.properties.getOrDefault('saomenu.preview.frontend', 'false')
 		}
 	}
 }

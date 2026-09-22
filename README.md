@@ -95,7 +95,7 @@ python -m unittest discover -s tools/verification -p test_*.py -v
 - [旧接入方式迁移](docs/migration.md)
 - [支持与验收边界](docs/support-matrix.md)
 
-`examples/framework-addon` 是独立 Gradle 项目，只依赖产出的 Forge JAR，不加入主工程 source set；示例代码不进入 SAOMenu 发行包。原版界面全面适配和独立联机验收仍按支持矩阵分域推进。
+`examples/framework-addon` 是独立 Gradle 项目，只依赖产出的 Forge JAR，不加入主工程 source set；示例代码不进入 SAOMenu 发行包。已验收的原版域及仍未覆盖的账户、第三方组合和独立联机边界见支持矩阵。
 
 公开 API 阶段已通过 218 项普通测试，以及独立附属 JAR 的隔离客户端交互验收：13 面板/40 行重排保持选择、13 设置分类、原生输入/滚动/焦点、弹层、缩放重开与 HUD 保存。具体证据、未覆盖的输入法/跨世界/联机边界见支持矩阵。API Javadoc 可用 `gradlew :forge:apiJavadocJar` 生成。
 
@@ -107,6 +107,7 @@ python -m unittest discover -s tools/verification -p test_*.py -v
 - 紧急启动参数 **`-Dsaomenu.safeMode=true`** 强制保留原版 UI，不覆盖用户配置，也不能从界面/API 重新开启。Gradle 开发运行使用 `-Psaomenu.safeMode=true`。
 - 字体位于自有 `saomenu:body`，不覆盖 Minecraft 的全局默认字体。未知原版子类/模组屏幕默认不接管。
 - 背包、储物容器、合成台和熔炉族通过精确原生类换肤；创造背包与复杂工作站保留内部功能绘制并装饰边框。槽位、菜单、输入与服务器协议仍由原版控制；熔炼箭头只更换透明材质，进度宽度不变。
+- 聊天、书籍、讲台和告示牌保留原生输入及服务端保存；标题、选项、世界/服务器列表、加载、死亡等使用精确类适配。安全提示、未知屏幕和 Forge 启动期覆层不被强行接管。
 
 恢复验证独立于各域换肤验收；运行方式和当前证据见 [快速开始](docs/quickstart.md) 与 [支持矩阵](docs/support-matrix.md)。
 
