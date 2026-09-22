@@ -10,6 +10,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import com.sao.saomenu.ui.SaoDraw;
 import static com.sao.saomenu.ui.SaoDraw.mulAlpha;
 
 /**
@@ -416,16 +417,17 @@ public final class SAOHud {
                 if (ownCount) {
                     String cnt = String.valueOf(stack.getCount());
                     var font = mc.font;
+                    float ns = Math.max(0.45f, d / 16f);
                     // 数字画到圆点外的右下缝隙里,不压在图标上:
-                    // 全字号文字(9px 高)在小圆点(约 13-16px)内部必然盖掉大半个物品,
-                    // 而圆点间距是直径的 1.7 倍,右侧缝隙约 0.7 直径,正好容得下两位数
-                    int tx = x + d - 3;
-                    int ty = y + d - font.lineHeight + 2;
+                    // 全字号文字在小圆点内部必然盖掉大半个物品,
+                    // 圆点间距是直径的 1.7 倍,右侧缝隙约 0.7 直径,正好容得下两位数。
+                    // 只缩放字号,锚点仍钉在缝隙(右缘 / 底缘),不改到圆点内部。
+                    float tx = x + d - 3;
+                    float ty = y + d + 2 - font.lineHeight * ns;
                     g.pose().pushPose();
-                    // z 抬到物品模型之上:物品是 3D 模型批次,深度比 GUI 平面元素深
                     g.pose().translate(0, 0, 300f);
-                    // 不加底衬,只靠原版字体自带投影与背景区分(与 SAO 观感一致)
-                    g.drawString(font, cnt, tx, ty, mulAlpha(0xFFFFFFFF, alpha), true);
+                    SaoDraw.drawScaled(g, font, cnt, tx, ty, ns,
+                            mulAlpha(0xFFFFFFFF, alpha), true);
                     g.pose().popPose();
                 }
             }
@@ -502,10 +504,9 @@ public final class SAOHud {
         g.blit(TEX_HP_BAR, x, y, w, h, PLATE_PAD_L, 30.0F, 315, 22, 360, 83);
         // 名字(凹槽上方小字区)
         Font font = Minecraft.getInstance().font;
-        String label = font.width(name) > Math.round(200 * s)
-                ? font.plainSubstrByWidth(name, Math.round(190 * s)) + "…" : name;
-        g.drawString(font, label, x + Math.round(4 * s),
-                y + Math.round((39f - 30f) * s / 2f - 4) + 2, mulAlpha(TEXT_WHITE, 1f), false);
+        String label = font.width(name) > 200
+                ? font.plainSubstrByWidth(name, 190 - font.width("…")) + "…" : name;
+        SaoDraw.drawScaled(g, font, label, x + 4f * s, y + 1f * s, s, mulAlpha(TEXT_WHITE, 1f), false);
         // 绿条:与主血条板同一凹槽几何(粗段/细段),比例裁剪
         if (frac > 0f) {
             float barScale = s;
@@ -611,23 +612,20 @@ public final class SAOHud {
         if (SAOConfig.showAvatar() && p != null) {
             renderAvatar(g, Minecraft.getInstance(), p, avX, avY, avS, alpha);
         } else {
-            int maxW = Math.round(48f * s);
+            int maxW = 48;
             String nameText = font.width(name) <= maxW ? name
                     : font.plainSubstrByWidth(name, maxW - font.width("…")) + "…";
-            g.drawString(font, nameText, x + Math.round(38f * s),
-                    y + Math.round(45.5f * s) - 4, mulAlpha(TEXT_DARK, alpha), false);
+            SaoDraw.drawCentered(g, font, nameText,
+                    x + 61f * s, y + 45.5f * s, s, mulAlpha(TEXT_DARK, alpha), false);
         }
 
-        // 5) 右下双格标签:左格"血量 / 上限"、右格"Lv:等级"(分隔线 x=305)
-        int labelY = y + Math.round(71.5f * s) - 4;
+        // 5) 右下双格标签:字号跟板一起缩放,格子中心用贴图坐标,不再减死 4px
         String hpText = trimHp(hp) + " / " + trimHp(maxHp);
         String lvText = "Lv:" + level;
-        g.drawString(font, hpText,
-                x + Math.round(262.5f * s) - font.width(hpText) / 2, labelY,
-                mulAlpha(TEXT_DARK, alpha), false);
-        g.drawString(font, lvText,
-                x + Math.round(326.5f * s) - font.width(lvText) / 2, labelY,
-                mulAlpha(TEXT_DARK, alpha), false);
+        SaoDraw.drawCentered(g, font, hpText,
+                x + 262.5f * s, y + 71.5f * s, s, mulAlpha(TEXT_DARK, alpha), false);
+        SaoDraw.drawCentered(g, font, lvText,
+                x + 326.5f * s, y + 71.5f * s, s, mulAlpha(TEXT_DARK, alpha), false);
 
         // 6) 受击闪红(整个板叠一层快速衰减的红)
         long flashAge = net.minecraft.Util.getMillis() - flashAt;

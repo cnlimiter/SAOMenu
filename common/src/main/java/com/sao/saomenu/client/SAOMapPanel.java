@@ -17,6 +17,7 @@ import net.minecraft.world.level.saveddata.maps.MapDecoration;
 import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.MapItem;
+import com.sao.saomenu.ui.SaoDraw;
 import static com.sao.saomenu.ui.SaoDraw.mulAlpha;
 
 /**
@@ -248,9 +249,10 @@ public final class SAOMapPanel {
         g.fill(card.x() + 3, card.y(), card.x() + card.w() - 3, card.y() + 1, mulAlpha(CARD_EDGE, a));
 
         Font f = mc.font;
-        // 头部小字 + 细线(参照动画卡片顶部信息条)
-        g.drawString(f, tr("saomenu.map.title"), card.x() + Math.round(card.w() * 0.07f),
-                card.y() + Math.round(card.h() * 0.035f), mulAlpha(HEADER_TEXT, a), false);
+        float headH = Math.max(8f, card.h() * 0.07f);
+        SaoDraw.drawInRow(g, f, tr("saomenu.map.title"),
+                card.x() + Math.round(card.w() * 0.07f), card.y() + Math.round(card.h() * 0.02f),
+                headH, card.w() * 0.70f, mulAlpha(HEADER_TEXT, a), false);
         int lineY = card.y() + Math.round(card.h() * 0.105f);
         g.fill(card.x() + Math.round(card.w() * 0.07f), lineY,
                 card.x() + card.w() - Math.round(card.w() * 0.07f), lineY + 1, mulAlpha(CARD_LINE, a));
@@ -271,18 +273,18 @@ public final class SAOMapPanel {
                     mulAlpha(0xB818334A, a));
         }
 
-        // 底部信息条(参照动画:两行小字)
         int footY = mapAt.y() + mapAt.h() + Math.round(card.h() * 0.025f);
         Player p = mc.player;
         if (p != null) {
+            float footH = Math.max(7f, card.h() * 0.045f);
             String l1 = String.format("X %d / Z %d", (int) Math.floor(p.getX()), (int) Math.floor(p.getZ()));
-            g.drawString(f, l1, card.x() + Math.round(card.w() * 0.07f), footY,
-                    mulAlpha(FOOTER_TEXT, a), false);
+            SaoDraw.drawInRow(g, f, l1, card.x() + Math.round(card.w() * 0.07f), footY,
+                    footH, card.w() * 0.86f, mulAlpha(FOOTER_TEXT, a), false);
             if (data != null) {
                 int blocks = 1 << data.scale;
-                String l2 = tr("saomenu.map.scale", blocks);
-                g.drawString(f, l2, card.x() + Math.round(card.w() * 0.07f),
-                        footY + Math.round(card.h() * 0.045f), mulAlpha(FOOTER_TEXT, a), false);
+                SaoDraw.drawInRow(g, f, tr("saomenu.map.scale", blocks),
+                        card.x() + Math.round(card.w() * 0.07f), footY + footH,
+                        footH, card.w() * 0.86f, mulAlpha(FOOTER_TEXT, a), false);
             }
         }
 

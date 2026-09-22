@@ -7,6 +7,7 @@ import java.util.Map;
 
 import com.mojang.math.Axis;
 import com.sao.saomenu.SAOMenuPlatform;
+import com.sao.saomenu.ui.SaoDraw;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -625,7 +626,8 @@ public class SAOSettingsScreen extends Screen {
                 withAlpha(ASUNA_DEEP, Math.round(a * (hovered ? 0.72f : 0.34f))));
         fillSlab(g, x0 + 7f, y + rh / 2f, 4, rh - 6f, -8f,
                 withAlpha(hovered ? ASUNA_BRIGHT : accent, Math.round(a * (hovered ? 1f : 0.72f))));
-        g.drawString(this.font, rowLabel(p, i), x0 + 18, y + (rh - 8) / 2,
+        SaoDraw.drawInRow(g, this.font, rowLabel(p, i), x0 + 18, y, rh,
+                Math.max(8, (x1 - x0) * 0.48f),
                 withAlpha(RGB_WHITE, Math.round(a * (hovered ? 1f : 0.92f))), false);
 
         if (rowIsSlider(p, i)) {
@@ -661,17 +663,20 @@ public class SAOSettingsScreen extends Screen {
         fillSlab(g, kx, ky, d, d, 45f, withAlpha(dragging ? ASUNA_BRIGHT : accent, a));
         fillSlab(g, kx, ky, d * 0.45f, d * 0.45f, 45f, withAlpha(dragging ? accent : RGB_DARK_TEXT, a));
 
-        g.drawString(this.font, sliderText(p, i, v), tx1 + 6, y + (rh - 8) / 2,
-                withAlpha(RGB_GRAY, a), false);
+        SaoDraw.drawInRow(g, this.font, sliderText(p, i, v), tx1 + 6, y, rh,
+                Math.max(8, x1 - tx1 - 8), withAlpha(RGB_GRAY, a), false);
     }
 
     private void renderToggleControl(GuiGraphics g, Page p, int i, int x1, int y, int rh, int a) {
         boolean on = toggleGet(p, i);
         int accent = ASUNA_PINK;
         String s = tr(on ? "saomenu.config.on" : "saomenu.config.off");
-        g.drawString(this.font, s, x1 - 10 - this.font.width(s), y + (rh - 8) / 2,
+        float fs = SaoDraw.fitScale(this.font, rh);
+        float tw = this.font.width(s) * fs;
+        SaoDraw.drawScaled(g, this.font, s, x1 - 10 - tw,
+                y + (rh - this.font.lineHeight * fs) / 2f, fs,
                 on ? withAlpha(accent, a) : withAlpha(RGB_GRAY, a), false);
-        fillSlab(g, x1 - 20 - this.font.width(s), y + rh / 2f - 1f, 7, 7, 45f,
+        fillSlab(g, x1 - 20 - tw, y + rh / 2f - 1f, 7, 7, 45f,
                 withAlpha(on ? accent : 0x55565A, a));
     }
 
@@ -728,7 +733,7 @@ public class SAOSettingsScreen extends Screen {
             pose.translate(bx, by, 0);
             pose.mulPose(Axis.ZP.rotationDegrees(-4f));
             drawScaled(g, com.sao.saomenu.ui.SaoThemeLibrary.label(preset.id()),
-                    3, (rh - 8) / 2 + 1, 0.85f,
+                    3, (bh - this.font.lineHeight * 0.85f) / 2f, 0.85f,
                     sel ? RGB_DARK_TEXT : RGB_WHITE, false);
             pose.popPose();
         }
@@ -749,7 +754,7 @@ public class SAOSettingsScreen extends Screen {
         pose.pushPose();
         pose.translate(x, y, 0);
         pose.mulPose(Axis.ZP.rotationDegrees(-4f));
-        drawScaled(g, "◀ " + tr("saomenu.settings.back"), 6, (h - 8) / 2 + 1, 0.95f,
+        drawScaled(g, "◀ " + tr("saomenu.settings.back"), 6, (h - this.font.lineHeight) / 2f + 1, 0.95f,
                 withAlpha(hovered ? RGB_DARK_TEXT : RGB_WHITE, a), false);
         pose.popPose();
     }
@@ -789,7 +794,8 @@ public class SAOSettingsScreen extends Screen {
         pose.pushPose();
         pose.translate(x, y, 0);
         pose.mulPose(Axis.ZP.rotationDegrees(rot));
-        drawScaled(g, label, (w - this.font.width(label)) / 2f, (h - 8) / 2f + 1, 0.95f,
+        drawScaled(g, label, (w - this.font.width(label) * 0.95f) / 2f,
+                (h - this.font.lineHeight * 0.95f) / 2f, 0.95f,
                 withAlpha(hovered ? RGB_DARK_TEXT : RGB_WHITE, a), false);
         pose.popPose();
     }

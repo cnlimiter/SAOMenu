@@ -79,6 +79,20 @@ class SAOWelcomeTest {
     }
 
     @Test
+    void linkStartCoversThenClearsBeforeWelcomeText() {
+        assertEquals(0f, SAOWelcome.linkAlpha(-1), 0.001f);
+        assertEquals(0f, SAOWelcome.linkAlpha(0), 0.001f);
+        assertTrue(SAOWelcome.linkAlpha(SAOWelcome.LINK_IN_MS / 2) > 0.4f);
+        assertEquals(1f, SAOWelcome.linkAlpha(SAOWelcome.LINK_IN_MS), 0.001f);
+        assertEquals(1f, SAOWelcome.linkAlpha(SAOWelcome.LINK_MS - SAOWelcome.LINK_OUT_MS), 0.001f);
+        assertEquals(0f, SAOWelcome.linkAlpha(SAOWelcome.LINK_MS), 0.001f);
+        assertTrue(SAOWelcome.LINK_MS <= SAOWelcome.TEXT_DELAY_MS + 80,
+                "LINK START 应在欢迎提示文字出现前后淡出,不挡住 Message");
+        assertEquals(1f, SAOWelcome.linkScale(SAOWelcome.LINK_IN_MS), 0.001f);
+        assertEquals(1f, SAOWelcome.linkLine(SAOWelcome.LINK_IN_MS), 0.001f);
+    }
+
+    @Test
     void disabledConfigSuppressesPlayback() {
         SAOConfig.setShowWelcome(false);
         SAOWelcome.dismiss();

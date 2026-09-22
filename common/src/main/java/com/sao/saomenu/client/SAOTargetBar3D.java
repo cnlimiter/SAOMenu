@@ -16,6 +16,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
+import com.sao.saomenu.ui.SaoDraw;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -182,7 +183,7 @@ public final class SAOTargetBar3D {
     }
 
     /** HUD 文字的一次性投影结果(世界渲染阶段算好,HUD 阶段消费)。 */
-    private record Label(int entityId, float x, float y, float frac, float alpha) {
+    private record Label(int entityId, float x, float y, float frac, float alpha, float kiteH) {
     }
 
     /** 本帧的目标候选(第一趟收集、评分排序后第二趟才绘制)。 */
@@ -517,15 +518,17 @@ public final class SAOTargetBar3D {
             if (a == 0) {
                 continue;
             }
-            int nameX = Math.round(lb.x() - font.width(name) / 2f);
-            int hpX = Math.round(lb.x() - font.width(hp) / 2f);
-            // lb.y() 是菱形顶点的屏幕位置;两行文字整体码在它上方
-            int hpY = Math.round(lb.y()) - font.lineHeight - 2;
-            int nameY = hpY - font.lineHeight - 1;
-            // 不画底衬:只靠字体自带投影与背景区分(与 SAO 原作观感一致)
-            g.drawString(font, name, nameX, nameY, 0xF2F5F8 | a, true);
-            g.drawString(font, hp, hpX, hpY,
-                    (SAOTargetBar.hpColor(lb.frac()) & 0xFFFFFF) | a, true);
+            // 字号以屏幕 9px 为底,距离只做 ±25% 微调。菱形投影(约 11px)不能当行高,
+            // 否则 10 格外会缩到 ~3.7px。文字从菱形顶往上排,不压在图形上。
+            float kite = Math.max(8f, lb.kiteH());
+            float s = Mth.clamp(kite / 18f, 0.75f, 1.25f);
+            float textH = font.lineHeight * s;
+            int colorName = 0xF2F5F8 | a;
+            int colorHp = (SAOTargetBar.hpColor(lb.frac()) & 0xFFFFFF) | a;
+            SaoDraw.drawCentered(g, font, SaoDraw.clipTo(font, name, 120),
+                    lb.x(), lb.y() - kite - textH * 1.5f, s, colorName, true);
+            SaoDraw.drawCentered(g, font, hp,
+                    lb.x(), lb.y() - kite - textH * 0.5f, s, colorHp, true);
         }
     }
 
@@ -702,8 +705,13 @@ public final class SAOTargetBar3D {
         pose.popPose();
 
         float[] sp = project(mc, head);
+        float kiteH = 12f;
+        float[] spTop = project(mc, head.add(0, 0.52, 0));
+        if (sp != null && spTop != null) {
+            kiteH = Math.max(6f, Math.abs(spTop[1] - sp[1]));
+        }
         if (sp != null) {
-            LABELS.add(new Label(le.getId(), sp[0], sp[1], frac, alpha));
+            LABELS.add(new Label(le.getId(), sp[0], sp[1], frac, alpha, kiteH));
         }
     }
 

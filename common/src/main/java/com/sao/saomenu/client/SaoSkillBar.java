@@ -64,6 +64,13 @@ public final class SaoSkillBar {
     }
 
     public static int barY(int screenH, int barH) {
+        // 仍是默认锚点时,贴在圆点物品栏上方:hotbarScale 放大圆点时一起上移,不留缝也不重叠。
+        // 用户拖走过就按比例锚点,不再去追圆点。
+        if (Math.abs(SAOConfig.skillBarY() - SAOConfig.DEF_SKILL_BAR_Y) < 1.0e-4f) {
+            int dotTop = MenuLayout.dotCenterY(screenH) - MenuLayout.dotSize(screenH) / 2;
+            int gap = Math.max(3, Math.round(barH * 0.22f));
+            return Math.max(0, dotTop - gap - barH);
+        }
         return Math.round(SAOConfig.skillBarY() * Math.max(0, screenH - barH));
     }
 
@@ -160,8 +167,10 @@ public final class SaoSkillBar {
                 g.fill(x, y, x + size, y + h, SaoDraw.mulAlpha(0xB0000000, alpha));
             }
 
-            // 快捷键位号
-            g.drawString(mc.font, String.valueOf(i + 1), x + 2, y + 1,
+            // 快捷键位号:随格子缩放,钉在左上角内侧,不再用固定 2/1 px
+            float ns = size / 16f;
+            SaoDraw.drawScaled(g, mc.font, String.valueOf(i + 1),
+                    x + size * 0.10f, y + size * 0.06f, ns,
                     SaoDraw.mulAlpha(SaoTheme.palette().textOnSurface(), alpha), false);
         }
     }

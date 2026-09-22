@@ -111,10 +111,11 @@ public final class SAONotification {
                 g.pose().popPose();
                 textX = x + 8 + isz + 6;
             }
-            g.drawString(font, clip(font, e.title(), w - (textX - x) - 8), textX, y + 5,
+            int maxW = w - (textX - x) - 8;
+            g.drawString(font, clip(font, e.title(), maxW), textX, y + 5,
                     mulAlpha(TITLE_DARK, alpha), false);
             if (!e.message().isEmpty()) {
-                g.drawString(font, clip(font, e.message(), w - (textX - x) - 8), textX, y + 19,
+                g.drawString(font, clip(font, e.message(), maxW), textX, y + 19,
                         mulAlpha(MSG_DARK, alpha), false);
             }
             i++;

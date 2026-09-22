@@ -2,6 +2,7 @@ package com.sao.saomenu.client;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.sao.saomenu.SAOMenu;
+import com.sao.saomenu.ui.SaoDraw;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -178,12 +179,11 @@ public final class SAOBossBanner {
         RenderSystem.setShaderColor(1f, 1f, 1f, a);
         g.blit(tex, x, y, w, h, 0f, 0f, 300, 126, 300, 126);
 
-        // Boss 名:贴图原有 "Immortal Object" 字样下方,白色描边小字
         Font f = Minecraft.getInstance().font;
-        String label = f.width(name) > w - 30
-                ? f.plainSubstrByWidth(name, w - 34 - f.width("…")) + "…" : name;
-        int ly = y + Math.round(h * 0.72f);
-        g.drawString(f, label, x + w / 2 - f.width(label) / 2, ly,
+        float bandH = Math.max(8f, h * 0.22f);
+        float s = SaoDraw.fitScale(f, bandH);
+        String label = SaoDraw.clipTo(f, name, Math.max(1, Math.round((w - 30) / s)));
+        SaoDraw.drawCentered(g, f, label, x + w / 2f, y + h * 0.80f, s,
                 ((Math.round(230 * a) << 24) | 0xFFFFFF), true);
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
         RenderSystem.disableBlend();

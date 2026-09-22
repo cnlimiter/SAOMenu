@@ -204,8 +204,16 @@ public final class MenuLayout {
         int right = anchorX - btnSize(screenH) / 2 - gap;
         int top = clampedAnchorY(screenH, 1, anchorY) - cardH(screenH) / 2;
         top = Math.min(top, screenH - cardH(screenH) - 2);
-        // 不与左上角血条板 + 状态效果行重叠
-        top = Math.max(top, plateBottom(screenW) + 24);
+        // 不与血条板重叠。效果图标行已删除,只留 4px 缝;Y 跟实际 platePanelY,不再假装板永远在 (0,0)。
+        float fy = SAOConfig.platePanelY();
+        if (fy < 0f) {
+            fy = 0f;
+        }
+        if (fy > 1f) {
+            fy = 1f;
+        }
+        int plateBot = Math.round(fy * Math.max(1, screenH - 20)) + plateH(screenW);
+        top = Math.max(top, plateBot + 4);
         // 锚点偏左时右缘可能把卡片推出屏幕:整张卡钳回屏幕内(保持最小可读宽)
         return new Rect(Math.max(0, right - w), top, w, cardH(screenH));
     }

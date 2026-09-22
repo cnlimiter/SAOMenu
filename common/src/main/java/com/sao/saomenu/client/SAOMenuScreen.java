@@ -1256,23 +1256,24 @@ public class SAOMenuScreen extends Screen implements MenuHost {
         int slide = Math.round((1f - eased) * rect.w() * 0.35f);
         MenuLayout.Rect at = new MenuLayout.Rect(rect.x() + slide, rect.y(), rect.w(), rect.h());
 
-        // 主体:属性区按文字行数预留(大卡 8 行含饥饿/护甲,有手持物品时 9 行),剩余全部给 3D 头像
+        // 主体:属性区占下半(0.40 恒小于 0.50,不写假分流)。小卡减行保字号,不把 6 行压到 2.7px。
         ItemStack held = mc().player != null ? mc().player.getInventory().getSelected() : ItemStack.EMPTY;
         boolean hasHeld = !held.isEmpty();
-        int statLines = at.h() >= 140 ? 8 + (hasHeld ? 1 : 0) : 6;
-        int split = Math.max(Math.round(at.h() * 0.40f), at.h() - (statLines * 10 + 6));
+        int split = at.h() / 2;
         // SAO Utils 官方玩家卡面板贴图(上半白、下半浅灰属性区)
         shaderAlpha(alpha);
         SaoDraw.blendedBlit(g, TEX_PANEL, at.x(), at.y(), at.w(), at.h());
         shaderAlpha(1f);
 
-        // 名字 + 下划线(头部区尽量紧凑,把空间让给剪影)
+        // 名字 + 下划线:字号跟卡片头高度走,小窗口不再用固定 9px 顶破头部
         Font f = this.font;
         String name = playerName();
-        int nameY = at.y() + 3;
-        g.drawString(f, name, at.centerX() - f.width(name) / 2, nameY,
+        float headH = Math.max(8f, at.h() * 0.07f);
+        float nameS = SaoDraw.fitScale(f, headH, 0.80f);
+        SaoDraw.drawCentered(g, f, SaoDraw.clipTo(f, name, Math.round(at.w() * 0.80f / nameS)),
+                at.centerX(), at.y() + headH * 0.55f, nameS,
                 mulAlpha(theme().textOnSurface(), alpha), false);
-        int lineY = nameY + 10;
+        int lineY = Math.round(at.y() + headH + 2);
         g.fill(at.x() + at.w() / 10, lineY, at.x() + at.w() - at.w() / 10, lineY + 1, mulAlpha(theme().divider(), alpha));
 
         // 手持物品图标(卡片左上角,SAO 槽位样式)
@@ -1327,24 +1328,25 @@ public class SAOMenuScreen extends Screen implements MenuHost {
         Player p = mc().player;
         if (p != null) {
             int statsTop = at.y() + split;
-            int lineStep = 10;
+            int statsH = Math.max(8, at.y() + at.h() - statsTop - 2);
             List<String> stats = new ArrayList<>();
+            stats.add(tr("saomenu.stat.health", trim(p.getHealth()), trim(p.getMaxHealth())));
+            stats.add(tr("saomenu.stat.level", p.experienceLevel));
             if (hasHeld) {
                 stats.add(tr("saomenu.stat.held", held.getHoverName().getString()));
             }
-            stats.add(tr("saomenu.stat.level", p.experienceLevel));
             stats.add(tr("saomenu.stat.experience", Math.round(p.experienceProgress * 100.0f)));
-            stats.add(tr("saomenu.stat.health", trim(p.getHealth()), trim(p.getMaxHealth())));
-            if (statLines >= 8) {
-                stats.add(tr("saomenu.stat.hunger", p.getFoodData().getFoodLevel()));
-                stats.add(tr("saomenu.stat.armor", p.getArmorValue()));
-            }
             stats.add(tr("saomenu.stat.strength", trim((float) p.getAttributeValue(Attributes.ATTACK_DAMAGE))));
             stats.add(tr("saomenu.stat.agility", trim((float) p.getAttributeValue(Attributes.MOVEMENT_SPEED))));
-            stats.add(tr("saomenu.stat.resistance", trim((float) p.getAttributeValue(Attributes.ARMOR))));
+            stats.add(tr("saomenu.stat.armor", p.getArmorValue()));
+            int keep = SaoDraw.rowsKept(statsH, stats.size(), 8);
+            if (stats.size() > keep) {
+                stats = new ArrayList<>(stats.subList(0, keep));
+            }
+            float lineH = statsH / (float) Math.max(1, stats.size());
             for (int i = 0; i < stats.size(); i++) {
-                g.drawString(f, stats.get(i), at.x() + 8, statsTop + 4 + i * lineStep,
-                        mulAlpha(theme().textOnSurface(), alpha), false);
+                SaoDraw.drawInRow(g, f, stats.get(i), at.x() + 6, statsTop + i * lineH, lineH,
+                        at.w() - 12, mulAlpha(theme().textOnSurface(), alpha), false);
             }
         }
 
@@ -1403,38 +1405,42 @@ public class SAOMenuScreen extends Screen implements MenuHost {
         shaderAlpha(1f);
 
         Font f = this.font;
-        g.drawString(f, title, at.centerX() - f.width(title) / 2,
-                at.y() + 5, mulAlpha(theme().textOnSurface(), alpha), false);
+        float headH = Math.max(8f, at.h() * 0.08f);
+        SaoDraw.drawCentered(g, f, title, at.centerX(), at.y() + headH * 0.45f,
+                SaoDraw.fitScale(f, headH, 0.78f), mulAlpha(theme().textOnSurface(), alpha), false);
         int lineY;
         if (subtitle != null && !subtitle.isEmpty()) {
-            g.drawString(f, subtitle, at.centerX() - f.width(subtitle) / 2,
-                    at.y() + 17, mulAlpha(theme().textOnSurface(), alpha), false);
-            lineY = at.y() + 30;
+            float subH = Math.max(7f, at.h() * 0.055f);
+            SaoDraw.drawCentered(g, f, subtitle, at.centerX(), at.y() + headH + subH * 0.45f,
+                    SaoDraw.fitScale(f, subH, 0.75f), mulAlpha(theme().textOnSurface(), alpha), false);
+            lineY = Math.round(at.y() + headH + subH + 2);
         } else {
-            lineY = at.y() + 18;
+            lineY = Math.round(at.y() + headH + 2);
         }
         g.fill(at.x() + at.w() / 10, lineY, at.x() + at.w() - at.w() / 10, lineY + 1, mulAlpha(theme().divider(), alpha));
 
-        // 行数按卡片实际高度自适应,超出部分折叠为 "+N 更多"
-        int maxRows = Mth.clamp((at.h() - 56) / 12, 1, 8);
+        int bodyTop = lineY + 4;
+        int bodyBot = at.y() + at.h() - Math.round(Math.max(8f, at.h() * 0.08f));
+        int bodyH = Math.max(8, bodyBot - bodyTop);
+        float lineH = Math.max(7f, at.h() * 0.055f);
+        int maxRows = Mth.clamp((int) (bodyH / lineH), 1, 8);
         if (rows.size() > maxRows) {
             int extra = rows.size() - maxRows + 1;
             List<String> shown = new ArrayList<>(rows.subList(0, Math.max(0, maxRows - 1)));
             shown.add(tr("saomenu.panel.more", extra));
             rows = shown;
         }
-        int rowY = lineY + 6;
         for (int i = 0; i < rows.size(); i++) {
-            g.drawString(f, rows.get(i), at.x() + 12, rowY + i * 12,
-                    mulAlpha(theme().textOnSurface(), alpha), false);
+            SaoDraw.drawInRow(g, f, rows.get(i), at.x() + 10, bodyTop + i * lineH, lineH,
+                    at.w() - 20, mulAlpha(theme().textOnSurface(), alpha), false);
         }
         if (rows.isEmpty() && (subtitle == null || subtitle.isEmpty())) {
-            g.drawString(f, tr("saomenu.panel.no_players"), at.x() + 12, rowY,
-                    mulAlpha(theme().textOnSurface(), alpha), false);
+            SaoDraw.drawInRow(g, f, tr("saomenu.panel.no_players"), at.x() + 10, bodyTop, lineH,
+                    at.w() - 20, mulAlpha(theme().textOnSurface(), alpha), false);
         }
-
-        g.drawString(f, footer, at.x() + at.w() - 12 - f.width(footer),
-                at.y() + at.h() - 13, mulAlpha(theme().textOnSurface(), alpha), false);
+        float footH = Math.max(8f, at.h() * 0.07f);
+        SaoDraw.drawInRow(g, f, footer, at.x() + at.w() * 0.35f, at.y() + at.h() - footH, footH,
+                at.w() * 0.60f, mulAlpha(theme().textOnSurface(), alpha), false);
         renderArrowRight(g, at, anchorY, alpha);
     }
 
@@ -1613,10 +1619,9 @@ public class SAOMenuScreen extends Screen implements MenuHost {
         String label = e.empty() ? tr("saomenu.equip.empty") : e.stack().getHoverName().getString();
         int textX = iconX + iconSize + Math.round(at.h() * 0.18f);
         int maxW = at.x() + at.w() - textX - 6;
-        int textY = at.y() + (at.h() - f.lineHeight) / 2;
         int color = e.empty() ? mulAlpha(theme().textMuted(), alpha)
                 : hovered ? mulAlpha(theme().textOnAccent(), alpha) : mulAlpha(theme().textOnSurface(), alpha);
-        drawScrollingLabel(g, f, label, textX, textY, maxW, color, hovered);
+        drawScrollingLabel(g, f, label, textX, at.y(), at.h(), maxW, color, hovered);
     }
 
     /**
@@ -1705,44 +1710,40 @@ public class SAOMenuScreen extends Screen implements MenuHost {
             g.pose().popPose();
         }
 
-        // 文字(SAOUI 字体;动态 label(在线玩家名/语言键)二选一)
         Font f = this.font;
         String label = resolveLabel(labelKey);
         int textX = at.x() + Math.round(at.h() * 0.18f) + iconSize + Math.round(at.h() * 0.22f);
-        int textY = at.y() + (at.h() - f.lineHeight) / 2;
         int maxW = at.x() + at.w() - textX - Math.round(at.h() * 0.16f);
         int color = hovered ? mulAlpha(theme().textOnAccent(), alpha) : mulAlpha(theme().textOnSurface(), alpha);
-        drawScrollingLabel(g, f, label, textX, textY, maxW, color, hovered);
+        drawScrollingLabel(g, f, label, textX, at.y(), at.h(), maxW, color, hovered);
     }
 
     /**
-     * 条目文字:放得下就照常画;放不下时悬停行做跑马灯滚动,非悬停行截断加省略号。
-     *
-     * <p>滚动用剪裁窗口(enableScissor 的坐标是<b>物理像素</b>,须按 GUI 缩放换算),
-     * 平移量走 {@link SAOScrollText} 的纯函数,与渲染解耦、可单测。</p>
+     * 条目文字:字号跟行高走,放得下就照常画;放不下时悬停行做跑马灯,
+     * 非悬停行截断加省略号。宽度比较全部在未缩放字体空间里做。
      */
     private void drawScrollingLabel(GuiGraphics g, Font f, String label,
-                                    int x, int y, int maxW, int color, boolean hovered) {
-        int textW = f.width(label);
-        if (maxW <= 0) {
+                                    float x, float rowY, float rowH, float maxW, int color, boolean hovered) {
+        if (maxW <= 0f || rowH <= 0f) {
             return;
         }
-        if (textW <= maxW) {
-            g.drawString(f, label, x, y, color, false);
+        float s = SaoDraw.fitScale(f, rowH);
+        int cap = Math.max(1, Math.round(maxW / s));
+        int textW = f.width(label);
+        float th = f.lineHeight * s;
+        float y = rowY + (rowH - th) / 2f;
+        if (textW <= cap) {
+            SaoDraw.drawScaled(g, f, label, x, y, s, color, false);
             return;
         }
         if (!hovered) {
-            String cut = f.plainSubstrByWidth(label, Math.max(0, maxW - f.width("…"))) + "…";
-            g.drawString(f, cut, x, y, color, false);
+            SaoDraw.drawScaled(g, f, SaoDraw.clipTo(f, label, cap), x, y, s, color, false);
             return;
         }
-        // 逐字形滑动窗口:从 shift 像素处开始截 maxW 宽的一段。
-        // 不用 enableScissor——菜单整体有浮动/缩放 pose 变换,scissor 是
-        // 屏幕空间矩形,不跟随 pose,会把文字裁错位置
-        int shift = SAOScrollText.offset(textW, maxW, now(), label.hashCode());
-        String visible = SAOScrollText.window(label, f::width, shift, maxW);
+        int shift = SAOScrollText.offset(textW, cap, now(), label.hashCode());
+        String visible = SAOScrollText.window(label, f::width, shift, cap);
         if (!visible.isEmpty()) {
-            g.drawString(f, visible, x, y, color, false);
+            SaoDraw.drawScaled(g, f, visible, x, y, s, color, false);
         }
     }
 

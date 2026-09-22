@@ -43,6 +43,8 @@ public final class SAOMenuPreview {
     private static boolean done = false;
     private static boolean langSwitched = false;
     private static boolean langReloadDone = false;
+    /** 预览把 guiScale 改成 1 抓大 GUI,退出前必须写回,否则 options.txt 落盘污染下次启动。 */
+    private static int savedGuiScale = -1;
 
     private SAOMenuPreview() {
     }
@@ -70,6 +72,7 @@ public final class SAOMenuPreview {
             // 世界加载超时,放弃
             SAOMenu.LOGGER.warn("[SAOMenu] preview timed out waiting for world");
             done = true;
+            restoreGuiScale(client);
             client.stop();
             return;
         }
@@ -103,6 +106,7 @@ public final class SAOMenuPreview {
             } catch (Exception e) {
                 SAOMenu.LOGGER.error("[SAOMenu] preview world creation failed", e);
                 done = true;
+                restoreGuiScale(client);
                 client.stop();
             }
             return;
@@ -121,7 +125,11 @@ public final class SAOMenuPreview {
                     // 放入演示物品:验证圆点物品图标、数量角标与副手圆点
                     itemsGiven = true;
                     // 大 GUI 验证:guiScale 选项设 1(最小)→ 血条板增强布局可见。
-                    // 注意直接 setGuiScale(1.0) 会被 auto 重算覆盖,必须改选项
+                    // 注意直接 setGuiScale(1.0) 会被 auto 重算覆盖,必须改选项。
+                    // 退出前 restoreGuiScale,避免 options.txt 把用户的 scale 写成 1。
+                    if (savedGuiScale < 0) {
+                        savedGuiScale = client.options.guiScale().get();
+                    }
                     client.options.guiScale().set(1);
                     client.resizeDisplay();
                     var inv = client.player.getInventory();
@@ -704,8 +712,17 @@ public final class SAOMenuPreview {
                     GLFW.GLFW_KEY_F5, 0, GLFW.GLFW_RELEASE, 0);
             closeScreen(client);
             done = true;
+            restoreGuiScale(client);
             client.stop();
         }
+    }
+
+    private static void restoreGuiScale(Minecraft client) {
+        if (savedGuiScale < 0) {
+            return;
+        }
+        client.options.guiScale().set(savedGuiScale);
+        savedGuiScale = -1;
     }
 
     /** 把视线转到最近一只牛的躯干上,供 3D 血条的视线门控判定为「看向」。 */

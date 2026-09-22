@@ -2,6 +2,7 @@ package com.sao.saomenu.ui;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.Font;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
@@ -64,5 +65,108 @@ public final class SaoDraw {
     public static void roundedRect(GuiGraphics g, int x, int y, int w, int h, int r, int color) {
         g.fill(x + r, y, x + w - r, y + h, color);
         g.fill(x, y + r, x + w, y + h - r, color);
+    }
+
+    // ---------------------------------------------------------------- 文字
+
+    /**
+     * 在 (x, y) 起笔,按 {@code scale} 放大字号。缩放后的坐标系里 (0,0) 是字形左上角。
+     *
+     * <p>组件本身按屏幕比例缩放时,必须把字也乘同一个系数,否则 GUI Scale /
+     * 窗口大小一变,9px 字就会在格子里上下漂。</p>
+     */
+    public static void drawScaled(GuiGraphics g, Font font, String text,
+                                  float x, float y, float scale, int argb, boolean shadow) {
+        var pose = g.pose();
+        pose.pushPose();
+        pose.translate(x, y, 0f);
+        pose.scale(scale, scale, 1f);
+        g.drawString(font, text, 0, 0, argb, shadow);
+        pose.popPose();
+    }
+
+    /**
+     * 以 (cx, cy) 为视觉中心画字,字号随 {@code scale} 变。
+     * 垂直方向按 {@link Font#lineHeight} 居中,不再写死 8px。
+     */
+    public static void drawCentered(GuiGraphics g, Font font, String text,
+                                    float cx, float cy, float scale, int argb, boolean shadow) {
+        var pose = g.pose();
+        pose.pushPose();
+        pose.translate(cx, cy, 0f);
+        pose.scale(scale, scale, 1f);
+        g.drawString(font, text, -font.width(text) / 2, -font.lineHeight / 2, argb, shadow);
+        pose.popPose();
+    }
+
+    /**
+     * 让字形视觉高度占 {@code boxH} 的 {@code frac}。
+     * GUI 空间里字体是固定像素,组件却按屏高比例缩,必须把字也乘这个系数,
+     * 否则最小窗口下 9px 字会顶破 13px 的菜单行。
+     */
+    public static float fitScale(int lineHeight, float boxH, float frac) {
+        if (boxH <= 0f) {
+            return 0.30f;
+        }
+        return Mth.clamp((boxH * frac) / Math.max(1f, lineHeight), 0.30f, 4.0f);
+    }
+
+    public static float fitScale(Font font, float boxH) {
+        return fitScale(font.lineHeight, boxH, 0.62f);
+    }
+
+    public static float fitScale(Font font, float boxH, float frac) {
+        return fitScale(font.lineHeight, boxH, frac);
+    }
+
+    /**
+     * 先按全部 {@code wanted} 行分。只有行高低于 {@code minLinePx} 才从尾部减行,
+     * 下限 2 行。正常尺寸(例如 6 行摊在 57px ≈ 9.5px)一行不丢。
+     */
+    public static int rowsKept(int boxH, int wanted, int minLinePx) {
+        int rows = Math.max(1, wanted);
+        int min = Math.max(1, minLinePx);
+        while (rows > 2 && boxH / (float) rows < min) {
+            rows--;
+        }
+        return rows;
+    }
+
+    /** 按未缩放字体宽度截断,供 {@link #drawScaled} 使用。 */
+    public static String clipTo(Font font, String s, int maxUnscaled) {
+        if (s == null || s.isEmpty() || maxUnscaled <= 0) {
+            return "";
+        }
+        if (font.width(s) <= maxUnscaled) {
+            return s;
+        }
+        int dots = font.width("…");
+        if (maxUnscaled <= dots) {
+            return "";
+        }
+        return font.plainSubstrByWidth(s, maxUnscaled - dots) + "…";
+    }
+
+    /**
+     * 行内左对齐:字号缩进行高,垂直居中。{@code maxW} 是屏幕像素宽。
+     */
+    public static void drawInRow(GuiGraphics g, Font font, String text,
+                                 float x, float rowY, float rowH, float maxW,
+                                 int argb, boolean shadow) {
+        if (text == null || text.isEmpty() || maxW <= 0f || rowH <= 0f) {
+            return;
+        }
+        float s = fitScale(font, rowH);
+        String shown = clipTo(font, text, Math.max(0, Math.round(maxW / s)));
+        if (shown.isEmpty()) {
+            return;
+        }
+        float th = font.lineHeight * s;
+        drawScaled(g, font, shown, x, rowY + (rowH - th) / 2f, s, argb, shadow);
+    }
+
+    /** 在高 {@code boxH} 的行里垂直居中原字号文字的 Y(顶边)。 */
+    public static int textY(Font font, int boxY, int boxH) {
+        return boxY + (boxH - font.lineHeight) / 2;
     }
 }

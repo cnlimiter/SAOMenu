@@ -10,16 +10,17 @@ import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
+import com.sao.saomenu.ui.SaoDraw;
 import static com.sao.saomenu.ui.SaoDraw.mulAlpha;
 import static com.sao.saomenu.ui.SaoMotion.clamp01;
 import static com.sao.saomenu.ui.SaoMotion.easeOutCubic;
 
 /**
- * 进入世界时的 SAO 欢迎动画:顶部 "Welcome to Sword Art Online !" 横幅落下,
- * 下方 Message 面板弹出并显示启动提示,停留后整体淡出。
+ * 进入世界时的 SAO 开场:先全屏 LINK START,再接 "Welcome to Sword Art Online !"
+ * 横幅与 Message 面板,停留后整体淡出。
  *
- * <p>时间轴({@link #bannerAlpha} 等)是不依赖 Minecraft 的纯函数,可单元测试;
- * 由 {@link #clientTick} 检测「无世界 → 有世界」的跳变触发一次,
+ * <p>时间轴({@link #bannerAlpha} / {@link #linkAlpha} 等)是不依赖 Minecraft 的纯函数,
+ * 可单元测试。由 {@link #clientTick} 在「世界真正可见」(加载地形屏已关掉)时触发一次,
  * {@link SAOHud#render} 每帧调用 {@link #render} 绘制。</p>
  */
 public final class SAOWelcome {
@@ -47,6 +48,11 @@ public final class SAOWelcome {
 
     // ------------------------------------------------------------ 时间轴(毫秒)
 
+    /** LINK START 全屏:淡入 + 停留 + 淡出。与欢迎横幅并行,盖在它上面。 */
+    public static final long LINK_IN_MS = 220;
+    public static final long LINK_OUT_MS = 280;
+    public static final long LINK_MS = 860;
+
     public static final long BANNER_IN_MS = 480;
     public static final long PANEL_DELAY_MS = 300;
     public static final long PANEL_IN_MS = 420;
@@ -61,6 +67,8 @@ public final class SAOWelcome {
     public static final long FADE_AT_MS = TOTAL_MS - FADE_MS;
 
     private static long startAt = Long.MIN_VALUE;
+    /** 等加载地形屏关掉再开播,避免 4 秒动画在「正在加载地形」期间就播完。 */
+    private static boolean pendingStart;
     private static boolean inWorld;
 
     private SAOWelcome() {
@@ -69,14 +77,17 @@ public final class SAOWelcome {
     // ------------------------------------------------------------ 触发
 
     /**
-     * 每客户端 tick 调用:检测「无世界 → 有世界」跳变并播放一次。
+     * 每客户端 tick 调用:检测「无世界 → 有世界」,但要等加载地形屏关掉、
+     * HUD 真正开始画,才开播。否则 Loading terrain 耗时超过 {@link #TOTAL_MS}
+     * 时,玩家进世界只能看到空。
      *
-     * <p>维度切换只会替换 level、不会让 player/level 变 null,因此不会重复触发。</p>
+     * <p>维度切换只会替换 level、不会让 player/level 变 null,因此不会重复触发。
+     * 打开暂停菜单把 screen 设成非 null 也不会重播(pending 已清)。</p>
      */
     public static void clientTick(Minecraft mc) {
         boolean now = mc != null && mc.player != null && mc.level != null;
         if (now && !inWorld) {
-            start();
+            pendingStart = true;
         }
         if (!now && inWorld) {
             // 离开世界:清掉依赖实体 id 的缓存,避免换世界后 id 复用导致误显示
@@ -87,8 +98,14 @@ public final class SAOWelcome {
             SAOMapPanel.reset();
             // 组队状态随世界失效(换服/单人退出)
             com.sao.saomenu.party.SAOClientPartyState.reset();
+            pendingStart = false;
+            dismiss();
         }
         inWorld = now;
+        if (pendingStart && now && mc.screen == null && mc.getOverlay() == null) {
+            start();
+            pendingStart = false;
+        }
     }
 
     /** 立即开始播放(重复调用会重新计时)。 */
@@ -158,6 +175,30 @@ public final class SAOWelcome {
         return easeOutCubic(clamp01(elapsed / (float) BANNER_IN_MS));
     }
 
+    /** LINK START 全屏不透明系数:先于欢迎横幅淡入,再在横幅站稳前淡出。 */
+    public static float linkAlpha(long elapsed) {
+        if (elapsed < 0 || elapsed >= LINK_MS) {
+            return 0f;
+        }
+        if (elapsed < LINK_IN_MS) {
+            return easeOutCubic(clamp01(elapsed / (float) LINK_IN_MS));
+        }
+        if (elapsed <= LINK_MS - LINK_OUT_MS) {
+            return 1f;
+        }
+        return 1f - clamp01((elapsed - (LINK_MS - LINK_OUT_MS)) / (float) LINK_OUT_MS);
+    }
+
+    /** LINK START 字号弹出:0.72 → 1.0。 */
+    public static float linkScale(long elapsed) {
+        return 0.72f + 0.28f * easeOutCubic(clamp01(elapsed / (float) LINK_IN_MS));
+    }
+
+    /** 中心横线从中点向外展开的进度。 */
+    public static float linkLine(long elapsed) {
+        return easeOutCubic(clamp01(elapsed / (float) LINK_IN_MS));
+    }
+
     // ------------------------------------------------------------ 渲染
 
     /** 每帧绘制(由 SAOHud.render 调用,不受 showHud 开关影响)。 */
@@ -204,49 +245,74 @@ public final class SAOWelcome {
         }
 
         float pa = panelAlpha(elapsed);
-        if (pa <= 0.004f) {
-            return;
-        }
-        float s = panelScale(elapsed);
-        g.pose().pushPose();
-        g.pose().translate(panelCx, panelCy, 0f);
-        g.pose().scale(s, s, 1f);
-        g.pose().translate(-panelW / 2f, -panelH / 2f, 0f);
-
-        // 贴图 body(x8..343 / y8..227)只有 80% 不透明,先垫白底再叠贴图,
-        // 否则地形会从面板里透出来盖掉 Message 文字
-        int bodyL = Math.round(panelW * 8f / TEX_P_W);
-        int bodyR = Math.round(panelW * 343f / TEX_P_W);
-        int bodyT = Math.round(panelH * 8f / TEX_P_H);
-        int bodyB = Math.round(panelH * 227f / TEX_P_H);
-        g.fill(bodyL, bodyT, bodyR, bodyB, mulAlpha(PANEL_BASE, pa));
-        // fill() 收尾会关掉混合,必须在 blit 前重新开启,
-        // 否则贴图四周的半透明投影会被画成实心黑框
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        shaderAlpha(pa);
-        g.blit(TEX_PANEL, 0, 0, panelW, panelH, 0f, 0f, TEX_P_W, TEX_P_H, TEX_P_W, TEX_P_H);
-        shaderAlpha(1f);
-
-        // 灰色文字带内的主题色左镶边(与通知横幅统一的视觉语言)
-        int bandTop = Math.round(panelH * 81f / TEX_P_H);
-        int bandBot = Math.round(panelH * 161f / TEX_P_H);
-        g.fill(bodyL, bandTop, bodyL + Math.max(1, Math.round(panelW * 0.011f)), bandBot,
-                mulAlpha(SAOConfig.accent(), pa));
-
-        float ta = textAlpha(elapsed);
-        if (ta > 0.004f) {
-            Font font = Minecraft.getInstance().font;
-            String msg = Component.translatable("saomenu.welcome.msg").getString();
-            // 参考图里提示文字约占面板 body 宽的 44%,8px 字体直接画偏小,放大后再绘制
-            float ts = 1.5f;
+        if (pa > 0.004f) {
+            float s = panelScale(elapsed);
             g.pose().pushPose();
-            g.pose().translate(panelW * PANEL_MSG_U, panelH * PANEL_MSG_V, 0f);
-            g.pose().scale(ts, ts, 1f);
-            g.drawString(font, msg, -font.width(msg) / 2, -4, mulAlpha(MSG_DARK, ta), false);
+            g.pose().translate(panelCx, panelCy, 0f);
+            g.pose().scale(s, s, 1f);
+            g.pose().translate(-panelW / 2f, -panelH / 2f, 0f);
+
+            // 贴图 body(x8..343 / y8..227)只有 80% 不透明,先垫白底再叠贴图,
+            // 否则地形会从面板里透出来盖掉 Message 文字
+            int bodyL = Math.round(panelW * 8f / TEX_P_W);
+            int bodyR = Math.round(panelW * 343f / TEX_P_W);
+            int bodyT = Math.round(panelH * 8f / TEX_P_H);
+            int bodyB = Math.round(panelH * 227f / TEX_P_H);
+            g.fill(bodyL, bodyT, bodyR, bodyB, mulAlpha(PANEL_BASE, pa));
+            // fill() 收尾会关掉混合,必须在 blit 前重新开启,
+            // 否则贴图四周的半透明投影会被画成实心黑框
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            shaderAlpha(pa);
+            g.blit(TEX_PANEL, 0, 0, panelW, panelH, 0f, 0f, TEX_P_W, TEX_P_H, TEX_P_W, TEX_P_H);
+            shaderAlpha(1f);
+
+            // 灰色文字带内的主题色左镶边(与通知横幅统一的视觉语言)
+            int bandTop = Math.round(panelH * 81f / TEX_P_H);
+            int bandBot = Math.round(panelH * 161f / TEX_P_H);
+            g.fill(bodyL, bandTop, bodyL + Math.max(1, Math.round(panelW * 0.011f)), bandBot,
+                    mulAlpha(SAOConfig.accent(), pa));
+
+            float ta = textAlpha(elapsed);
+            if (ta > 0.004f) {
+                Font font = Minecraft.getInstance().font;
+                String msg = Component.translatable("saomenu.welcome.msg").getString();
+                // 参考图里提示文字约占面板 body 宽的 44%,8px 字体直接画偏小,放大后再绘制
+                float ts = 1.5f;
+                g.pose().pushPose();
+                g.pose().translate(panelW * PANEL_MSG_U, panelH * PANEL_MSG_V, 0f);
+                g.pose().scale(ts, ts, 1f);
+                g.drawString(font, msg, -font.width(msg) / 2, -font.lineHeight / 2,
+                        mulAlpha(MSG_DARK, ta), false);
+                g.pose().popPose();
+            }
             g.pose().popPose();
         }
-        g.pose().popPose();
+
+        float la = linkAlpha(elapsed);
+        if (la > 0.004f) {
+            renderLinkStart(g, screenW, screenH, elapsed, la);
+        }
+    }
+
+    /**
+     * LINK START 全屏:深色罩 + 中心横线外扩 + 大字弹出。
+     * 画在欢迎横幅之上,淡出后露出已经站稳的横幅。
+     */
+    private static void renderLinkStart(GuiGraphics g, int screenW, int screenH,
+                                        long elapsed, float la) {
+        g.fill(0, 0, screenW, screenH, mulAlpha(0xFF05070A, la * 0.90f));
+        int cy = screenH / 2;
+        float reveal = linkLine(elapsed);
+        int lineW = Math.max(8, Math.round(screenW * 0.62f * reveal));
+        int lineH = Math.max(1, Math.round(screenH * 0.005f));
+        int lineY = cy + Math.round(screenH * 0.055f);
+        g.fill(screenW / 2 - lineW / 2, lineY, screenW / 2 + lineW / 2, lineY + lineH,
+                mulAlpha(SAOConfig.accent(), la));
+        Font font = Minecraft.getInstance().font;
+        float ts = Math.max(2.6f, screenH / 85f) * linkScale(elapsed);
+        SaoDraw.drawCentered(g, font, "LINK START",
+                screenW / 2f, cy - 2f, ts, mulAlpha(0xFFF4F7FA, la), false);
     }
 
     // ------------------------------------------------------------ 小工具

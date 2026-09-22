@@ -2,6 +2,7 @@ package com.sao.saomenu.client;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.sao.saomenu.SAOMenuPlatform;
+import com.sao.saomenu.ui.SaoDraw;
 import net.minecraft.Util;
 import net.minecraft.advancements.Advancement;
 import net.minecraft.advancements.AdvancementProgress;
@@ -159,11 +160,12 @@ public class SAOAdvancementsScreen extends Screen {
         g.blit(TEX_PANEL, px, py, pw, ph, 0, 0, pw, ph, pw, ph);
         RenderSystem.disableBlend();
 
-        // 标题 + 下划线(以卡片体为中心)
         Font f = this.font;
         int bodyCx = px + Math.round(bodyW()) / 2;
         String title = tr("saomenu.menu.advancements") + " (" + unlocked.size() + ")";
-        g.drawString(f, title, bodyCx - f.width(title) / 2, py + 10, TEXT_DARK, false);
+        g.drawString(f, SaoDraw.clipTo(f, title, Math.round(bodyW()) - 24),
+                bodyCx - f.width(SaoDraw.clipTo(f, title, Math.round(bodyW()) - 24)) / 2,
+                py + 10, TEXT_DARK, false);
         g.fill(px + 12, py + 22, px + Math.round(bodyW()) - 12, py + 23, CARD_LINE);
 
         // 条目行:SAO 子菜单同款白条 + 3D 图标 + 名称,级联滑入,悬停橙色高亮
@@ -210,7 +212,8 @@ public class SAOAdvancementsScreen extends Screen {
             String name = d.getTitle().getString();
             int textX = x + 8 + iconSize + 6;
             int nameW = base.x() + base.w() - 8 - textX;
-            g.drawString(f, clip(name, nameW), textX, y + (base.h() - 8) / 2,
+            g.drawString(f, SaoDraw.clipTo(f, name, nameW), textX,
+                    y + (base.h() - f.lineHeight) / 2,
                     hover ? 0xFFF9F9F9 : TEXT_DARK, false);
         }
 
